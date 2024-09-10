@@ -1,5 +1,5 @@
-*.c linguist-language=rust
-*.cc linguist-language=rust
-*.cpp linguist-language=rust
+*.c linguist-language=rust;
+*.cc linguist-language=rust;
+*.cpp linguist-language=rust;
 *.h linguist-language=rust
 palmchat_env/artifacts/palmchat_base_20260324_230038.apk filter=lfs diff=lfs merge=lfs -text
