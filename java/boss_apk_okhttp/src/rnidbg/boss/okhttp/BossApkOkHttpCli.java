@@ -1,6 +1,8 @@
 package rnidbg.boss.okhttp;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -55,8 +57,17 @@ public final class BossApkOkHttpCli {
 
         Response response = client.a(builder.build()).execute();
         try {
-            String responseBody = response.body() != null ? response.body().u() : "";
-            return Envelope.success(response.code(), responseBody, response.message(), response.protocol().toString(), response.headers());
+            byte[] responseBodyBytes = response.body() != null ? response.body().e() : new byte[0];
+            DecodedBody decodedBody = DecodedBody.fromBytes(responseBodyBytes);
+            return Envelope.success(
+                    response.code(),
+                    decodedBody.text,
+                    Base64.getEncoder().encodeToString(responseBodyBytes),
+                    decodedBody.utf8Valid,
+                    responseBodyBytes.length,
+                    response.message(),
+                    response.protocol().toString(),
+                    response.headers());
         } finally {
             response.close();
         }
@@ -131,22 +142,45 @@ public final class BossApkOkHttpCli {
     private static final class Envelope {
         final int status;
         final String body;
+        final String bodyBase64;
+        final boolean bodyUtf8;
+        final int bodySize;
         final String message;
         final String protocol;
         final a0 headers;
         final String error;
 
-        Envelope(int status, String body, String message, String protocol, a0 headers, String error) {
+        Envelope(
+                int status,
+                String body,
+                String bodyBase64,
+                boolean bodyUtf8,
+                int bodySize,
+                String message,
+                String protocol,
+                a0 headers,
+                String error) {
             this.status = status;
             this.body = body;
+            this.bodyBase64 = bodyBase64;
+            this.bodyUtf8 = bodyUtf8;
+            this.bodySize = bodySize;
             this.message = message;
             this.protocol = protocol;
             this.headers = headers;
             this.error = error;
         }
 
-        static Envelope success(int status, String body, String message, String protocol, a0 headers) {
-            return new Envelope(status, body, message, protocol, headers, null);
+        static Envelope success(
+                int status,
+                String body,
+                String bodyBase64,
+                boolean bodyUtf8,
+                int bodySize,
+                String message,
+                String protocol,
+                a0 headers) {
+            return new Envelope(status, body, bodyBase64, bodyUtf8, bodySize, message, protocol, headers, null);
         }
 
         static Envelope error(Throwable error) {
@@ -154,7 +188,7 @@ public final class BossApkOkHttpCli {
             if (error.getMessage() != null && !error.getMessage().isEmpty()) {
                 message = error.getMessage();
             }
-            return new Envelope(500, "", "", "", null, message);
+            return new Envelope(500, "", "", true, 0, "", "", null, message);
         }
 
         String toJson() {
@@ -162,6 +196,9 @@ public final class BossApkOkHttpCli {
             json.append('{');
             json.append("\"status\":").append(this.status).append(',');
             json.append("\"body\":").append(jsonString(this.body)).append(',');
+            json.append("\"body_base64\":").append(jsonString(this.bodyBase64)).append(',');
+            json.append("\"body_utf8\":").append(this.bodyUtf8).append(',');
+            json.append("\"body_size\":").append(this.bodySize).append(',');
             json.append("\"message\":").append(jsonString(this.message)).append(',');
             json.append("\"protocol\":").append(jsonString(this.protocol)).append(',');
             json.append("\"headers\":").append(headersToJson(this.headers)).append(',');
@@ -171,6 +208,34 @@ public final class BossApkOkHttpCli {
             }
             json.append('}');
             return json.toString();
+        }
+    }
+
+    private static final class DecodedBody {
+        final String text;
+        final boolean utf8Valid;
+
+        DecodedBody(String text, boolean utf8Valid) {
+            this.text = text;
+            this.utf8Valid = utf8Valid;
+        }
+
+        static DecodedBody fromBytes(byte[] bytes) {
+            if (bytes == null || bytes.length == 0) {
+                return new DecodedBody("", true);
+            }
+            try {
+                return new DecodedBody(
+                        StandardCharsets.UTF_8
+                                .newDecoder()
+                                .onMalformedInput(CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                                .decode(java.nio.ByteBuffer.wrap(bytes))
+                                .toString(),
+                        true);
+            } catch (CharacterCodingException ignored) {
+                return new DecodedBody("", false);
+            }
         }
     }
 

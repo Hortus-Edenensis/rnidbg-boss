@@ -254,6 +254,16 @@ pub(crate) trait BossSigner {
     fn encode_request_body(&self, data: &[u8], key: &str) -> Result<Vec<u8>>;
     fn signature(&self, data: &[u8], key: &str) -> Result<String>;
     fn decode_content(&self, content: &str, key: &str) -> Result<Vec<u8>>;
+    fn decode_content_bytes(
+        &self,
+        _content: &[u8],
+        _key: &str,
+        _encoding: i32,
+        _encryption: i32,
+        _compress: i32,
+    ) -> Result<Vec<u8>> {
+        Err(anyhow!("byte decode is not supported by this signer"))
+    }
     fn describe(&self) -> Value;
 }
 
@@ -321,6 +331,24 @@ impl BossSigner for RnIdbgSoInvoker {
         match self {
             Self::Local(invoker) => invoker.decode_content(content, key),
             Self::Bridge(invoker) => invoker.decode_content(content, key),
+        }
+    }
+
+    fn decode_content_bytes(
+        &self,
+        content: &[u8],
+        key: &str,
+        encoding: i32,
+        encryption: i32,
+        compress: i32,
+    ) -> Result<Vec<u8>> {
+        match self {
+            Self::Local(invoker) => {
+                invoker.decode_content_bytes(content, key, encoding, encryption, compress)
+            }
+            Self::Bridge(invoker) => {
+                invoker.decode_content_bytes(content, key, encoding, encryption, compress)
+            }
         }
     }
 
@@ -419,14 +447,65 @@ impl LocalProcessInvoker {
         Err(anyhow!("rnidbg invoke missing decode output"))
     }
 
+    fn decode_content_bytes(
+        &self,
+        content: &[u8],
+        key: &str,
+        encoding: i32,
+        encryption: i32,
+        compress: i32,
+    ) -> Result<Vec<u8>> {
+        let value = self.invoke_bytes_with_extras(
+            "nativeDecodeContentBytes",
+            content,
+            key,
+            &[
+                encoding.to_string(),
+                encryption.to_string(),
+                compress.to_string(),
+            ],
+        )?;
+        if let Some(text) = value.get("output_utf8").and_then(Value::as_str) {
+            return Ok(text.as_bytes().to_vec());
+        }
+        if let Some(hex) = value.get("output_hex").and_then(Value::as_str) {
+            return hex::decode(hex)
+                .context("failed to decode rnidbg nativeDecodeContentBytes hex output");
+        }
+        Err(anyhow!("rnidbg invoke missing byte decode output"))
+    }
+
     fn invoke_bytes(&self, method: &str, data: &[u8], key: &str) -> Result<Value> {
         let arg1 = String::from_utf8(data.to_vec())
             .unwrap_or_else(|_| format!("hex:{}", hex::encode(data)));
         self.invoke_str(method, &arg1, key)
     }
 
+    fn invoke_bytes_with_extras(
+        &self,
+        method: &str,
+        data: &[u8],
+        key: &str,
+        extras: &[String],
+    ) -> Result<Value> {
+        let arg1 = String::from_utf8(data.to_vec())
+            .unwrap_or_else(|_| format!("hex:{}", hex::encode(data)));
+        self.invoke_str_with_extras(method, &arg1, key, extras)
+    }
+
     fn invoke_str(&self, method: &str, arg1: &str, key: &str) -> Result<Value> {
-        let output = Command::new(&self.executable)
+        self.invoke_str_with_extras(method, arg1, key, &[])
+    }
+
+    fn invoke_str_with_extras(
+        &self,
+        method: &str,
+        arg1: &str,
+        key: &str,
+        extras: &[String],
+    ) -> Result<Value> {
+        let mut command = Command::new(&self.executable);
+        command
             .arg("boss-yzwg")
             .arg("invoke")
             .arg("--config")
@@ -438,7 +517,17 @@ impl LocalProcessInvoker {
             .arg("--arg1")
             .arg(arg1)
             .arg("--arg2")
-            .arg(key)
+            .arg(key);
+        if let Some(arg3) = extras.first() {
+            command.arg("--arg3").arg(arg3);
+        }
+        if let Some(arg4) = extras.get(1) {
+            command.arg("--arg4").arg(arg4);
+        }
+        if let Some(arg5) = extras.get(2) {
+            command.arg("--arg5").arg(arg5);
+        }
+        let output = command
             .output()
             .with_context(|| format!("failed to spawn rnidbg invoke subprocess for {method}"))?;
 
@@ -532,6 +621,33 @@ impl HttpBridgeInvoker {
             .and_then(Value::as_str)
             .map(|text| text.as_bytes().to_vec())
             .ok_or_else(|| anyhow!("http bridge decode response missing plain"))
+    }
+
+    fn decode_content_bytes(
+        &self,
+        content: &[u8],
+        key: &str,
+        encoding: i32,
+        encryption: i32,
+        compress: i32,
+    ) -> Result<Vec<u8>> {
+        let value = self.post_json(
+            "/api/decodeBytes",
+            json!({
+                "cipher_b64": STANDARD.encode(content),
+                "key": key,
+                "encoding": encoding,
+                "encryption": encryption,
+                "compress": compress,
+            }),
+        )?;
+        let payload = value
+            .get("plain_b64")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("http bridge decodeBytes response missing plain_b64"))?;
+        STANDARD
+            .decode(payload.as_bytes())
+            .context("failed to decode http bridge decodeBytes payload")
     }
 
     fn post_json(&self, path: &str, body: Value) -> Result<Value> {
@@ -718,6 +834,7 @@ impl RemoteOkHttpBridgeTransport {
             .with_context(|| format!("failed to parse okhttp bridge response: {request_url}"))?;
 
         let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let response_body_bytes = payload_body_bytes(&payload);
         let response_body = payload
             .get("body")
             .and_then(Value::as_str)
@@ -729,6 +846,8 @@ impl RemoteOkHttpBridgeTransport {
             "bridge_flow": "original_okhttp_remote",
             "bridge_engine": self.health.get("engine").cloned().unwrap_or(Value::Null),
             "bridge_status": status,
+            "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+            "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
         });
 
         if let Some(error) = payload.get("error").and_then(Value::as_str) {
@@ -739,7 +858,13 @@ impl RemoteOkHttpBridgeTransport {
             }));
         }
 
-        if let Some(value) = parse_response_body(&response_body, signer, session_secret_key)? {
+        if let Some(value) = parse_response_payload(
+            &response_body,
+            response_body_bytes.as_deref(),
+            payload.get("headers"),
+            signer,
+            session_secret_key,
+        )? {
             return Ok(attach_transport(value, transport));
         }
 
@@ -747,6 +872,7 @@ impl RemoteOkHttpBridgeTransport {
             "code": status,
             "message": format!("okhttp bridge returned non-json body (status={status})"),
             "raw": truncate(&response_body, 1200),
+            "raw_base64": payload.get("body_base64").cloned().unwrap_or(Value::Null),
             "transport": transport,
         }))
     }
@@ -776,6 +902,7 @@ impl RemoteOkHttpBridgeTransport {
             .with_context(|| format!("failed to parse okhttp bridge response: {request_url}"))?;
 
         let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let response_body_bytes = payload_body_bytes(&payload);
         let response_body = payload
             .get("body")
             .and_then(Value::as_str)
@@ -787,6 +914,8 @@ impl RemoteOkHttpBridgeTransport {
             "bridge_flow": "original_okhttp_remote",
             "bridge_engine": self.health.get("engine").cloned().unwrap_or(Value::Null),
             "bridge_status": status,
+            "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+            "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
         });
 
         if let Some(error) = payload.get("error").and_then(Value::as_str) {
@@ -797,7 +926,13 @@ impl RemoteOkHttpBridgeTransport {
             }));
         }
 
-        if let Some(value) = parse_response_body(&response_body, signer, session_secret_key)? {
+        if let Some(value) = parse_response_payload(
+            &response_body,
+            response_body_bytes.as_deref(),
+            payload.get("headers"),
+            signer,
+            session_secret_key,
+        )? {
             return Ok(attach_transport(value, transport));
         }
 
@@ -805,6 +940,7 @@ impl RemoteOkHttpBridgeTransport {
             "code": status,
             "message": format!("okhttp bridge returned non-json body (status={status})"),
             "raw": truncate(&response_body, 1200),
+            "raw_base64": payload.get("body_base64").cloned().unwrap_or(Value::Null),
             "transport": transport,
         }))
     }
@@ -897,6 +1033,7 @@ impl BossApkOkHttpTransport {
         let payload: Value = serde_json::from_slice(&output.stdout)
             .context("failed to parse boss apk okhttp runner output")?;
         let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let response_body_bytes = payload_body_bytes(&payload);
         let response_body = payload
             .get("body")
             .and_then(Value::as_str)
@@ -912,6 +1049,8 @@ impl BossApkOkHttpTransport {
             "bridge_protocol": payload.get("protocol").cloned().unwrap_or(Value::Null),
             "bridge_message": payload.get("message").cloned().unwrap_or(Value::Null),
             "response_headers": payload.get("headers").cloned().unwrap_or(Value::Null),
+            "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+            "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
         });
 
         if let Some(error) = payload.get("error").and_then(Value::as_str) {
@@ -922,7 +1061,13 @@ impl BossApkOkHttpTransport {
             }));
         }
 
-        if let Some(value) = parse_response_body(&response_body, signer, session_secret_key)? {
+        if let Some(value) = parse_response_payload(
+            &response_body,
+            response_body_bytes.as_deref(),
+            payload.get("headers"),
+            signer,
+            session_secret_key,
+        )? {
             return Ok(attach_transport(value, transport));
         }
 
@@ -930,6 +1075,7 @@ impl BossApkOkHttpTransport {
             "code": status,
             "message": format!("boss apk okhttp returned non-json body (status={status})"),
             "raw": truncate(&response_body, 1200),
+            "raw_base64": payload.get("body_base64").cloned().unwrap_or(Value::Null),
             "transport": transport,
         }))
     }
@@ -977,6 +1123,7 @@ impl BossApkOkHttpTransport {
         let payload: Value = serde_json::from_slice(&output.stdout)
             .context("failed to parse boss apk okhttp runner output")?;
         let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let response_body_bytes = payload_body_bytes(&payload);
         let response_body = payload
             .get("body")
             .and_then(Value::as_str)
@@ -992,6 +1139,8 @@ impl BossApkOkHttpTransport {
             "bridge_protocol": payload.get("protocol").cloned().unwrap_or(Value::Null),
             "bridge_message": payload.get("message").cloned().unwrap_or(Value::Null),
             "response_headers": payload.get("headers").cloned().unwrap_or(Value::Null),
+            "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+            "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
         });
 
         if let Some(error) = payload.get("error").and_then(Value::as_str) {
@@ -1002,7 +1151,13 @@ impl BossApkOkHttpTransport {
             }));
         }
 
-        if let Some(value) = parse_response_body(&response_body, signer, session_secret_key)? {
+        if let Some(value) = parse_response_payload(
+            &response_body,
+            response_body_bytes.as_deref(),
+            payload.get("headers"),
+            signer,
+            session_secret_key,
+        )? {
             return Ok(attach_transport(value, transport));
         }
 
@@ -1010,6 +1165,7 @@ impl BossApkOkHttpTransport {
             "code": status,
             "message": format!("boss apk okhttp returned non-json body (status={status})"),
             "raw": truncate(&response_body, 1200),
+            "raw_base64": payload.get("body_base64").cloned().unwrap_or(Value::Null),
             "transport": transport,
         }))
     }
@@ -1155,6 +1311,67 @@ fn parse_response_body(
     Ok(best_payload.map(|(_, value)| value))
 }
 
+fn parse_response_payload(
+    body: &str,
+    body_bytes: Option<&[u8]>,
+    response_headers: Option<&Value>,
+    signer: Option<&dyn BossSigner>,
+    session_secret_key: &str,
+) -> Result<Option<Value>> {
+    if !body.trim().is_empty() {
+        if let Some(value) = parse_response_body(body, signer, session_secret_key)? {
+            return Ok(Some(value));
+        }
+    }
+
+    let Some(bytes) = body_bytes else {
+        return Ok(None);
+    };
+    if bytes.is_empty() {
+        return Ok(Some(json!({
+            "code": -1,
+            "message": "empty response body",
+        })));
+    }
+
+    if let Some(value) = parse_json_bytes(bytes) {
+        return Ok(Some(value));
+    }
+    if let (Some(signer), Some((encoding, encryption, compress))) =
+        (signer, response_processing_method(response_headers))
+    {
+        let mut best_payload: Option<(u8, Value)> = None;
+        for key in decode_secret_key_candidates(session_secret_key) {
+            if let Ok(decoded) =
+                signer.decode_content_bytes(bytes, &key, encoding, encryption, compress)
+            {
+                if let Some((score, value)) = classify_decoded_payload(&decoded, &key)? {
+                    if score >= 3 {
+                        return Ok(Some(value));
+                    }
+                    if best_payload
+                        .as_ref()
+                        .map(|(best_score, _)| score > *best_score)
+                        .unwrap_or(true)
+                    {
+                        best_payload = Some((score, value));
+                    }
+                }
+            }
+        }
+        if let Some((_, value)) = best_payload {
+            return Ok(Some(value));
+        }
+    }
+    if let Some(value) = classify_raw_response_bytes(bytes)? {
+        return Ok(Some(value));
+    }
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return parse_response_body(text, signer, session_secret_key);
+    }
+    Ok(None)
+}
+
 fn classify_decoded_payload(decoded: &[u8], key: &str) -> Result<Option<(u8, Value)>> {
     if let Some(value) = parse_json_bytes(decoded) {
         return Ok(Some((3, value)));
@@ -1207,6 +1424,44 @@ fn classify_decoded_payload(decoded: &[u8], key: &str) -> Result<Option<(u8, Val
             "decode_key_mode": if key.is_empty() { "empty" } else { "secret" },
         }),
     )))
+}
+
+fn classify_raw_response_bytes(bytes: &[u8]) -> Result<Option<Value>> {
+    if let Some(plain) = try_parse_bzp_block(bytes)? {
+        if let Some(value) = parse_json_bytes(&plain) {
+            return Ok(Some(value));
+        }
+        if let Some(text) = utf8_text(&plain) {
+            return Ok(Some(json!({
+                "code": -2,
+                "message": "raw BZPBlock non-json payload",
+                "decoded_text": truncate(&text, 1200),
+                "decode_source": "raw_body_bytes",
+            })));
+        }
+        return Ok(Some(json!({
+            "code": -2,
+            "message": "raw BZPBlock binary payload",
+            "decoded_hex": truncate(&hex::encode(plain), 1200),
+            "decode_source": "raw_body_bytes",
+        })));
+    }
+
+    if let Some(text) = utf8_text(bytes) {
+        return Ok(Some(json!({
+            "code": -2,
+            "message": "raw utf8 non-json payload",
+            "decoded_text": truncate(&text, 1200),
+            "decode_source": "raw_body_bytes",
+        })));
+    }
+
+    Ok(Some(json!({
+        "code": -2,
+        "message": "raw binary payload",
+        "decoded_hex": truncate(&hex::encode(bytes), 1200),
+        "decode_source": "raw_body_bytes",
+    })))
 }
 
 fn parse_json_bytes(bytes: &[u8]) -> Option<Value> {
@@ -1265,12 +1520,75 @@ fn le_u32(bytes: &[u8], offset: usize) -> Result<u32> {
 }
 
 fn decode_secret_key_candidates(secret_key: &str) -> Vec<String> {
-    let mut keys = vec![String::new()];
+    let mut keys = Vec::new();
     let trimmed = secret_key.trim();
     if !trimmed.is_empty() {
         keys.push(trimmed.to_string());
     }
+    keys.push(String::new());
+    keys.dedup();
     keys
+}
+
+fn payload_body_bytes(payload: &Value) -> Option<Vec<u8>> {
+    payload
+        .get("body_base64")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .and_then(|value| STANDARD.decode(value).ok())
+}
+
+fn response_processing_method(headers: Option<&Value>) -> Option<(i32, i32, i32)> {
+    let headers = headers?.as_object()?;
+    let encoding = header_value(headers, "zp-encoding")
+        .as_deref()
+        .map(map_zp_encoding)
+        .unwrap_or(0);
+    let encryption = header_value(headers, "zp-encrypting")
+        .as_deref()
+        .map(map_zp_encrypting)
+        .unwrap_or(0);
+    let compress = header_value(headers, "zp-compressing")
+        .as_deref()
+        .map(map_zp_compressing)
+        .unwrap_or(0);
+    if encoding == 0 && encryption == 0 && compress == 0 {
+        None
+    } else {
+        Some((encoding, encryption, compress))
+    }
+}
+
+fn header_value(headers: &serde_json::Map<String, Value>, key: &str) -> Option<String> {
+    headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+        .and_then(|(_, value)| value.as_str())
+        .map(str::to_string)
+}
+
+fn map_zp_encoding(value: &str) -> i32 {
+    if value.trim() == "1" {
+        1
+    } else {
+        0
+    }
+}
+
+fn map_zp_encrypting(value: &str) -> i32 {
+    if value.trim() == "1" {
+        1
+    } else {
+        0
+    }
+}
+
+fn map_zp_compressing(value: &str) -> i32 {
+    match value.trim() {
+        "1" => 1,
+        "2" => 2,
+        _ => 0,
+    }
 }
 
 fn normalize_job_detail_response(payload: &Value) -> Value {
@@ -1940,6 +2258,8 @@ mod tests {
         signature_inputs: Vec<String>,
         body_inputs: Vec<String>,
         query_inputs: Vec<String>,
+        byte_decode_calls: Vec<(Vec<u8>, String, i32, i32, i32)>,
+        byte_decode_output: Vec<u8>,
     }
 
     impl BossSigner for std::cell::RefCell<FakeSigner> {
@@ -1967,6 +2287,24 @@ mod tests {
 
         fn decode_content(&self, _content: &str, _key: &str) -> Result<Vec<u8>> {
             Ok(Vec::new())
+        }
+
+        fn decode_content_bytes(
+            &self,
+            content: &[u8],
+            key: &str,
+            encoding: i32,
+            encryption: i32,
+            compress: i32,
+        ) -> Result<Vec<u8>> {
+            self.borrow_mut().byte_decode_calls.push((
+                content.to_vec(),
+                key.to_string(),
+                encoding,
+                encryption,
+                compress,
+            ));
+            Ok(self.borrow().byte_decode_output.clone())
         }
 
         fn describe(&self) -> Value {
@@ -2181,5 +2519,31 @@ mod tests {
             summary.get("security_id").and_then(Value::as_str),
             Some("sec_a")
         );
+    }
+
+    #[test]
+    fn parse_response_payload_uses_processing_headers_for_byte_decode() {
+        let signer = std::cell::RefCell::new(FakeSigner {
+            byte_decode_output: br#"{"code":4000,"message":"blocked"}"#.to_vec(),
+            ..FakeSigner::default()
+        });
+        let headers = json!({
+            "zp-encoding": "0",
+            "zp-encrypting": "1",
+            "zp-compressing": "0",
+        });
+        let cipher = [0x61_u8, 0x3f, 0xd9, 0x23];
+        let parsed =
+            parse_response_payload("", Some(&cipher), Some(&headers), Some(&signer), "secret")
+                .unwrap()
+                .unwrap();
+        assert_eq!(response_code(Some(&parsed)), Some(4000));
+
+        let calls = signer.borrow();
+        assert_eq!(calls.byte_decode_calls.len(), 1);
+        assert_eq!(calls.byte_decode_calls[0].1, "secret");
+        assert_eq!(calls.byte_decode_calls[0].2, 0);
+        assert_eq!(calls.byte_decode_calls[0].3, 1);
+        assert_eq!(calls.byte_decode_calls[0].4, 0);
     }
 }

@@ -424,6 +424,9 @@ impl BossYzwgLab {
         let method = required_option(opts, "--method")?;
         let arg1 = required_option(opts, "--arg1")?;
         let arg2 = opts.get("--arg2").cloned().unwrap_or_default();
+        let arg3 = opts.get("--arg3").cloned().unwrap_or_default();
+        let arg4 = opts.get("--arg4").cloned().unwrap_or_default();
+        let arg5 = opts.get("--arg5").cloned().unwrap_or_default();
 
         let output = match method.as_str() {
             "nativeEncodeRequest" => {
@@ -472,6 +475,31 @@ impl BossYzwgLab {
                     "arg1_utf8": content,
                     "arg1_hex": to_hex(content.as_bytes()),
                     "arg2": arg2,
+                    "output_utf8": try_utf8(&decoded),
+                    "output_hex": to_hex(&decoded),
+                })
+            }
+            "nativeDecodeContentBytes" => {
+                let input = parse_hex_or_utf8(&arg1)?;
+                let encoding = arg3
+                    .parse::<i32>()
+                    .with_context(|| format!("invalid --arg3 encoding: {arg3}"))?;
+                let encryption = arg4
+                    .parse::<i32>()
+                    .with_context(|| format!("invalid --arg4 encryption: {arg4}"))?;
+                let compress = arg5
+                    .parse::<i32>()
+                    .with_context(|| format!("invalid --arg5 compress: {arg5}"))?;
+                let decoded = self.call_native_decode_content_bytes(
+                    &input, &arg2, encoding, encryption, compress,
+                )?;
+                json!({
+                    "method": method,
+                    "arg1_hex": to_hex(&input),
+                    "arg2": arg2,
+                    "arg3": encoding,
+                    "arg4": encryption,
+                    "arg5": compress,
                     "output_utf8": try_utf8(&decoded),
                     "output_hex": to_hex(&decoded),
                 })
@@ -681,6 +709,41 @@ impl BossYzwgLab {
         self.shared.borrow_mut().append_native_trace(
             "nativeDecodeContent",
             &format!("arg={}, key={}, out_hex={}", content, key, to_hex(&output)),
+        );
+        Ok(output)
+    }
+
+    pub fn call_native_decode_content_bytes(
+        &mut self,
+        content: &[u8],
+        key: &str,
+        encoding: i32,
+        encryption: i32,
+        compress: i32,
+    ) -> Result<Vec<u8>> {
+        let result = self.call_static(
+            "nativeDecodeContent",
+            "([BLjava/lang/String;III)[B",
+            vec![
+                content.to_vec().into(),
+                key.to_string().into(),
+                encoding.into(),
+                encryption.into(),
+                compress.into(),
+            ],
+        )?;
+        let output = jni_value_to_bytes(result)?;
+        self.shared.borrow_mut().append_native_trace(
+            "nativeDecodeContentBytes",
+            &format!(
+                "arg_hex={}, key={}, encoding={}, encryption={}, compress={}, out_hex={}",
+                to_hex(content),
+                key,
+                encoding,
+                encryption,
+                compress,
+                to_hex(&output)
+            ),
         );
         Ok(output)
     }

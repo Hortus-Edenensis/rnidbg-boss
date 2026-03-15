@@ -28,6 +28,7 @@ pub fn serve(config_path: PathBuf, port: u16, backend_override: Option<&str>) ->
     println!("  POST /api/encodeRequestBody");
     println!("  POST /api/sign");
     println!("  POST /api/decode");
+    println!("  POST /api/decodeBytes");
 
     for mut request in server.incoming_requests() {
         let response = match (request.method(), request.url()) {
@@ -77,6 +78,25 @@ pub fn serve(config_path: PathBuf, port: u16, backend_override: Option<&str>) ->
                 Ok(body) => json_response(StatusCode(200), body),
                 Err(err) => error_response(err),
             },
+            (&Method::Post, "/api/decodeBytes") => match read_json(&mut request).and_then(|body| {
+                let cipher_b64 = string_field(&body, "cipher_b64");
+                let key = string_field(&body, "key");
+                let encoding = int_field(&body, "encoding");
+                let encryption = int_field(&body, "encryption");
+                let compress = int_field(&body, "compress");
+                let cipher = STANDARD
+                    .decode(cipher_b64.as_bytes())
+                    .context("failed to decode cipher_b64")?;
+                let decoded = lab.call_native_decode_content_bytes(
+                    &cipher, &key, encoding, encryption, compress,
+                )?;
+                Ok(json!({
+                    "plain_b64": STANDARD.encode(decoded),
+                }))
+            }) {
+                Ok(body) => json_response(StatusCode(200), body),
+                Err(err) => error_response(err),
+            },
             _ => json_response(StatusCode(404), json!({ "error": "not found" })),
         };
 
@@ -105,6 +125,13 @@ fn string_field(body: &Value, key: &str) -> String {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string()
+}
+
+fn int_field(body: &Value, key: &str) -> i32 {
+    body.get(key)
+        .and_then(Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .unwrap_or_default()
 }
 
 fn json_response(status: StatusCode, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
