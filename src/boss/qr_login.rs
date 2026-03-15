@@ -15,12 +15,23 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tiny_http::{Header, ListenAddr, Method, Request, Response, Server, StatusCode};
 
+use super::qr_codec::recognize_login_qr_text;
+
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8766;
 const DEFAULT_USER_AGENT: &str = "rnidbg/local-qr-login-dualtrack";
 const DEFAULT_EDIT_TYPE: &str = "4";
 const DEFAULT_ACTION_ID: &str = "local_web_login";
 const DEFAULT_EXTRA_INFO: &str = "local_mock";
+const DEFAULT_QR_MODE: &str = "web";
+const PASSPORT_WEB_SCAN_EDIT_PATH: &str = "/zppassport/qrcode/webScanEdit";
+const PASSPORT_WEB_SECOND_SCAN_PATH: &str = "/zppassport/qrcode/webSecondScan";
+const PASSPORT_QRCODE_LOGIN_PATH: &str = "/zppassport/qrcode/login";
+const LEGACY_WEB_SCAN_EDIT_PATH: &str = "/mock_passport/qrcode/webScanEdit";
+const LEGACY_WEB_SECOND_SCAN_PATH: &str = "/mock_passport/qrcode/webSecondScan";
+const LEGACY_QRCODE_LOGIN_PATH: &str = "/mock_passport/qrcode/login";
+const RESULT_ACTIVITY_QR_SUCCESS: &str = "QrSuccessActivity";
+const RESULT_ACTIVITY_NEW_DEVICE: &str = "NewDeviceAuthorizeActivity";
 
 static LAST_REQUEST_MS: AtomicU64 = AtomicU64::new(0);
 
@@ -123,6 +134,7 @@ pub struct FlowEvent {
 #[derive(Clone, Debug, Serialize)]
 pub struct ProducerFlow {
     pub producer_id: String,
+    pub qr_mode: String,
     pub edit_type: String,
     pub action_id: String,
     pub extra_info: String,
@@ -135,6 +147,9 @@ pub struct ProducerFlow {
     pub first_scan_received_at_ms: u64,
     pub second_scan_received_at_ms: u64,
     pub login_received_at_ms: u64,
+    pub scan_result: bool,
+    pub scan_time_result_ms: i64,
+    pub scan_count_result: i32,
     pub login_type: i32,
     pub failure_reason: String,
     pub login_granted: bool,
@@ -143,17 +158,15 @@ pub struct ProducerFlow {
 }
 
 impl ProducerFlow {
-    fn new(edit_type: &str, action_id: &str, extra_info: &str) -> Self {
+    fn new(qr_mode: QrMode, edit_type: &str, action_id: &str, extra_info: &str) -> Self {
         let producer_id = format!("{:08x}", rand::random::<u32>());
-        let first_qr_id = format!("mockqr-{producer_id}-first");
+        let first_qr_id = qr_mode.first_qr_id(&producer_id);
         let second_qr_id = format!("bosszp-{producer_id}-second");
-        let first_scan_text = format!(
-            "https://mock.local/scan?qrcode={}",
-            urlencoding_like(&first_qr_id)
-        );
+        let first_scan_text = qr_mode.first_scan_text(&first_qr_id);
         let second_scan_text = second_qr_id.clone();
         let mut flow = Self {
             producer_id,
+            qr_mode: qr_mode.as_str().to_string(),
             edit_type: edit_type.to_string(),
             action_id: action_id.to_string(),
             extra_info: extra_info.to_string(),
@@ -166,6 +179,9 @@ impl ProducerFlow {
             first_scan_received_at_ms: 0,
             second_scan_received_at_ms: 0,
             login_received_at_ms: 0,
+            scan_result: false,
+            scan_time_result_ms: 0,
+            scan_count_result: 0,
             login_type: 0,
             failure_reason: String::new(),
             login_granted: false,
@@ -202,8 +218,73 @@ impl ProducerFlow {
                 "producer_url".to_string(),
                 Value::String(format!("{origin}/producer/{}", self.producer_id)),
             );
+            object.insert(
+                "result_activity".to_string(),
+                Value::String(self.result_activity().to_string()),
+            );
+            object.insert("intent_extras".to_string(), self.intent_extras());
         }
         value
+    }
+
+    fn result_activity(&self) -> &'static str {
+        if self.first_qr_id.starts_with("bosszp") && self.first_qr_id.ends_with("changeDevice") {
+            RESULT_ACTIVITY_NEW_DEVICE
+        } else {
+            RESULT_ACTIVITY_QR_SUCCESS
+        }
+    }
+
+    fn intent_extras(&self) -> Value {
+        json!({
+            "QR_ID": self.first_qr_id,
+            "SECOND_QR_ID": self.second_qr_id,
+            "EDIT_TYPE": self.edit_type,
+            "QR_SCAN_RESULT": self.scan_result,
+            "QR_SCAN_TIME_RESULT": self.scan_time_result_ms,
+            "QR_SCAN_COUNT_RESULT": self.scan_count_result,
+            "QR_SCAN_RESULT_FAIL_REASON": self.failure_reason,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum QrMode {
+    Web,
+    ChangeDevice,
+}
+
+impl QrMode {
+    fn parse(value: &str) -> Result<Self> {
+        match value.trim() {
+            "" | "web" | "browser" => Ok(Self::Web),
+            "change-device" | "changeDevice" | "new-device" => Ok(Self::ChangeDevice),
+            other => bail!("unsupported qr mode: {other}"),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Web => "web",
+            Self::ChangeDevice => "change-device",
+        }
+    }
+
+    fn first_qr_id(self, producer_id: &str) -> String {
+        match self {
+            Self::Web => format!("mockqr-{producer_id}-first"),
+            Self::ChangeDevice => format!("bosszp-{producer_id}-changeDevice"),
+        }
+    }
+
+    fn first_scan_text(self, first_qr_id: &str) -> String {
+        match self {
+            Self::Web => format!(
+                "https://mock.local/scan?qrcode={}",
+                urlencoding_like(first_qr_id)
+            ),
+            Self::ChangeDevice => first_qr_id.to_string(),
+        }
     }
 }
 
@@ -238,11 +319,12 @@ pub struct LocalQrFlowStore {
 impl LocalQrFlowStore {
     pub fn create_flow(
         &mut self,
+        qr_mode: QrMode,
         edit_type: &str,
         action_id: &str,
         extra_info: &str,
     ) -> ProducerFlow {
-        let flow = ProducerFlow::new(edit_type, action_id, extra_info);
+        let flow = ProducerFlow::new(qr_mode, edit_type, action_id, extra_info);
         self.flows.insert(flow.producer_id.clone(), flow.clone());
         flow
     }
@@ -283,9 +365,19 @@ impl LocalQrFlowStore {
                 "first scan already bound to a different session",
             ));
         }
+        if flow.edit_type != edit_type
+            || flow.action_id != action_id
+            || flow.extra_info != extra_info
+        {
+            return Err(FlowError::new(
+                409,
+                "first scan metadata does not match producer contract",
+            ));
+        }
         flow.bound_session_preview = session_preview.to_string();
         flow.state = "first_scan_bound".to_string();
         flow.first_scan_received_at_ms = now_ms();
+        flow.scan_count_result = flow.scan_count_result.max(1);
         flow.add_event(
             "consumer",
             "web_scan_edit",
@@ -324,7 +416,12 @@ impl LocalQrFlowStore {
             ));
         }
         flow.state = "awaiting_login_confirm".to_string();
+        flow.scan_result = true;
         flow.second_scan_received_at_ms = now_ms();
+        flow.scan_time_result_ms =
+            flow.second_scan_received_at_ms
+                .saturating_sub(flow.first_scan_received_at_ms) as i64;
+        flow.scan_count_result = flow.scan_count_result.max(2);
         flow.add_event(
             "consumer",
             "web_second_scan",
@@ -391,6 +488,8 @@ impl LocalQrFlowStore {
             "state": flow.state,
             "login_granted": flow.login_granted,
             "login_type": flow.login_type,
+            "result_activity": flow.result_activity(),
+            "intent_extras": flow.intent_extras(),
         }))
     }
 }
@@ -467,6 +566,7 @@ impl LocalQrMockServer {
 
     pub fn create_flow(
         &self,
+        qr_mode: QrMode,
         edit_type: &str,
         action_id: &str,
         extra_info: &str,
@@ -475,7 +575,7 @@ impl LocalQrMockServer {
             .state
             .lock()
             .map_err(|_| anyhow!("state lock poisoned"))?;
-        Ok(state.create_flow(edit_type, action_id, extra_info))
+        Ok(state.create_flow(qr_mode, edit_type, action_id, extra_info))
     }
 }
 
@@ -536,7 +636,7 @@ impl LocalQrSessionConsumer {
         let second_qr_id = extract_qr_id(second_scan_text)?;
         let first = self.request_json(
             Method::Post,
-            "/mock_passport/qrcode/webScanEdit",
+            PASSPORT_WEB_SCAN_EDIT_PATH,
             Some(json!({
                 "qrId": first_qr_id,
                 "editType": edit_type,
@@ -546,12 +646,12 @@ impl LocalQrSessionConsumer {
         )?;
         let second = self.request_json(
             Method::Post,
-            "/mock_passport/qrcode/webSecondScan",
+            PASSPORT_WEB_SECOND_SCAN_PATH,
             Some(json!({ "qrId": second_qr_id })),
         )?;
         let login = self.request_json(
             Method::Post,
-            "/mock_passport/qrcode/login",
+            PASSPORT_QRCODE_LOGIN_PATH,
             Some(json!({
                 "loginType": login_type,
                 "qrId": first_qr_id,
@@ -661,10 +761,15 @@ pub fn run_qr_serve(opts: &HashMap<String, String>) -> Result<()> {
         .get("--extra-info")
         .map(String::as_str)
         .unwrap_or(DEFAULT_EXTRA_INFO);
+    let qr_mode = QrMode::parse(
+        opts.get("--qr-mode")
+            .map(String::as_str)
+            .unwrap_or(DEFAULT_QR_MODE),
+    )?;
 
     let mut server = LocalQrMockServer::new(host, port);
     server.start()?;
-    let flow = server.create_flow(edit_type, action_id, extra_info)?;
+    let flow = server.create_flow(qr_mode, edit_type, action_id, extra_info)?;
     let base_url = server.base_url()?;
     println!(
         "{}",
@@ -674,6 +779,8 @@ pub fn run_qr_serve(opts: &HashMap<String, String>) -> Result<()> {
             "producer_url": format!("{}/producer/{}", base_url, flow.producer_id),
             "first_scan_text": flow.first_scan_text,
             "second_scan_text": flow.second_scan_text,
+            "qr_mode": flow.qr_mode,
+            "result_activity": flow.result_activity(),
             "edit_type": flow.edit_type,
             "action_id": flow.action_id,
             "extra_info": flow.extra_info,
@@ -705,24 +812,7 @@ pub fn run_qr_consume(opts: &HashMap<String, String>) -> Result<Value> {
 }
 
 pub fn extract_qr_id(scanned_text: &str) -> Result<String> {
-    let raw = scanned_text.trim();
-    if raw.is_empty() {
-        bail!("scan text is empty");
-    }
-    if raw.starts_with("http://") || raw.starts_with("https://") {
-        let parsed = Url::parse(raw)?;
-        for (key, value) in parsed.query_pairs() {
-            if key == "qrcode" && !value.trim().is_empty() {
-                return Ok(value.to_string());
-            }
-        }
-    } else if raw.starts_with("bosszp-") {
-        return Ok(raw.to_string());
-    }
-    bail!(
-        "scan text is not a supported login QR payload: {}",
-        truncate(raw, 80)
-    )
+    Ok(recognize_login_qr_text(scanned_text)?.qr_id)
 }
 
 fn handle_request(mut request: Request, state: Arc<Mutex<LocalQrFlowStore>>, origin: &str) {
@@ -764,6 +854,13 @@ fn handle_request(mut request: Request, state: Arc<Mutex<LocalQrFlowStore>>, ori
         (Method::Post, "/api/flows") => match read_json_body(&mut request).and_then(|payload| {
             Ok(with_state(&state, |store| {
                 Ok(store.create_flow(
+                    QrMode::parse(
+                        payload
+                            .get("qrMode")
+                            .and_then(Value::as_str)
+                            .unwrap_or(DEFAULT_QR_MODE),
+                    )
+                    .map_err(|err| FlowError::new(400, err.to_string()))?,
                     payload
                         .get("editType")
                         .and_then(Value::as_str)
@@ -786,8 +883,10 @@ fn handle_request(mut request: Request, state: Arc<Mutex<LocalQrFlowStore>>, ori
             ),
             Err(err) => error_to_response(err),
         },
-        (Method::Post, "/mock_passport/qrcode/webScanEdit") => match read_json_body(&mut request)
-            .and_then(|payload| {
+        (Method::Post, path)
+            if path == PASSPORT_WEB_SCAN_EDIT_PATH || path == LEGACY_WEB_SCAN_EDIT_PATH =>
+        {
+            match read_json_body(&mut request).and_then(|payload| {
                 let session_preview = session_preview_from_headers(request.headers())?;
                 Ok(with_state(&state, |store| {
                     store.web_scan_edit(
@@ -812,14 +911,17 @@ fn handle_request(mut request: Request, state: Arc<Mutex<LocalQrFlowStore>>, ori
                 })
                 .map_err(anyhow::Error::from)?)
             }) {
-            Ok(out) => json_response(
-                StatusCode(200),
-                json!({ "code": 0, "message": "Success", "zpData": out }),
-            ),
-            Err(err) => error_to_response(err),
-        },
-        (Method::Post, "/mock_passport/qrcode/webSecondScan") => match read_json_body(&mut request)
-            .and_then(|payload| {
+                Ok(out) => json_response(
+                    StatusCode(200),
+                    json!({ "code": 0, "message": "Success", "zpData": out }),
+                ),
+                Err(err) => error_to_response(err),
+            }
+        }
+        (Method::Post, path)
+            if path == PASSPORT_WEB_SECOND_SCAN_PATH || path == LEGACY_WEB_SECOND_SCAN_PATH =>
+        {
+            match read_json_body(&mut request).and_then(|payload| {
                 let session_preview = session_preview_from_headers(request.headers())?;
                 Ok(with_state(&state, |store| {
                     store.web_second_scan(
@@ -832,14 +934,17 @@ fn handle_request(mut request: Request, state: Arc<Mutex<LocalQrFlowStore>>, ori
                 })
                 .map_err(anyhow::Error::from)?)
             }) {
-            Ok(out) => json_response(
-                StatusCode(200),
-                json!({ "code": 0, "message": "Success", "zpData": out }),
-            ),
-            Err(err) => error_to_response(err),
-        },
-        (Method::Post, "/mock_passport/qrcode/login") => match read_json_body(&mut request)
-            .and_then(|payload| {
+                Ok(out) => json_response(
+                    StatusCode(200),
+                    json!({ "code": 0, "message": "Success", "zpData": out }),
+                ),
+                Err(err) => error_to_response(err),
+            }
+        }
+        (Method::Post, path)
+            if path == PASSPORT_QRCODE_LOGIN_PATH || path == LEGACY_QRCODE_LOGIN_PATH =>
+        {
+            match read_json_body(&mut request).and_then(|payload| {
                 let session_preview = session_preview_from_headers(request.headers())?;
                 Ok(with_state(&state, |store| {
                     store.qrcode_login(
@@ -860,12 +965,13 @@ fn handle_request(mut request: Request, state: Arc<Mutex<LocalQrFlowStore>>, ori
                 })
                 .map_err(anyhow::Error::from)?)
             }) {
-            Ok(out) => json_response(
-                StatusCode(200),
-                json!({ "code": 0, "message": "Success", "toast": "local login granted", "zpData": out }),
-            ),
-            Err(err) => error_to_response(err),
-        },
+                Ok(out) => json_response(
+                    StatusCode(200),
+                    json!({ "code": 0, "message": "Success", "toast": "local login granted", "zpData": out }),
+                ),
+                Err(err) => error_to_response(err),
+            }
+        }
         _ => json_response(
             StatusCode(404),
             json!({ "code": 404, "message": format!("not found: {path}") }),
@@ -1162,14 +1268,6 @@ fn listen_port(addr: ListenAddr) -> Result<u16> {
     }
 }
 
-fn truncate(value: &str, max_len: usize) -> String {
-    if value.len() <= max_len {
-        value.to_string()
-    } else {
-        value[..max_len].to_string()
-    }
-}
-
 fn urlencoding_like(value: &str) -> String {
     value
         .bytes()
@@ -1219,7 +1317,12 @@ mod tests {
     #[test]
     fn store_rejects_second_scan_from_different_session() {
         let mut store = LocalQrFlowStore::default();
-        let flow = store.create_flow(DEFAULT_EDIT_TYPE, DEFAULT_ACTION_ID, DEFAULT_EXTRA_INFO);
+        let flow = store.create_flow(
+            QrMode::Web,
+            DEFAULT_EDIT_TYPE,
+            DEFAULT_ACTION_ID,
+            DEFAULT_EXTRA_INFO,
+        );
         store
             .web_scan_edit(
                 &flow.first_qr_id,
@@ -1239,7 +1342,12 @@ mod tests {
         let mut server = LocalQrMockServer::new(DEFAULT_HOST, 0);
         server.start().unwrap();
         let flow = server
-            .create_flow(DEFAULT_EDIT_TYPE, DEFAULT_ACTION_ID, DEFAULT_EXTRA_INFO)
+            .create_flow(
+                QrMode::Web,
+                DEFAULT_EDIT_TYPE,
+                DEFAULT_ACTION_ID,
+                DEFAULT_EXTRA_INFO,
+            )
             .unwrap();
         let consumer = LocalQrSessionConsumer::new(
             &server.base_url().unwrap(),
@@ -1274,7 +1382,7 @@ mod tests {
         let mut server = LocalQrMockServer::new(DEFAULT_HOST, 0);
         server.start().unwrap();
         let flow = server
-            .create_flow("7", "manual_review", "secondary")
+            .create_flow(QrMode::Web, "7", "manual_review", "secondary")
             .unwrap();
         let consumer = LocalQrSessionConsumer::new(
             &server.base_url().unwrap(),
@@ -1291,6 +1399,61 @@ mod tests {
         assert_eq!(final_flow["login_granted"], false);
         assert_eq!(final_flow["login_type"], 2);
         assert_eq!(final_flow["action_id"], "manual_review");
+    }
+
+    #[test]
+    fn change_device_mode_uses_new_device_authorize_activity() {
+        let mut server = LocalQrMockServer::new(DEFAULT_HOST, 0);
+        server.start().unwrap();
+        let flow = server
+            .create_flow(
+                QrMode::ChangeDevice,
+                DEFAULT_EDIT_TYPE,
+                DEFAULT_ACTION_ID,
+                DEFAULT_EXTRA_INFO,
+            )
+            .unwrap();
+        let consumer = LocalQrSessionConsumer::new(
+            &server.base_url().unwrap(),
+            build_session("user-3", "tok2-user-3"),
+        )
+        .unwrap();
+
+        let result = consumer.consume_producer(&flow.producer_id, 1).unwrap();
+        let final_flow = consumer.fetch_flow(&flow.producer_id).unwrap();
+
+        assert_eq!(flow.first_scan_text, flow.first_qr_id);
+        assert_eq!(
+            result["login"]["zpData"]["result_activity"],
+            RESULT_ACTIVITY_NEW_DEVICE
+        );
+        assert_eq!(final_flow["result_activity"], RESULT_ACTIVITY_NEW_DEVICE);
+        assert_eq!(final_flow["intent_extras"]["QR_SCAN_RESULT"], true);
+        assert_eq!(final_flow["intent_extras"]["QR_SCAN_COUNT_RESULT"], 2);
+    }
+
+    #[test]
+    fn store_rejects_first_scan_metadata_mismatch() {
+        let mut store = LocalQrFlowStore::default();
+        let flow = store.create_flow(
+            QrMode::Web,
+            DEFAULT_EDIT_TYPE,
+            DEFAULT_ACTION_ID,
+            DEFAULT_EXTRA_INFO,
+        );
+
+        let err = store
+            .web_scan_edit(
+                &flow.first_qr_id,
+                "7",
+                &flow.action_id,
+                &flow.extra_info,
+                "user-a:111111111111",
+            )
+            .unwrap_err();
+
+        assert_eq!(err.code, 409);
+        assert!(err.message.contains("metadata"));
     }
 
     #[test]

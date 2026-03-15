@@ -8,6 +8,8 @@ pub mod fingerprint;
 pub mod http_bridge;
 pub mod job_detail;
 pub mod private_info;
+pub mod qr_authorize;
+pub mod qr_codec;
 pub mod qr_login;
 pub mod search;
 pub mod yzwg;
@@ -83,6 +85,16 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             return Ok(());
         }
         "qr-serve" => return qr_login::run_qr_serve(&opts),
+        "qr-decode" | "qr-recognize" => {
+            let output = qr_codec::run_qr_decode(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "qr-authorize" | "qr-login-real" => {
+            let output = qr_authorize::run_qr_authorize(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
         "qr-consume" => {
             let output = qr_login::run_qr_consume(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
@@ -169,7 +181,11 @@ pub fn print_usage() {
         "  search <keyword> [--city <code>] [--page <n>] [--page-size <n>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
-        "  qr-serve    [--host <addr>] [--port <port>] [--edit-type <type>] [--action-id <id>] [--extra-info <text>]"
+        "  qr-serve    [--host <addr>] [--port <port>] [--qr-mode <web|change-device>] [--edit-type <type>] [--action-id <id>] [--extra-info <text>]"
+    );
+    eprintln!("  qr-decode|qr-recognize <image-path> [--out <path>]");
+    eprintln!(
+        "  qr-authorize|qr-login-real <image-path> [--second-image <path>|--second-qr <qrId>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--edit-type <type>] [--action-id <id>] [--extra-info <text>] [--login-type <1|2>] [--sleep-before-login-ms <n>] [--loc-per true] [--latitude <v>] [--longitude <v>] [--ssid <name>] [--bssid <mac>] [--out <path>]"
     );
     eprintln!(
         "  qr-consume  --producer-id <id> [--base-url <url>] [--login-type <1|2>] [--session-path <path>]"
