@@ -59,6 +59,7 @@ jobs:
       - name: Ensure draft release exists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PRERELEASE: ${{ steps.meta.outputs.prerelease }}
           TAG: ${{ steps.meta.outputs.tag }}
         shell: bash
@@ -186,6 +187,7 @@ jobs:
       - name: Upload packaged release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: gh release upload "${{ needs.prepare.outputs.tag }}" dist/*.${{ matrix.archive_ext }} --clobber
 
@@ -243,6 +245,7 @@ jobs:
       - name: Download packaged release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           mkdir -p dist
@@ -261,12 +264,14 @@ jobs:
       - name: Upload checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: gh release upload "${{ needs.prepare.outputs.tag }}" dist/SHA256SUMS --clobber
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
           TAG: ${{ needs.prepare.outputs.tag }}
         shell: bash
