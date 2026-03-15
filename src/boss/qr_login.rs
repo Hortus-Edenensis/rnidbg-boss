@@ -108,52 +108,7 @@ pub struct DeviceConfig {
 
 impl DeviceConfig {
     pub fn from_session(session: &SessionConfig) -> Self {
-        let seed = sha12(&format!(
-            "{}:{}:{}",
-            session.uid, session.token2, session.phone
-        ));
-        let mut device = if session.has_fingerprint() {
-            Self {
-                uniqid: session.fp_uniqid.clone(),
-                did: session.fp_did.clone(),
-                oaid: session.fp_oaid.clone(),
-                oaid_honor: session.fp_oaid_honor.clone(),
-                brand: session.fp_brand.clone(),
-                model: session.fp_model.clone(),
-                network: session.fp_network.clone(),
-                operator: session.fp_operator.clone(),
-                tinker_id: session.fp_tinker_id.clone(),
-                curidentity: session.identity.trim().parse::<i32>().unwrap_or(0),
-                secret_key: session.secret_key.clone(),
-            }
-        } else {
-            Self::default()
-        };
-
-        if device.uniqid.is_empty() {
-            device.uniqid = format!("mock-uniqid-{seed}");
-        }
-        if device.did.is_empty() {
-            device.did = format!("mock-did-{seed}");
-        }
-        if device.brand.is_empty() {
-            device.brand = "mock".to_string();
-        }
-        if device.model.is_empty() {
-            device.model = "mock||local-browser".to_string();
-        }
-        if device.network.is_empty() {
-            device.network = "wifi".to_string();
-        }
-        if device.operator.is_empty() {
-            device.operator = "mock-op".to_string();
-        }
-        if device.tinker_id.is_empty() {
-            device.tinker_id = format!("mock-tinker-{}", &seed[..8]);
-        }
-        device.curidentity = session.identity.trim().parse::<i32>().unwrap_or(0);
-        device.secret_key = session.secret_key.clone();
-        device
+        super::fingerprint::overlay_random_device(session)
     }
 }
 
@@ -1103,7 +1058,7 @@ pub(crate) fn load_session(session_path: Option<&str>) -> Result<SessionConfig> 
     bail!("没有找到可用 session.json，或当前 session 缺少 token2。");
 }
 
-fn default_session_candidates() -> Vec<PathBuf> {
+pub(crate) fn default_session_candidates() -> Vec<PathBuf> {
     let mut out = vec![std::env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join(".boss_purecalc/session.json")];
