@@ -3,9 +3,12 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 
+pub mod contact;
 pub mod http_bridge;
+pub mod job_detail;
 pub mod private_info;
 pub mod qr_login;
+pub mod search;
 pub mod yzwg;
 
 pub use yzwg::BossYzwgLab;
@@ -25,6 +28,46 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
         }
         "private-info" | "profile" => {
             let output = private_info::run_private_info(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "job-detail" => {
+            let output = job_detail::run_job_detail(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "friends" | "contacts" => {
+            let output = contact::run_friends(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "messages" | "chat" => {
+            let output = contact::run_messages(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "chat-bootstrap" => {
+            let output = contact::run_chat_bootstrap(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "proactive-send" | "chat-send-http" => {
+            let output = contact::run_proactive_send(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "exchange" => {
+            let output = contact::run_exchange(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "interaction" => {
+            let output = contact::run_interaction(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "search" => {
+            let output = search::run_search(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
@@ -83,6 +126,30 @@ pub fn print_usage() {
     eprintln!("  replay  [--config <path>] [--backend <auto|dynarmic|unicorn>] [--lookup <path>] [--limit <N>] [--mode <sp|sig|both>]");
     eprintln!(
         "  private-info|profile [--session-path <path>] [--host <host>] [--city-code <code>] [--user-id <id>] [--sub-location <id>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>] [--force-so true]"
+    );
+    eprintln!(
+        "  job-detail <securityId> [--host <host>] [--lid <id>] [--need-related-job true] [--page <n>] [--request-source <n>] [--source-type <n>] [--way-type <n>] [--keyword <text>] [--query <text>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  friends|contacts [--limit <n>] [--host <contact-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  messages|chat <friendId> [--uid <friendId>] [--count <n>] [--friend-source <n>] [--max-msg-id <id>] [--last-msg-id <id>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  chat-bootstrap <friendId> [--uid <friendId>] [--source-security-id <id>] [--k810 <0|1>] [--window-ids <csv>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  proactive-send|chat-send-http <friendId> [--uid <friendId>] [--security-id <id>] [--scene <n>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  exchange [--page <n>] [--host <contact-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  interaction [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  search <keyword> [--city <code>] [--page <n>] [--page-size <n>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
         "  qr-serve    [--host <addr>] [--port <port>] [--edit-type <type>] [--action-id <id>] [--extra-info <text>]"
