@@ -1,0 +1,10 @@
+{
+  "package": "com.hpbr.bosszhipin",
+  "apk_path": "/workspace/lab-assets/artifacts/bosszhipin-reverse-project/input/base.apk",
+  "so_path": "/workspace/lab-assets/artifacts/bosszhipin-reverse-project/native/lib/arm64-v8a/libyzwg.so",
+  "asset_sign_encrypt_path": "/workspace/lab-assets/artifacts/bosszhipin-reverse-project/assets/assets/sign_encrypt",
+  "purecalc_lookup_path": "/workspace/lab-assets/artifacts/bosszhipin-reverse-project/decrypt/purecalc_lookup.json",
+  "trace_out_dir": "/workspace/lab-assets/artifacts/bosszhipin-reverse-project/rnidbg-trace",
+  "android_api": 23,
+  "backend": "dynarmic"
+}
