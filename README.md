@@ -13,9 +13,11 @@ An ARM64 emulator written in Rust, based on the secondary development of unidbg.
 - Pushing a `v*` tag publishes a multi-architecture GHCR image and uploads release archives for the supported operating system and architecture matrix.
 - Recommended tag format is `vYY.MM.DD` for stable releases, with `-alpha.N` or `-beta.N` suffixes for prereleases, for example `v26.03.14-beta.1`.
 - Prerelease tags publish versioned artifacts and packages without moving the `latest` image tag.
+- Release assets are uploaded directly to GitHub Releases instead of using Actions artifacts, so publishing is not blocked by artifact storage quota limits.
 - Release archives are produced on native runners:
   - Linux `x86_64` and `aarch64` use the default `dynarmic` backend.
-  - macOS and Windows `x86_64`/`aarch64` use the `unicorn` backend for broader portability.
+  - macOS `x86_64` and `aarch64`, plus Windows `x86_64`, use the `unicorn` backend for broader portability.
+  - Windows `aarch64` release archives are temporarily disabled until Unicorn's upstream Windows ARM64 build stops depending on an x64-only MASM wrapper.
 
 ## DEVELOPER DEBUGGING COMPILE TIME VARIABLES
 
