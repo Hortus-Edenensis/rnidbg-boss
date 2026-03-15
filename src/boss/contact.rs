@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use anyhow::{anyhow, Context, Result};
+use base64::Engine as _;
+use prost::Message as ProstMessage;
 use reqwest::Url;
 use serde_json::{json, Map, Value};
 
@@ -30,6 +33,12 @@ const DEFAULT_WINDOW_IDS: &str = "10005,10006,10007,10009";
 const MESSAGE_PULL_PATH: &str = "/api/zpchat/message/historyMsg";
 const EXCHANGE_LIST_PATH: &str = "/api/zprelation/exchange/getExchangeList";
 const INTERACTION_INFO_PATH: &str = "/api/zprelation/interaction/geekGetInfo";
+const CHAT_PROTOCOL_VERSION: &str = "1.4";
+const CHAT_MESSAGE_TYPE_TEXT: i32 = 1;
+const CHAT_MESSAGE_TEMPLATE_TEXT: i32 = 1;
+const MMS_FLAG_EXPECT_ACK: u8 = 2;
+
+static NEXT_MMS_MESSAGE_ID: AtomicU32 = AtomicU32::new(1);
 
 pub fn run_friends(opts: &HashMap<String, String>) -> Result<Value> {
     let ctx = BossContactContext::from_opts(opts)?;
@@ -305,6 +314,106 @@ pub fn run_proactive_send(opts: &HashMap<String, String>) -> Result<Value> {
     ctx.write_output(
         opts.get("--out").map(String::as_str),
         "chat_proactive_send_result.json",
+        &output,
+    )?;
+    Ok(output)
+}
+
+pub fn run_send_text(opts: &HashMap<String, String>) -> Result<Value> {
+    let ctx = BossContactContext::from_opts(opts)?;
+    let friend_id = opts
+        .get("--uid")
+        .cloned()
+        .or_else(|| opts.get("--friend-id").cloned())
+        .or_else(|| opts.get("_0").cloned())
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if friend_id.is_empty() {
+        return Err(anyhow!(
+            "send-text requires --uid <friendId> or positional <friendId>"
+        ));
+    }
+    let text = opts
+        .get("--text")
+        .cloned()
+        .or_else(|| opts.get("_1").cloned())
+        .unwrap_or_default();
+    if text.trim().is_empty() {
+        return Err(anyhow!(
+            "send-text requires --text <message> or second positional <message>"
+        ));
+    }
+
+    let friend_lookup = ctx.signed_get_contact_direct(
+        FRIEND_BASE_INFO_PATH,
+        BTreeMap::from([("friendIds".to_string(), friend_id.clone())]),
+    )?;
+    let friend_ctx = extract_friend_context(friend_lookup.response_payload(), &friend_id)
+        .ok_or_else(|| anyhow!("failed to resolve friend context for {friend_id}"))?;
+    let friend_name =
+        extract_friend_name(friend_lookup.response_payload(), &friend_id).unwrap_or_default();
+    let bootstrap = if parse_bool_flag(opts, "--skip-bootstrap") {
+        None
+    } else {
+        Some(ctx.bootstrap_chat(&friend_ctx, opts)?)
+    };
+
+    let sender_name = opts
+        .get("--my-name")
+        .cloned()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| ctx.session.phone.clone());
+    let extend = opts.get("--extend").cloned().unwrap_or_default();
+    let mock_server_mid = opts
+        .get("--mock-server-mid")
+        .and_then(|value| value.parse::<i64>().ok());
+    let send_runtime = opts
+        .get("--send-runtime")
+        .cloned()
+        .unwrap_or_else(|| "mock".to_string());
+
+    let draft = NativeTextMessageDraft::from_context(
+        &ctx.session,
+        &friend_ctx,
+        &friend_name,
+        &sender_name,
+        text.clone(),
+        extend.clone(),
+    )?;
+    let encoded = draft.encode()?;
+    let mock_dispatch = MockJf0Dispatch::run(&draft, &encoded, &send_runtime, mock_server_mid)?;
+
+    let output = json!({
+        "ok": mock_dispatch.ok,
+        "route": "jf0_native_text_send",
+        "session_path": ctx.resolved_session_path,
+        "transport_runtime": ctx.transport.label(),
+        "original_okhttp_available": ctx.transport.original_okhttp_available(),
+        "transport": ctx.transport.describe(),
+        "native_invoker": ctx.signer.describe(),
+        "friend_lookup": friend_lookup.to_value(),
+        "friend_context": friend_ctx.to_value(),
+        "friend_name": friend_name,
+        "bootstrap": bootstrap.as_ref().map(ChatBootstrapResult::to_value).unwrap_or(Value::Null),
+        "send_runtime": send_runtime,
+        "chat_contract": {
+            "entrypoint": "ChatCommon -> message.handler.c -> jf0.i(byte[], h, expectAck)",
+            "apk_evidence": {
+                "factory": "ChatBeanFactory.createText()",
+                "proto_builder": "module.contacts.manager.i.l()/s()/t()",
+                "sender": "message.server.sender.d -> jf0.i.d().i(...)",
+            },
+            "note": "rnidbg currently mocks the final jf0 transport/ack stage but builds the protobuf payload and MMS envelope from APK field evidence.",
+        },
+        "draft": draft.to_value(),
+        "encoded": encoded.to_value(),
+        "mock_dispatch": mock_dispatch.to_value(),
+    });
+
+    ctx.write_output(
+        opts.get("--out").map(String::as_str),
+        "chat_send_text_result.json",
         &output,
     )?;
     Ok(output)
@@ -1269,6 +1378,341 @@ fn uniq(values: Vec<String>) -> Vec<String> {
     out
 }
 
+fn extract_friend_name(payload: &Value, target_friend_id: &str) -> Option<String> {
+    for row in extract_friend_list(payload) {
+        let friend_id = row.get("friendId").map(coerce_text).unwrap_or_default();
+        if friend_id != target_friend_id {
+            continue;
+        }
+        for key in ["friendName", "name", "nickname", "title"] {
+            if let Some(value) = row.get(key).map(coerce_text) {
+                if !value.trim().is_empty() {
+                    return Some(value);
+                }
+            }
+        }
+    }
+    None
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct TechwolfUserProto {
+    #[prost(int64, tag = "1")]
+    uid: i64,
+    #[prost(string, tag = "2")]
+    name: String,
+    #[prost(int32, tag = "7")]
+    source: i32,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct AtInfoProto {
+    #[prost(int32, tag = "1")]
+    flag: i32,
+    #[prost(int64, repeated, tag = "2")]
+    uids: Vec<i64>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct TechwolfMessageBodyProto {
+    #[prost(int32, tag = "1")]
+    body_type: i32,
+    #[prost(int32, tag = "2")]
+    template_id: i32,
+    #[prost(string, tag = "11")]
+    head_title: String,
+    #[prost(string, tag = "3")]
+    text: String,
+    #[prost(message, optional, tag = "20")]
+    at_info: Option<AtInfoProto>,
+    #[prost(string, tag = "28")]
+    extend: String,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct TechwolfMessageProto {
+    #[prost(message, optional, tag = "1")]
+    from: Option<TechwolfUserProto>,
+    #[prost(message, optional, tag = "2")]
+    to: Option<TechwolfUserProto>,
+    #[prost(int32, tag = "3")]
+    message_type: i32,
+    #[prost(int64, tag = "4")]
+    mid: i64,
+    #[prost(int64, tag = "5")]
+    time: i64,
+    #[prost(message, optional, tag = "6")]
+    body: Option<TechwolfMessageBodyProto>,
+    #[prost(bool, tag = "7")]
+    offline: bool,
+    #[prost(string, tag = "9")]
+    push_text: String,
+    #[prost(int64, tag = "10")]
+    task_id: i64,
+    #[prost(int64, tag = "11")]
+    cmid: i64,
+    #[prost(int32, tag = "12")]
+    status: i32,
+    #[prost(int32, tag = "13")]
+    uncount: i32,
+    #[prost(string, tag = "17")]
+    biz_id: String,
+    #[prost(int32, tag = "18")]
+    biz_type: i32,
+    #[prost(string, tag = "19")]
+    security_id: String,
+    #[prost(int64, tag = "20")]
+    quote_id: i64,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct TechwolfChatProtocolProto {
+    #[prost(int32, tag = "1")]
+    protocol_type: i32,
+    #[prost(string, tag = "2")]
+    version: String,
+    #[prost(message, repeated, tag = "3")]
+    messages: Vec<TechwolfMessageProto>,
+}
+
+struct NativeTextMessageDraft {
+    version: String,
+    protocol_type: i32,
+    client_temp_message_id: i64,
+    timestamp_ms: i64,
+    sender_uid: i64,
+    sender_name: String,
+    sender_source: i32,
+    friend_uid: i64,
+    friend_name: String,
+    friend_source: i32,
+    security_id: String,
+    text: String,
+    extend: String,
+}
+
+impl NativeTextMessageDraft {
+    fn from_context(
+        session: &SessionConfig,
+        friend_ctx: &FriendContext,
+        friend_name: &str,
+        sender_name: &str,
+        text: String,
+        extend: String,
+    ) -> Result<Self> {
+        let sender_uid = parse_i64_field(&session.uid, "session.uid")?;
+        let friend_uid = parse_i64_field(&friend_ctx.friend_id, "friendId")?;
+        let friend_source = friend_ctx.friend_source.trim().parse::<i32>().unwrap_or(0);
+        Ok(Self {
+            version: CHAT_PROTOCOL_VERSION.to_string(),
+            protocol_type: 1,
+            client_temp_message_id: next_client_temp_message_id(),
+            timestamp_ms: now_ms() as i64,
+            sender_uid,
+            sender_name: sender_name.to_string(),
+            sender_source: 0,
+            friend_uid,
+            friend_name: friend_name.to_string(),
+            friend_source,
+            security_id: friend_ctx.security_id.clone(),
+            text,
+            extend,
+        })
+    }
+
+    fn encode(&self) -> Result<EncodedNativeTextMessage> {
+        let protocol = TechwolfChatProtocolProto {
+            protocol_type: self.protocol_type,
+            version: self.version.clone(),
+            messages: vec![TechwolfMessageProto {
+                from: Some(TechwolfUserProto {
+                    uid: self.sender_uid,
+                    name: self.sender_name.clone(),
+                    source: self.sender_source,
+                }),
+                to: Some(TechwolfUserProto {
+                    uid: self.friend_uid,
+                    name: self.friend_name.clone(),
+                    source: self.friend_source,
+                }),
+                message_type: 1,
+                mid: self.client_temp_message_id,
+                time: self.timestamp_ms,
+                body: Some(TechwolfMessageBodyProto {
+                    body_type: CHAT_MESSAGE_TYPE_TEXT,
+                    template_id: CHAT_MESSAGE_TEMPLATE_TEXT,
+                    head_title: String::new(),
+                    text: self.text.clone(),
+                    at_info: None,
+                    extend: self.extend.clone(),
+                }),
+                offline: false,
+                push_text: String::new(),
+                task_id: 0,
+                cmid: self.client_temp_message_id,
+                status: 2,
+                uncount: 0,
+                biz_id: String::new(),
+                biz_type: 0,
+                security_id: String::new(),
+                quote_id: 0,
+            }],
+        };
+
+        let payload = protocol.encode_to_vec();
+        let mms_message = MockMmsMessage {
+            sequence_id: next_mms_sequence_id(),
+            send_flag: MMS_FLAG_EXPECT_ACK,
+            expect_ack: true,
+            payload_len: payload.len(),
+            payload_hex: hex::encode(&payload),
+            payload_base64: base64::engine::general_purpose::STANDARD.encode(&payload),
+        };
+
+        Ok(EncodedNativeTextMessage {
+            protocol,
+            payload,
+            mms_message,
+        })
+    }
+
+    fn to_value(&self) -> Value {
+        json!({
+            "version": self.version,
+            "protocol_type": self.protocol_type,
+            "client_temp_message_id": self.client_temp_message_id,
+            "timestamp_ms": self.timestamp_ms,
+            "sender": {
+                "uid": self.sender_uid,
+                "name": self.sender_name,
+                "source": self.sender_source,
+            },
+            "recipient": {
+                "uid": self.friend_uid,
+                "name": self.friend_name,
+                "source": self.friend_source,
+                "security_id": self.security_id,
+            },
+            "body": {
+                "type": CHAT_MESSAGE_TYPE_TEXT,
+                "template_id": CHAT_MESSAGE_TEMPLATE_TEXT,
+                "text": self.text,
+                "extend": self.extend,
+            },
+        })
+    }
+}
+
+struct EncodedNativeTextMessage {
+    protocol: TechwolfChatProtocolProto,
+    payload: Vec<u8>,
+    mms_message: MockMmsMessage,
+}
+
+impl EncodedNativeTextMessage {
+    fn to_value(&self) -> Value {
+        json!({
+            "protocol": {
+                "type": self.protocol.protocol_type,
+                "version": self.protocol.version,
+                "message_count": self.protocol.messages.len(),
+            },
+            "payload_len": self.payload.len(),
+            "mms_message": self.mms_message.to_value(),
+        })
+    }
+}
+
+struct MockMmsMessage {
+    sequence_id: u16,
+    send_flag: u8,
+    expect_ack: bool,
+    payload_len: usize,
+    payload_hex: String,
+    payload_base64: String,
+}
+
+impl MockMmsMessage {
+    fn to_value(&self) -> Value {
+        json!({
+            "sequence_id": self.sequence_id,
+            "send_flag": self.send_flag,
+            "expect_ack": self.expect_ack,
+            "payload_len": self.payload_len,
+            "payload_hex": self.payload_hex,
+            "payload_base64": self.payload_base64,
+        })
+    }
+}
+
+struct MockJf0Dispatch {
+    ok: bool,
+    mode: String,
+    accepted: bool,
+    server_mid: i64,
+    receipt: Value,
+}
+
+impl MockJf0Dispatch {
+    fn run(
+        draft: &NativeTextMessageDraft,
+        encoded: &EncodedNativeTextMessage,
+        mode: &str,
+        requested_server_mid: Option<i64>,
+    ) -> Result<Self> {
+        let trimmed_mode = mode.trim();
+        if trimmed_mode != "mock" && trimmed_mode != "dump" {
+            return Err(anyhow!(
+                "unsupported --send-runtime {trimmed_mode}; supported: mock, dump"
+            ));
+        }
+        let server_mid = requested_server_mid
+            .unwrap_or_else(|| draft.client_temp_message_id.saturating_add(1_000_000_000));
+        let accepted = trimmed_mode == "mock";
+        Ok(Self {
+            ok: true,
+            mode: trimmed_mode.to_string(),
+            accepted,
+            server_mid,
+            receipt: json!({
+                "transport": "jf0.i(byte[], h, expectAck)",
+                "mocked": true,
+                "client_temp_message_id": draft.client_temp_message_id,
+                "server_mid": server_mid,
+                "expect_ack": encoded.mms_message.expect_ack,
+                "ack_status": if accepted { "success" } else { "skipped" },
+            }),
+        })
+    }
+
+    fn to_value(&self) -> Value {
+        json!({
+            "ok": self.ok,
+            "mode": self.mode,
+            "accepted": self.accepted,
+            "server_mid": self.server_mid,
+            "receipt": self.receipt,
+        })
+    }
+}
+
+fn parse_i64_field(value: &str, field: &str) -> Result<i64> {
+    value
+        .trim()
+        .parse::<i64>()
+        .with_context(|| format!("invalid numeric {field}: {value}"))
+}
+
+fn next_client_temp_message_id() -> i64 {
+    now_ms() as i64
+}
+
+fn next_mms_sequence_id() -> u16 {
+    let value = NEXT_MMS_MESSAGE_ID.fetch_add(1, Ordering::Relaxed);
+    let bounded = ((value - 1) % (i16::MAX as u32 - 1)) + 1;
+    bounded as u16
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1381,5 +1825,86 @@ mod tests {
         let encoded = encode_form_body(&form);
         assert!(encoded.contains("app_id=1003"));
         assert!(encoded.contains("sp=zwp_stub%7E"));
+    }
+
+    #[test]
+    fn native_text_message_encodes_expected_proto_fields() {
+        let session = SessionConfig {
+            uid: "722593826".to_string(),
+            phone: "15380455973".to_string(),
+            ..SessionConfig::default()
+        };
+        let friend_ctx = FriendContext {
+            friend_id: "698704560".to_string(),
+            friend_source: "4".to_string(),
+            job_source: "0".to_string(),
+            security_id: "sec-123".to_string(),
+            friend_type: None,
+            fridend_stage: None,
+            datetime_ms: None,
+            water_level: None,
+        };
+        let draft = NativeTextMessageDraft::from_context(
+            &session,
+            &friend_ctx,
+            "Boss",
+            "Tester",
+            "你好".to_string(),
+            String::new(),
+        )
+        .expect("draft");
+        let encoded = draft.encode().expect("encode");
+        let decoded =
+            TechwolfChatProtocolProto::decode(encoded.payload.as_slice()).expect("decode");
+
+        assert_eq!(decoded.protocol_type, 1);
+        assert_eq!(decoded.version, "1.4");
+        let message = decoded.messages.first().expect("message");
+        assert_eq!(message.message_type, 1);
+        assert_eq!(message.mid, draft.client_temp_message_id);
+        assert_eq!(message.cmid, draft.client_temp_message_id);
+        let from = message.from.as_ref().expect("from");
+        let to = message.to.as_ref().expect("to");
+        let body = message.body.as_ref().expect("body");
+        assert_eq!(from.uid, 722593826);
+        assert_eq!(from.name, "Tester");
+        assert_eq!(to.uid, 698704560);
+        assert_eq!(to.source, 4);
+        assert_eq!(body.body_type, 1);
+        assert_eq!(body.template_id, 1);
+        assert_eq!(body.text, "你好");
+    }
+
+    #[test]
+    fn mock_jf0_dispatch_returns_ack_receipt() {
+        let session = SessionConfig {
+            uid: "1".to_string(),
+            ..SessionConfig::default()
+        };
+        let friend_ctx = FriendContext {
+            friend_id: "2".to_string(),
+            friend_source: "0".to_string(),
+            job_source: "0".to_string(),
+            security_id: "sec".to_string(),
+            friend_type: None,
+            fridend_stage: None,
+            datetime_ms: None,
+            water_level: None,
+        };
+        let draft = NativeTextMessageDraft::from_context(
+            &session,
+            &friend_ctx,
+            "",
+            "",
+            "hello".to_string(),
+            String::new(),
+        )
+        .expect("draft");
+        let encoded = draft.encode().expect("encode");
+        let dispatch = MockJf0Dispatch::run(&draft, &encoded, "mock", Some(999)).expect("dispatch");
+
+        assert!(dispatch.ok);
+        assert!(dispatch.accepted);
+        assert_eq!(dispatch.server_mid, 999);
     }
 }

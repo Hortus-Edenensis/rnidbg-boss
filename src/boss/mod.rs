@@ -56,6 +56,11 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
+        "send-text" | "chat-send-native" => {
+            let output = contact::run_send_text(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
         "exchange" => {
             let output = contact::run_exchange(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
@@ -141,6 +146,9 @@ pub fn print_usage() {
     );
     eprintln!(
         "  proactive-send|chat-send-http <friendId> [--uid <friendId>] [--security-id <id>] [--scene <n>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  send-text|chat-send-native <friendId> <text> [--uid <friendId>] [--text <message>] [--my-name <name>] [--extend <json>] [--send-runtime <mock|dump>] [--mock-server-mid <id>] [--skip-bootstrap true] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
         "  exchange [--page <n>] [--host <contact-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
