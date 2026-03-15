@@ -58,5 +58,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build validation image
-        run: docker build --pull -t rnidbg:ci .
+      - name: Build Docker validation targets
+        run: |
+          docker build --pull --target unicorn-check -t rnidbg:ci-check .
+          docker build --target final -t rnidbg:ci .
