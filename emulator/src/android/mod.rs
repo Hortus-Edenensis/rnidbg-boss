@@ -1,11 +1,11 @@
+use crate::emulator::{syscall_handler, AndroidEmulator};
 use log::error;
 use syscall_handler::register_syscall_handler;
-use crate::emulator::{AndroidEmulator, syscall_handler};
 
 pub mod dvm;
-pub mod virtual_library;
 pub mod jni;
 mod structs;
+pub mod virtual_library;
 
 impl<T: Clone> AndroidEmulator<'_, T> {
     /// Provide [pid], [ppid], [proc_name] to construct an android arm64 emulator.
@@ -28,18 +28,19 @@ impl<T: Clone> AndroidEmulator<'_, T> {
         pid: u32,
         ppid: u32,
         proc_name: &str,
-        data: T
+        data: T,
     ) -> AndroidEmulator<'static, T> {
-        let mut context: AndroidEmulator<'static, T> = AndroidEmulator::new(pid, ppid, proc_name.to_string(), data)
-            .map_err(|e| error!("failed to init emu: {}", e))
-            .unwrap();
+        let mut context: AndroidEmulator<'static, T> =
+            AndroidEmulator::new(pid, ppid, proc_name.to_string(), data)
+                .map_err(|e| error!("failed to init emu: {}", e))
+                .unwrap();
 
-        context.set_errno(0)
-            .expect("failed to set errno");
+        context.set_errno(0).expect("failed to set errno");
 
         register_syscall_handler(&context);
 
-        context.setup_traps()
+        context
+            .setup_traps()
             .map_err(|e| error!("failed to setup traps: {}", e))
             .unwrap();
 
@@ -49,9 +50,9 @@ impl<T: Clone> AndroidEmulator<'_, T> {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
     use super::AndroidEmulator;
     use crate::android::virtual_library::libc::SystemPropertyService;
+    use std::rc::Rc;
 
     #[cfg(any(feature = "unicorn_backend", feature = "dynarmic_backend"))]
     #[test]
@@ -66,7 +67,10 @@ mod tests {
         emulator.set_system_property_service(service);
 
         assert_eq!(
-            emulator.inner_mut().libc.lookup_system_property("ro.test.key"),
+            emulator
+                .inner_mut()
+                .libc
+                .lookup_system_property("ro.test.key"),
             Some("value".to_string())
         );
     }

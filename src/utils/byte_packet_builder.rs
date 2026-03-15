@@ -1,5 +1,5 @@
-use bytes::{BufMut, BytesMut};
 use crate::utils::PacketFlag;
+use bytes::{BufMut, BytesMut};
 
 pub trait BytePacketBuilder: BufMut {
     #[inline]

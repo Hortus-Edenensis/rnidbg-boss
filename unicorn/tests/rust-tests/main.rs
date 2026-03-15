@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::rc::Rc;
 use core::cell::RefCell;
 use unicorn_engine::unicorn_const::{
-    uc_error, Arch, HookType, MemType, Mode, Permission, SECOND_SCALE, TlbEntry, TlbType
+    uc_error, Arch, HookType, MemType, Mode, Permission, TlbEntry, TlbType, SECOND_SCALE,
 };
 use unicorn_engine::{InsnSysX86, RegisterARM, RegisterMIPS, RegisterPPC, RegisterX86, Unicorn};
 
@@ -777,22 +777,29 @@ fn x86_block_callback() {
 fn x86_tlb_callback() {
     #[derive(PartialEq, Debug)]
     struct BlockExpectation(u64, u32);
-    let expects:u64 = 4;
+    let expects: u64 = 4;
     let count: u64 = 0;
     let count_cell = Rc::new(RefCell::new(count));
 
     let callback_counter = count_cell.clone();
-    let tlb_callback = move |_: &mut Unicorn<'_, ()>, address: u64, _: MemType| -> Option<TlbEntry> {
-        let mut blocks = callback_counter.borrow_mut();
-        *blocks += 1;
-        return Some(TlbEntry{paddr: address, perms: Permission::ALL});
-    };
+    let tlb_callback =
+        move |_: &mut Unicorn<'_, ()>, address: u64, _: MemType| -> Option<TlbEntry> {
+            let mut blocks = callback_counter.borrow_mut();
+            *blocks += 1;
+            return Some(TlbEntry {
+                paddr: address,
+                perms: Permission::ALL,
+            });
+        };
 
-    let syscall_callback = move |uc:  &mut Unicorn<'_, ()>| {
+    let syscall_callback = move |uc: &mut Unicorn<'_, ()>| {
         assert_eq!(uc.ctl_flush_tlb(), Ok(()));
     };
 
-    let code: Vec<u8> = vec![0xa3,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x0f,0x05,0xa3,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x00]; // movabs  dword ptr [0x200000], eax; syscall; movabs  dword ptr [0x200000], eax
+    let code: Vec<u8> = vec![
+        0xa3, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x05, 0xa3, 0x00, 0x00, 0x20,
+        0x00, 0x00, 0x00, 0x00, 0x00,
+    ]; // movabs  dword ptr [0x200000], eax; syscall; movabs  dword ptr [0x200000], eax
 
     let mut emu = unicorn_engine::Unicorn::new(Arch::X86, Mode::MODE_64)
         .expect("failed to initialize unicorn instance");

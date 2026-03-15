@@ -1,9 +1,9 @@
-use anyhow::anyhow;
-use log::debug;
 use crate::backend::RegisterARM64;
 use crate::emulator::AndroidEmulator;
-use crate::memory::svc_memory::{Arm64Svc, SvcCallResult};
 use crate::memory::svc_memory::SvcCallResult::{FUCK, RET};
+use crate::memory::svc_memory::{Arm64Svc, SvcCallResult};
+use anyhow::anyhow;
+use log::debug;
 
 pub(super) struct StrCmp;
 pub(super) struct StrNCmp;
@@ -47,8 +47,16 @@ fn compare_c_bytes(lhs: &[u8], rhs: &[u8], limit: Option<usize>, ignore_case: bo
     for idx in 0..max_len {
         let lhs_byte = lhs.get(idx).copied().unwrap_or(0);
         let rhs_byte = rhs.get(idx).copied().unwrap_or(0);
-        let lhs_cmp = if ignore_case { ascii_lower(lhs_byte) } else { lhs_byte };
-        let rhs_cmp = if ignore_case { ascii_lower(rhs_byte) } else { rhs_byte };
+        let lhs_cmp = if ignore_case {
+            ascii_lower(lhs_byte)
+        } else {
+            lhs_byte
+        };
+        let rhs_cmp = if ignore_case {
+            ascii_lower(rhs_byte)
+        } else {
+            rhs_byte
+        };
 
         if lhs_cmp != rhs_cmp {
             return lhs_cmp as i32 - rhs_cmp as i32;
@@ -62,21 +70,23 @@ fn compare_c_bytes(lhs: &[u8], rhs: &[u8], limit: Option<usize>, ignore_case: bo
 }
 
 impl<T: Clone> Arm64Svc<T> for StrCmp {
-    fn name(&self) -> &str { "strcmp" }
+    fn name(&self) -> &str {
+        "strcmp"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(ps1) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get s1 when strcmp"))
+            return FUCK(anyhow!("unable to get s1 when strcmp"));
         };
         let Ok(s1) = read_c_string_bytes(backend, ps1, None) else {
-            return FUCK(anyhow!("unable to fetch s1 when strcmp"))
+            return FUCK(anyhow!("unable to fetch s1 when strcmp"));
         };
         let Ok(ps2) = backend.reg_read(RegisterARM64::X1) else {
-            return FUCK(anyhow!("unable to get s2 when strcmp"))
+            return FUCK(anyhow!("unable to get s2 when strcmp"));
         };
         let Ok(s2) = read_c_string_bytes(backend, ps2, None) else {
-            return FUCK(anyhow!("unable to fetch s2 when strcmp"))
+            return FUCK(anyhow!("unable to fetch s2 when strcmp"));
         };
 
         if option_env!("PRINT_STRING_LOG") == Some("1") {
@@ -94,22 +104,24 @@ impl<T: Clone> Arm64Svc<T> for StrCmp {
 }
 
 impl<T: Clone> Arm64Svc<T> for StrNCmp {
-    fn name(&self) -> &str { "strncmp" }
+    fn name(&self) -> &str {
+        "strncmp"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(ps1) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get s1 when strncmp"))
+            return FUCK(anyhow!("unable to get s1 when strncmp"));
         };
         let n = backend.reg_read(RegisterARM64::X2).unwrap() as usize;
         let Ok(s1) = read_c_string_bytes(backend, ps1, Some(n)) else {
-            return FUCK(anyhow!("unable to fetch s1 when strncmp"))
+            return FUCK(anyhow!("unable to fetch s1 when strncmp"));
         };
         let Ok(ps2) = backend.reg_read(RegisterARM64::X1) else {
-            return FUCK(anyhow!("unable to get s2 when strncmp"))
+            return FUCK(anyhow!("unable to get s2 when strncmp"));
         };
         let Ok(s2) = read_c_string_bytes(backend, ps2, Some(n)) else {
-            return FUCK(anyhow!("unable to fetch s2 when strncmp"))
+            return FUCK(anyhow!("unable to fetch s2 when strncmp"));
         };
         let result = compare_c_bytes(&s1, &s2, Some(n), false);
 
@@ -128,21 +140,23 @@ impl<T: Clone> Arm64Svc<T> for StrNCmp {
 }
 
 impl<T: Clone> Arm64Svc<T> for StrCaseCmp {
-    fn name(&self) -> &str { "strcasecmp" }
+    fn name(&self) -> &str {
+        "strcasecmp"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(ps1) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get s1 when strcasecmp"))
+            return FUCK(anyhow!("unable to get s1 when strcasecmp"));
         };
         let Ok(s1) = read_c_string_bytes(backend, ps1, None) else {
-            return FUCK(anyhow!("unable to fetch s1 when strcasecmp"))
+            return FUCK(anyhow!("unable to fetch s1 when strcasecmp"));
         };
         let Ok(ps2) = backend.reg_read(RegisterARM64::X1) else {
-            return FUCK(anyhow!("unable to get s2 when strcasecmp"))
+            return FUCK(anyhow!("unable to get s2 when strcasecmp"));
         };
         let Ok(s2) = read_c_string_bytes(backend, ps2, None) else {
-            return FUCK(anyhow!("unable to fetch s2 when strcasecmp"))
+            return FUCK(anyhow!("unable to fetch s2 when strcasecmp"));
         };
         if option_env!("PRINT_STRING_LOG") == Some("1") {
             debug!(
@@ -159,22 +173,24 @@ impl<T: Clone> Arm64Svc<T> for StrCaseCmp {
 }
 
 impl<T: Clone> Arm64Svc<T> for StrNCasCmp {
-    fn name(&self) -> &str { "strncasecmp" }
+    fn name(&self) -> &str {
+        "strncasecmp"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(ps1) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get s1 when strncasecmp"))
+            return FUCK(anyhow!("unable to get s1 when strncasecmp"));
         };
         let n = backend.reg_read(RegisterARM64::X2).unwrap() as usize;
         let Ok(s1) = read_c_string_bytes(backend, ps1, Some(n)) else {
-            return FUCK(anyhow!("unable to fetch s1 when strncasecmp"))
+            return FUCK(anyhow!("unable to fetch s1 when strncasecmp"));
         };
         let Ok(ps2) = backend.reg_read(RegisterARM64::X1) else {
-            return FUCK(anyhow!("unable to get s2 when strncasecmp"))
+            return FUCK(anyhow!("unable to get s2 when strncasecmp"));
         };
         let Ok(s2) = read_c_string_bytes(backend, ps2, Some(n)) else {
-            return FUCK(anyhow!("unable to fetch s2 when strncasecmp"))
+            return FUCK(anyhow!("unable to fetch s2 when strncasecmp"));
         };
 
         if option_env!("PRINT_STRING_LOG") == Some("1") {
