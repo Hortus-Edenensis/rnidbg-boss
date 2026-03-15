@@ -1,0 +1,243 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  APP_NAME: rnidbg
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      docker_tags: ${{ steps.meta.outputs.docker_tags }}
+      image: ${{ steps.meta.outputs.image }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - id: meta
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          image="ghcr.io/$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          prerelease=false
+
+          if [[ "${tag}" == *-* ]]; then
+            prerelease=true
+          fi
+
+          {
+            echo "docker_tags<<EOF"
+            echo "type=raw,value=${tag}"
+            echo "type=raw,value=${version}"
+            if [[ "${prerelease}" == "false" ]]; then
+              echo "type=raw,value=latest"
+            fi
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+
+  binaries:
+    name: ${{ matrix.name }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64-dynarmic
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            backend: dynarmic
+            feature_args: ""
+            archive_ext: tar.gz
+          - name: linux-aarch64-dynarmic
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            backend: dynarmic
+            feature_args: ""
+            archive_ext: tar.gz
+          - name: macos-x86_64-unicorn
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            backend: unicorn
+            feature_args: --no-default-features --features unicorn
+            archive_ext: tar.gz
+          - name: macos-aarch64-unicorn
+            runner: macos-14
+            target: aarch64-apple-darwin
+            backend: unicorn
+            feature_args: --no-default-features --features unicorn
+            archive_ext: tar.gz
+          - name: windows-x86_64-unicorn
+            runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            backend: unicorn
+            feature_args: --no-default-features --features unicorn
+            archive_ext: zip
+          - name: windows-aarch64-unicorn
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            backend: unicorn
+            feature_args: --no-default-features --features unicorn
+            archive_ext: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85.1
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}-${{ matrix.backend }}
+
+      - name: Install Linux release dependencies
+        if: runner.os == 'Linux'
+        run: bash scripts/install-linux-build-deps.sh
+
+      - name: Install macOS release dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja pkg-config
+
+      - name: Configure MSVC developer shell
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Windows release dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ninja --yes --no-progress
+
+      - name: Refresh lockfile state
+        run: cargo generate-lockfile
+
+      - name: Build release binary
+        run: cargo build --locked --release --target ${{ matrix.target }} ${{ matrix.feature_args }}
+
+      - name: Package Unix archive
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          archive_root="${APP_NAME}-${{ needs.prepare.outputs.tag }}-${{ matrix.target }}-${{ matrix.backend }}"
+          mkdir -p "dist/${archive_root}"
+          cp "target/${{ matrix.target }}/release/${APP_NAME}" "dist/${archive_root}/"
+          cp README.md LICENSE "dist/${archive_root}/"
+          tar -C dist -czf "dist/${archive_root}.${{ matrix.archive_ext }}" "${archive_root}"
+
+      - name: Package Windows archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archiveRoot = "${env:APP_NAME}-${{ needs.prepare.outputs.tag }}-${{ matrix.target }}-${{ matrix.backend }}"
+          $distDir = Join-Path $PWD "dist"
+          $archiveDir = Join-Path $distDir $archiveRoot
+          New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${env:APP_NAME}.exe" $archiveDir
+          Copy-Item README.md, LICENSE $archiveDir
+          Compress-Archive -Path "$archiveDir/*" -DestinationPath (Join-Path $distDir "${archiveRoot}.${{ matrix.archive_ext }}") -Force
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: dist/*.${{ matrix.archive_ext }}
+          if-no-files-found: error
+
+  docker:
+    name: Docker package
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ needs.prepare.outputs.image }}
+          tags: ${{ needs.prepare.outputs.docker_tags }}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          cache-from: type=gha,scope=release-docker
+          cache-to: type=gha,mode=max,scope=release-docker
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  publish:
+    name: Publish release
+    needs:
+      - prepare
+      - binaries
+      - docker
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: rnidbg ${{ needs.prepare.outputs.tag }}
+          generate_release_notes: true
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
+          files: |
+            dist/*

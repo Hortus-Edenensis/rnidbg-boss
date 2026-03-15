@@ -20,7 +20,7 @@ pub use crate::pointer::VMPointer;
 use crate::tool::UnicornArg;
 use crate::android::dvm::DalvikVM64;
 use crate::android::virtual_library::ld64::ArmLD64;
-use crate::android::virtual_library::libc::Libc;
+use crate::android::virtual_library::libc::{Libc, SystemPropertyService};
 use crate::backend::{Backend, Permission, RegisterARM64};
 use crate::emulator::consts::{LR};
 use crate::memory::AndroidElfLoader;
@@ -61,6 +61,7 @@ pub(crate) struct AndroidEmulatorInner<'a, T: Clone> {
     pub file_system: AndroidFileSystem<T>,
     pub memory: AndroidElfLoader<'a, T>,
     pub svc_memory: SvcMemory<'a, T>,
+    pub(crate) libc: Libc<'a, T>,
     pub context_stack: Vec<(Context, i32)>,
 
     // DalvikVM
@@ -88,6 +89,7 @@ impl <'a, T: Clone> AndroidEmulator<'a, T> {
     pub fn new(pid: u32, ppid: u32, proc_name: String, data: T) -> anyhow::Result<AndroidEmulator<'static, T>> {
         let backend = Backend::new(data);
         let mut svc = SvcMemory::new(&backend)?; // ARMSvcMemory
+        let libc = Libc::new();
 
         mem_hook::register_mem_err_handler(backend.clone()); // add hook
         #[cfg(feature = "unicorn_backend")]
@@ -95,6 +97,7 @@ impl <'a, T: Clone> AndroidEmulator<'a, T> {
 
         let (mut memory, errno) = AndroidElfLoader::new(backend.clone(), pid, proc_name.clone())?;
         memory.add_hook_listeners(Box::new(ArmLD64::new(&mut svc)?));
+        memory.add_hook_listeners(Box::new(libc.clone()));
 
         Ok(AndroidEmulator {
             inner: Arc::new(UnsafeCell::new(AndroidEmulatorInner {
@@ -105,6 +108,7 @@ impl <'a, T: Clone> AndroidEmulator<'a, T> {
                 errno,
                 memory,
                 svc_memory: svc,
+                libc,
                 file_system: AndroidFileSystem::new(),
                 context_stack: Vec::new(),
                 thread_dispatcher: UniThreadDispatcher::new(),
@@ -203,6 +207,14 @@ impl <'a, T: Clone> AndroidEmulator<'a, T> {
 
     pub fn memory(&self) -> &mut AndroidElfLoader<'a, T> {
         &mut self.inner_mut().memory
+    }
+
+    pub fn set_system_property_service(&self, service: SystemPropertyService) {
+        self.inner_mut().libc.set_system_property_service(service);
+    }
+
+    pub fn clear_system_property_service(&self) {
+        self.inner_mut().libc.clear_system_property_service();
     }
 
     pub(crate) fn get_lr(&self) -> anyhow::Result<u64> {
@@ -354,4 +366,3 @@ impl<'a, T: Clone> AndroidEmulator<'a, T> {
         ret
     }
 }
-

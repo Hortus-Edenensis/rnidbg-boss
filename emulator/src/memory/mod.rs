@@ -622,6 +622,11 @@ impl<'a, T: Clone> AndroidElfLoader<'a, T> {
         self.hook_listeners.push(listener);
     }
 
+    #[cfg(test)]
+    pub(crate) fn hook_listener_count(&self) -> usize {
+        self.hook_listeners.len()
+    }
+
     pub fn allocate_stack(&mut self, size: usize) -> VMPointer<'a, T> {
         self.set_stack_point(self.sp - size as u64);
         VMPointer::new(self.sp, size, self.backend.clone())

@@ -1,16 +1,16 @@
 extern crate alloc;
 
+use crate::ffi::{DyHook, SFHook};
+use ansi_term::Color;
+use anyhow::anyhow;
+use log::{error, warn};
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::mem;
 use std::process::exit;
-use std::ptr::{null_mut};
+use std::ptr::null_mut;
 use std::rc::Rc;
-use ansi_term::Color;
-use anyhow::anyhow;
-use log::{error, warn};
-use crate::ffi::{DyHook, SFHook};
 
 mod ffi;
 
@@ -50,9 +50,9 @@ pub fn dynarmic_colorful_egg() -> String {
 struct Metadata<'a> {
     svc_callback: Option<Box<dyn SFHook + 'a>>,
     until: u64,
-    memory: *mut c_void,
-    monitor: *mut c_void,
-    page_table: *mut *mut c_void,
+    _memory: *mut c_void,
+    _monitor: *mut c_void,
+    _page_table: *mut *mut c_void,
     handle: *mut c_void,
 }
 
@@ -69,7 +69,7 @@ impl Drop for Metadata<'_> {
 pub struct Dynarmic<'a, T: Clone> {
     cur_handle: *mut c_void,
     metadata: Rc<UnsafeCell<Metadata<'a>>>,
-    pd: PhantomData<&'a T>
+    pd: PhantomData<&'a T>,
 }
 
 impl<'a, T: Clone> Dynarmic<'a, T> {
@@ -80,8 +80,10 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
             exit(0)
         }
 
-        let mut jit_size = std::env::var("DYNARMIC_JIT_SIZE").unwrap_or("64".to_string())
-            .parse::<u64>().unwrap();
+        let mut jit_size = std::env::var("DYNARMIC_JIT_SIZE")
+            .unwrap_or("64".to_string())
+            .parse::<u64>()
+            .unwrap();
         if jit_size < 8 {
             warn!("JIT size is too small, setting to 8");
             jit_size = 8;
@@ -92,10 +94,24 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
 
         let monitor = unsafe { ffi::dynarmic_init_monitor(1) };
         let page_table = unsafe { ffi::dynarmic_init_page_table() };
-        let handle = unsafe { ffi::dynarmic_new(0, memory, monitor, page_table, jit_size * 1024 * 1024, false) };
+        let handle = unsafe {
+            ffi::dynarmic_new(
+                0,
+                memory,
+                monitor,
+                page_table,
+                jit_size * 1024 * 1024,
+                false,
+            )
+        };
 
         if option_env!("DYNARMIC_DEBUG") == Some("1") {
-            println!("{}[Dynarmic]{} Created new Dynarmic instance: {:X}", Color::Green.paint("[*]"), Color::White.paint(""), handle as usize);
+            println!(
+                "{}[Dynarmic]{} Created new Dynarmic instance: {:X}",
+                Color::Green.paint("[*]"),
+                Color::White.paint(""),
+                handle as usize
+            );
         }
 
         Dynarmic {
@@ -103,9 +119,9 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
             metadata: Rc::new(UnsafeCell::new(Metadata {
                 svc_callback: None,
                 until: 0,
-                memory,
-                monitor,
-                page_table,
+                _memory: memory,
+                _monitor: monitor,
+                _page_table: page_table,
                 handle,
             })),
             pd: PhantomData,
@@ -115,7 +131,12 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn emu_start(&self, pc: u64, until: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Starting emulator: pc=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), pc);
+                println!(
+                    "{}[Dynarmic]{} Starting emulator: pc=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    pc
+                );
             }
 
             (*self.metadata.get()).until = until + 4;
@@ -131,7 +152,11 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn emu_stop(&self) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Stopping emulator", Color::Green.paint("[*]"), Color::White.paint(""));
+                println!(
+                    "{}[Dynarmic]{} Stopping emulator",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint("")
+                );
             }
             let ret = ffi::dynarmic_emu_stop(self.cur_handle);
             if ret != 0 {
@@ -142,17 +167,13 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     }
 
     pub fn get_cache_size(&self) -> u64 {
-        unsafe {
-            ffi::dynarmic_get_cache_size(self.cur_handle)
-        }
+        unsafe { ffi::dynarmic_get_cache_size(self.cur_handle) }
     }
 
     pub fn context_alloc(&self) -> DynarmicContext {
         unsafe {
             let inner_context = ffi::dynarmic_context_alloc();
-            Rc::new(DynarmicContextInner {
-                inner_context,
-            })
+            Rc::new(DynarmicContextInner { inner_context })
         }
     }
 
@@ -185,7 +206,14 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn mem_map(&self, addr: u64, size: usize, prot: u32) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Mapping memory: addr=0x{:x}, size=0x{:x}, prot={}", Color::Green.paint("[*]"), Color::White.paint(""), addr, size, prot);
+                println!(
+                    "{}[Dynarmic]{} Mapping memory: addr=0x{:x}, size=0x{:x}, prot={}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    addr,
+                    size,
+                    prot
+                );
             }
             let ret = ffi::dynarmic_mmap(self.cur_handle, addr, size as u64, mem::transmute(prot));
             if ret == 4 {
@@ -195,7 +223,14 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
                 return Err(anyhow!("Failed to map memory: code={}", ret));
             }
             if option_env!("DYNARMIC_DEBUG_EX") == Some("1") {
-                println!("{}[Dynarmic]{} Mapped memory: addr=0x{:x}, size=0x{:x}, prot={}", Color::Green.paint("[*]"), Color::White.paint(""), addr, size, prot);
+                println!(
+                    "{}[Dynarmic]{} Mapped memory: addr=0x{:x}, size=0x{:x}, prot={}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    addr,
+                    size,
+                    prot
+                );
             }
             Ok(())
         }
@@ -204,7 +239,13 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn mem_unmap(&self, addr: u64, size: usize) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Unmapping memory: addr=0x{:x}, size=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), addr, size);
+                println!(
+                    "{}[Dynarmic]{} Unmapping memory: addr=0x{:x}, size=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    addr,
+                    size
+                );
             }
             let ret = ffi::dynarmic_munmap(self.cur_handle, addr, size as u64);
             if ret != 0 {
@@ -217,9 +258,17 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn mem_protect(&self, addr: u64, size: usize, prot: u32) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Protecting memory: addr=0x{:x}, size=0x{:x}, prot={}", Color::Green.paint("[*]"), Color::White.paint(""), addr, size, prot);
+                println!(
+                    "{}[Dynarmic]{} Protecting memory: addr=0x{:x}, size=0x{:x}, prot={}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    addr,
+                    size,
+                    prot
+                );
             }
-            let ret = ffi::dynarmic_mem_protect(self.cur_handle, addr, size as u64, mem::transmute(prot));
+            let ret =
+                ffi::dynarmic_mem_protect(self.cur_handle, addr, size as u64, mem::transmute(prot));
             if ret != 0 {
                 return Err(anyhow!("Failed to protect memory: code={}", ret));
             }
@@ -228,45 +277,38 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     }
 
     pub fn reg_read(&self, index: usize) -> anyhow::Result<u64> {
-        unsafe {
-            Ok(ffi::reg_read(self.cur_handle, index as u64))
-        }
+        unsafe { Ok(ffi::reg_read(self.cur_handle, index as u64)) }
     }
 
     pub fn reg_read_lr(&self) -> anyhow::Result<u64> {
-        unsafe {
-            Ok(ffi::reg_read(self.cur_handle, 30))
-        }
+        unsafe { Ok(ffi::reg_read(self.cur_handle, 30)) }
     }
 
     pub fn reg_read_nzcv(&self) -> anyhow::Result<u64> {
-        unsafe {
-            Ok(ffi::reg_read_nzcv(self.cur_handle))
-        }
+        unsafe { Ok(ffi::reg_read_nzcv(self.cur_handle)) }
     }
 
     pub fn reg_read_sp(&self) -> anyhow::Result<u64> {
-        unsafe {
-            Ok(ffi::reg_read_sp(self.cur_handle))
-        }
+        unsafe { Ok(ffi::reg_read_sp(self.cur_handle)) }
     }
 
     pub fn reg_read_tpidr_el0(&self) -> anyhow::Result<u64> {
-        unsafe {
-            Ok(ffi::reg_read_tpidr_el0(self.cur_handle))
-        }
+        unsafe { Ok(ffi::reg_read_tpidr_el0(self.cur_handle)) }
     }
 
     pub fn reg_read_pc(&self) -> anyhow::Result<u64> {
-        unsafe {
-            Ok(ffi::reg_read_pc(self.cur_handle))
-        }
+        unsafe { Ok(ffi::reg_read_pc(self.cur_handle)) }
     }
 
     pub fn reg_write_pc(&self, value: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Writing PC: value=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), value);
+                println!(
+                    "{}[Dynarmic]{} Writing PC: value=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    value
+                );
             }
             let ret = ffi::reg_write_pc(self.cur_handle, value);
             if ret != 0 {
@@ -279,7 +321,12 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn reg_write_sp(&self, value: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Writing SP: value=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), value);
+                println!(
+                    "{}[Dynarmic]{} Writing SP: value=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    value
+                );
             }
             let ret = ffi::reg_write_sp(self.cur_handle, value);
             if ret != 0 {
@@ -292,7 +339,12 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn reg_write_lr(&self, value: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Writing LR: value=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), value);
+                println!(
+                    "{}[Dynarmic]{} Writing LR: value=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    value
+                );
             }
             let ret = ffi::reg_write(self.cur_handle, 30, value);
             if ret != 0 {
@@ -305,7 +357,12 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn reg_write_tpidr_el0(&self, value: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Writing TPIDR_EL0: value=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), value);
+                println!(
+                    "{}[Dynarmic]{} Writing TPIDR_EL0: value=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    value
+                );
             }
             let ret = ffi::reg_write_tpidr_el0(self.cur_handle, value);
             if ret != 0 {
@@ -325,7 +382,12 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn reg_write_nzcv(&self, value: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Writing NZCV: value=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), value);
+                println!(
+                    "{}[Dynarmic]{} Writing NZCV: value=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    value
+                );
             }
             let ret = ffi::reg_write_nzcv(self.cur_handle, value);
             if ret != 0 {
@@ -338,7 +400,13 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn reg_write_raw(&self, index: usize, value: u64) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                println!("{}[Dynarmic]{} Writing register: index={}, value=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), index, value);
+                println!(
+                    "{}[Dynarmic]{} Writing register: index={}, value=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    index,
+                    value
+                );
             }
             let ret = ffi::reg_write(self.cur_handle, index as u64, value);
             if ret != 0 {
@@ -365,9 +433,20 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn mem_read(&self, addr: u64, dest: &mut [u8]) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG_EX") == Some("1") {
-                println!("{}[Dynarmic]{} Reading memory: addr=0x{:x}, size=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), addr, dest.len());
+                println!(
+                    "{}[Dynarmic]{} Reading memory: addr=0x{:x}, size=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    addr,
+                    dest.len()
+                );
             }
-            let ret = ffi::dynarmic_mem_read(self.cur_handle, addr, dest.as_mut_ptr() as *mut _, dest.len());
+            let ret = ffi::dynarmic_mem_read(
+                self.cur_handle,
+                addr,
+                dest.as_mut_ptr() as *mut _,
+                dest.len(),
+            );
             if ret != 0 {
                 return Err(anyhow!("Failed to read memory: code={}", ret));
             }
@@ -384,9 +463,20 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
     pub fn mem_write(&self, addr: u64, value: &[u8]) -> anyhow::Result<()> {
         unsafe {
             if option_env!("DYNARMIC_DEBUG_EX") == Some("1") {
-                println!("{}[Dynarmic]{} Writing memory: addr=0x{:x}, size=0x{:x}", Color::Green.paint("[*]"), Color::White.paint(""), addr, value.len());
+                println!(
+                    "{}[Dynarmic]{} Writing memory: addr=0x{:x}, size=0x{:x}",
+                    Color::Green.paint("[*]"),
+                    Color::White.paint(""),
+                    addr,
+                    value.len()
+                );
             }
-            let ret = ffi::dynarmic_mem_write(self.cur_handle, addr, value.as_ptr() as *const _, value.len());
+            let ret = ffi::dynarmic_mem_write(
+                self.cur_handle,
+                addr,
+                value.as_ptr() as *const _,
+                value.len(),
+            );
             if ret != 0 {
                 return Err(anyhow!("Failed to write memory: code={}", ret));
             }
@@ -399,7 +489,11 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
         F: FnMut(&Dynarmic<T>, u32, u64, u64),
     {
         if option_env!("DYNARMIC_DEBUG") == Some("1") {
-            println!("{}[Dynarmic]{} Setting SVC callback", Color::Green.paint("[*]"), Color::White.paint(""));
+            println!(
+                "{}[Dynarmic]{} Setting SVC callback",
+                Color::Green.paint("[*]"),
+                Color::White.paint("")
+            );
         }
         unsafe {
             let mut cb = Box::new(DyHook {
@@ -407,32 +501,54 @@ impl<'a, T: Clone> Dynarmic<'a, T> {
                 dy: self.clone(),
             });
             let user_data = cb.as_mut() as *mut _ as *const c_void;
-            ffi::dynarmic_set_svc_callback(self.cur_handle, |swi, user_data| {
-                if swi == 114514 {
-                    return; // test
-                }
-                let cb = &mut *(user_data as *mut DyHook<T, F>);
-                let dynarmic = &cb.dy;
-                let pc = ffi::reg_read_pc(dynarmic.cur_handle);
-                let until = (*dynarmic.metadata.get()).until;
-
-                if option_env!("DYNARMIC_DEBUG") == Some("1") {
-                    println!("{}[Dynarmic]{} SVC callback: swi={}", Color::Green.paint("[*]"), Color::White.paint(""), swi);
-                }
-                //panic!("SVC callback is not implemented");
-                (cb.callback)(dynarmic, swi, until, pc);
-            }, user_data);
+            ffi::dynarmic_set_svc_callback(
+                self.cur_handle,
+                Some(svc_callback_trampoline::<T, F>),
+                user_data.cast_mut(),
+            );
             (*self.metadata.get()).svc_callback = Some(cb);
         }
     }
 
     pub fn destroy_callback(&self) {
         unsafe {
-            ffi::dynarmic_set_svc_callback(self.cur_handle, |_, _| {
-                unreachable!("SVC callback should not be called after being destroyed");
-            }, null_mut());
+            ffi::dynarmic_set_svc_callback(
+                self.cur_handle,
+                Some(destroyed_callback_trampoline),
+                null_mut(),
+            );
             let callback = (*self.metadata.get()).svc_callback.take();
             drop(callback);
         }
+    }
+}
+
+extern "C" fn destroyed_callback_trampoline(_: u32, _: *mut c_void) {
+    unreachable!("SVC callback should not be called after being destroyed");
+}
+
+extern "C" fn svc_callback_trampoline<T: Clone, F: FnMut(&Dynarmic<T>, u32, u64, u64)>(
+    swi: u32,
+    user_data: *mut c_void,
+) {
+    if swi == 114514 {
+        return;
+    }
+
+    unsafe {
+        let cb = &mut *(user_data as *mut DyHook<T, F>);
+        let dynarmic = &cb.dy;
+        let pc = ffi::reg_read_pc(dynarmic.cur_handle);
+        let until = (*dynarmic.metadata.get()).until;
+
+        if option_env!("DYNARMIC_DEBUG") == Some("1") {
+            println!(
+                "{}[Dynarmic]{} SVC callback: swi={}",
+                Color::Green.paint("[*]"),
+                Color::White.paint(""),
+                swi
+            );
+        }
+        (cb.callback)(dynarmic, swi, until, pc);
     }
 }

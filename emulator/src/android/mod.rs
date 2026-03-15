@@ -46,3 +46,28 @@ impl<T: Clone> AndroidEmulator<'_, T> {
         context
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+    use super::AndroidEmulator;
+    use crate::android::virtual_library::libc::SystemPropertyService;
+
+    #[cfg(any(feature = "unicorn_backend", feature = "dynarmic_backend"))]
+    #[test]
+    fn create_arm64_registers_libc_hook_and_stores_property_service() {
+        let emulator = AndroidEmulator::create_arm64(1000, 999, "test.process", ());
+        let count = emulator.memory().hook_listener_count();
+        assert_eq!(count, 2);
+
+        let service: SystemPropertyService = Rc::new(Box::new(|name| {
+            (name == "ro.test.key").then(|| "value".to_string())
+        }));
+        emulator.set_system_property_service(service);
+
+        assert_eq!(
+            emulator.inner_mut().libc.lookup_system_property("ro.test.key"),
+            Some("value".to_string())
+        );
+    }
+}

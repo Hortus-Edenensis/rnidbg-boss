@@ -9,7 +9,7 @@ pub struct JNINativeMethod {
 }
 
 #[test]
-fn test_JNINativeMethod() {
+fn test_jni_native_method() {
     assert_eq!(std::mem::size_of::<JNINativeMethod>(), 24);
     assert_eq!(std::mem::align_of::<JNINativeMethod>(), 8);
 }

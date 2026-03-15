@@ -11,7 +11,6 @@ use std::thread::{sleep, sleep_ms};
 use std::time::{Duration, Instant};
 use bytes::Buf;
 use emulator::android::dvm::class_resolver::ClassResolver;
-use emulator::android::virtual_library::libc::Libc;
 use emulator::android::jni::{Jni, MethodAcc, VaList, JniValue};
 use emulator::android::dvm::object::DvmObject;
 use emulator::android::dvm::DalvikVM64;
@@ -38,8 +37,7 @@ const PPID: u32 = 2427;
 //     let emulator = AndroidEmulator::create_arm64(PID, PPID, "com.tencent.mobileqq:MSF", data);
 //     let memory = emulator.memory();
 //
-//     let mut libc = Box::new(Libc::new());
-//     libc.set_system_property_service(Rc::new(Box::new(move |name| {
+//     emulator.set_system_property_service(Rc::new(Box::new(move |name| {
 //         match name {
 //             "ro.build.version.sdk" => Some(device_info.build_version.clone()),
 //             "persist.sys.timezone" => Some("Asia/Shanghai".to_string()),
@@ -65,8 +63,6 @@ const PPID: u32 = 2427;
 //             }
 //         }
 //     })));
-//
-//     memory.add_hook_listeners(libc);
 //     init_filesystem(base_path.to_string(), &emulator);
 //
 //     let vm = emulator.get_dalvik_vm();

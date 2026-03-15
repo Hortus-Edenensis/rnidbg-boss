@@ -1,5 +1,6 @@
 # Ignore compiled output
 /target/
+/emulator/target/
 
 # Ignore editor and IDE files
 .vscode/

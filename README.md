@@ -4,8 +4,18 @@ An ARM64 emulator written in Rust, based on the secondary development of unidbg.
 
 ## Build Me
 
-- Make sure your Rust version is 1.79+, otherwise upgrade!
+- Make sure your Rust version is 1.85+, otherwise upgrade!
 - If Linux, make sure that `libfmt`/`boost` is available in your environment (**dynarmic backend**).
+
+## Release Automation
+
+- Pull requests and pushes to `main` run GitHub Actions validation for both the default `dynarmic` backend and the `unicorn` backend, plus a full Docker image build.
+- Pushing a `v*` tag publishes a multi-architecture GHCR image and uploads release archives for the supported operating system and architecture matrix.
+- Recommended tag format is `vYY.MM.DD` for stable releases, with `-alpha.N` or `-beta.N` suffixes for prereleases, for example `v26.03.14-beta.1`.
+- Prerelease tags publish versioned artifacts and packages without moving the `latest` image tag.
+- Release archives are produced on native runners:
+  - Linux `x86_64` and `aarch64` use the default `dynarmic` backend.
+  - macOS and Windows `x86_64`/`aarch64` use the `unicorn` backend for broader portability.
 
 ## DEVELOPER DEBUGGING COMPILE TIME VARIABLES
 

@@ -1,0 +1,5 @@
+.git
+.github
+/target
+/emulator/target
+.DS_Store
