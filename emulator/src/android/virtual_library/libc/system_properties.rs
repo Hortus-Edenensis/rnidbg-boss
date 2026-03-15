@@ -1,15 +1,15 @@
 // https://android.googlesource.com/platform/bionic/+/0d787c1fa18c6a1f29ef9840e28a68cf077be1de/libc/bionic/system_properties.c
 
-use std::mem::size_of;
-use anyhow::anyhow;
-use log::debug;
-use crate::backend::RegisterARM64;
 use crate::android::virtual_library::libc::SystemPropertyService;
+use crate::backend::RegisterARM64;
 use crate::emulator::AndroidEmulator;
 use crate::linux::structs::PropInfo;
-use crate::pointer::VMPointer;
-use crate::memory::svc_memory::{Arm64Svc, SvcCallResult};
 use crate::memory::svc_memory::SvcCallResult::{FUCK, RET};
+use crate::memory::svc_memory::{Arm64Svc, SvcCallResult};
+use crate::pointer::VMPointer;
+use anyhow::anyhow;
+use log::debug;
+use std::mem::size_of;
 
 const PROP_VALUE_LEN_SHIFT: u32 = 24;
 
@@ -18,17 +18,13 @@ pub(super) struct SystemPropertyFind(Option<SystemPropertyService>);
 pub(super) struct SystemPropertyRead;
 
 impl SystemPropertyGet {
-    pub fn new(
-        service: Option<SystemPropertyService>
-    ) -> Self {
+    pub fn new(service: Option<SystemPropertyService>) -> Self {
         SystemPropertyGet(service)
     }
 }
 
 impl SystemPropertyFind {
-    pub fn new(
-        service: Option<SystemPropertyService>
-    ) -> Self {
+    pub fn new(service: Option<SystemPropertyService>) -> Self {
         SystemPropertyFind(service)
     }
 }
@@ -60,7 +56,11 @@ fn copy_c_string_bytes(dest: &mut [u8], src: &[u8]) -> usize {
     len
 }
 
-fn write_property_value<T: Clone>(backend: &crate::backend::Backend<T>, addr: u64, value: &[u8]) -> anyhow::Result<usize> {
+fn write_property_value<T: Clone>(
+    backend: &crate::backend::Backend<T>,
+    addr: u64,
+    value: &[u8],
+) -> anyhow::Result<usize> {
     let mut buf = vec![0u8; value.len() + 1];
     let len = copy_c_string_bytes(&mut buf, value);
     backend.mem_write(addr, &buf)?;
@@ -88,7 +88,10 @@ fn prop_info_to_bytes(prop_info: &PropInfo) -> &[u8] {
     }
 }
 
-fn read_prop_info<T: Clone>(emu: &AndroidEmulator<T>, prop_info_addr: u64) -> anyhow::Result<PropInfo> {
+fn read_prop_info<T: Clone>(
+    emu: &AndroidEmulator<T>,
+    prop_info_addr: u64,
+) -> anyhow::Result<PropInfo> {
     let pointer = VMPointer::new(prop_info_addr, size_of::<PropInfo>(), emu.backend.clone());
     let mut bytes = [0u8; size_of::<PropInfo>()];
     bytes.copy_from_slice(pointer.read_bytes()?.as_slice());
@@ -97,22 +100,30 @@ fn read_prop_info<T: Clone>(emu: &AndroidEmulator<T>, prop_info_addr: u64) -> an
 }
 
 fn c_string_len(bytes: &[u8]) -> usize {
-    bytes.iter().position(|&byte| byte == 0).unwrap_or(bytes.len())
+    bytes
+        .iter()
+        .position(|&byte| byte == 0)
+        .unwrap_or(bytes.len())
 }
 
 impl<T: Clone> Arm64Svc<T> for SystemPropertyGet {
-    fn name(&self) -> &str { "SystemPropertyGet" }
+    fn name(&self) -> &str {
+        "SystemPropertyGet"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(name_pointer) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get name_pointer"))
+            return FUCK(anyhow!("unable to get name_pointer"));
         };
         let Ok(name) = backend.mem_read_c_string(name_pointer) else {
-            return FUCK(anyhow!("unable to read name from name pointer: 0x{:X}", name_pointer))
+            return FUCK(anyhow!(
+                "unable to read name from name pointer: 0x{:X}",
+                name_pointer
+            ));
         };
         let Ok(value) = backend.reg_read(RegisterARM64::X1) else {
-            return FUCK(anyhow!("unable to get value when handle SystemPropGet"))
+            return FUCK(anyhow!("unable to get value when handle SystemPropGet"));
         };
 
         if option_env!("PRINT_SYSTEM_PROP_LOG") == Some("1") {
@@ -124,21 +135,29 @@ impl<T: Clone> Arm64Svc<T> for SystemPropertyGet {
 
         match write_property_value(backend, value, property_value.as_bytes()) {
             Ok(len) => RET(len as i64),
-            Err(e) => FUCK(anyhow!("unable to write_mem when handle SystemPropGet: {}", e)),
+            Err(e) => FUCK(anyhow!(
+                "unable to write_mem when handle SystemPropGet: {}",
+                e
+            )),
         }
     }
 }
 
 impl<T: Clone> Arm64Svc<T> for SystemPropertyFind {
-    fn name(&self) -> &str { "SystemPropertyFind" }
+    fn name(&self) -> &str {
+        "SystemPropertyFind"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(name_pointer) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get name_pointer"))
+            return FUCK(anyhow!("unable to get name_pointer"));
         };
         let Ok(name) = backend.mem_read_c_string(name_pointer) else {
-            return FUCK(anyhow!("unable to read name from name pointer: 0x{:X}", name_pointer))
+            return FUCK(anyhow!(
+                "unable to read name from name pointer: 0x{:X}",
+                name_pointer
+            ));
         };
 
         if option_env!("PRINT_SYSTEM_PROP_LOG") == Some("1") {
@@ -149,49 +168,57 @@ impl<T: Clone> Arm64Svc<T> for SystemPropertyFind {
             Some(env) => {
                 let prop_info = prop_info_from_name_value(&name, &env);
                 let Ok(pointer) = emu.falloc(size_of::<PropInfo>(), true) else {
-                  return FUCK(anyhow!("unable to alloc memory for prop_info"))
+                    return FUCK(anyhow!("unable to alloc memory for prop_info"));
                 };
                 if let Err(e) = pointer.write_data(prop_info_to_bytes(&prop_info)) {
-                    return FUCK(anyhow!("unable to write prop_info: {}", e))
+                    return FUCK(anyhow!("unable to write prop_info: {}", e));
                 }
                 RET(pointer.addr as i64)
             }
-            None =>  RET(0)
+            None => RET(0),
         }
     }
 }
 
 impl<T: Clone> Arm64Svc<T> for SystemPropertyRead {
-    fn name(&self) -> &str { "SystemPropertyRead" }
+    fn name(&self) -> &str {
+        "SystemPropertyRead"
+    }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         let backend = &emu.backend;
         let Ok(prop_info_addr) = backend.reg_read(RegisterARM64::X0) else {
-            return FUCK(anyhow!("unable to get prop_info when handle SystemPropertyRead"))
+            return FUCK(anyhow!(
+                "unable to get prop_info when handle SystemPropertyRead"
+            ));
         };
         let Ok(name_addr) = backend.reg_read(RegisterARM64::X1) else {
-            return FUCK(anyhow!("unable to get name pointer when handle SystemPropertyRead"))
+            return FUCK(anyhow!(
+                "unable to get name pointer when handle SystemPropertyRead"
+            ));
         };
         let Ok(value_addr) = backend.reg_read(RegisterARM64::X2) else {
-            return FUCK(anyhow!("unable to get value pointer when handle SystemPropertyRead"))
+            return FUCK(anyhow!(
+                "unable to get value pointer when handle SystemPropertyRead"
+            ));
         };
 
         if prop_info_addr == 0 {
             if name_addr != 0 {
                 if let Err(e) = backend.mem_write(name_addr, b"\0") {
-                    return FUCK(anyhow!("unable to clear property name: {}", e))
+                    return FUCK(anyhow!("unable to clear property name: {}", e));
                 }
             }
             if value_addr != 0 {
                 if let Err(e) = backend.mem_write(value_addr, b"\0") {
-                    return FUCK(anyhow!("unable to clear property value: {}", e))
+                    return FUCK(anyhow!("unable to clear property value: {}", e));
                 }
             }
             return RET(0);
         }
 
         let Ok(prop_info) = read_prop_info(emu, prop_info_addr) else {
-            return FUCK(anyhow!("unable to read prop_info: 0x{:X}", prop_info_addr))
+            return FUCK(anyhow!("unable to read prop_info: 0x{:X}", prop_info_addr));
         };
 
         let name_len = c_string_len(&prop_info.name);
@@ -201,14 +228,14 @@ impl<T: Clone> Arm64Svc<T> for SystemPropertyRead {
             let mut name_buf = vec![0u8; name_len + 1];
             copy_c_string_bytes(&mut name_buf, &prop_info.name[..name_len]);
             if let Err(e) = backend.mem_write(name_addr, &name_buf) {
-                return FUCK(anyhow!("unable to write property name: {}", e))
+                return FUCK(anyhow!("unable to write property name: {}", e));
             }
         }
         if value_addr != 0 {
             let mut value_buf = vec![0u8; value_len + 1];
             copy_c_string_bytes(&mut value_buf, &prop_info.value[..value_len]);
             if let Err(e) = backend.mem_write(value_addr, &value_buf) {
-                return FUCK(anyhow!("unable to write property value: {}", e))
+                return FUCK(anyhow!("unable to write property value: {}", e));
             }
         }
 
@@ -218,9 +245,12 @@ impl<T: Clone> Arm64Svc<T> for SystemPropertyRead {
 
 #[cfg(test)]
 mod tests {
-    use super::{c_string_len, copy_c_string_bytes, lookup_property, prop_info_from_name_value, PROP_VALUE_LEN_SHIFT};
-    use std::rc::Rc;
+    use super::{
+        c_string_len, copy_c_string_bytes, lookup_property, prop_info_from_name_value,
+        PROP_VALUE_LEN_SHIFT,
+    };
     use crate::android::virtual_library::libc::SystemPropertyService;
+    use std::rc::Rc;
 
     #[test]
     fn copy_c_string_bytes_appends_nul_and_returns_length() {
@@ -243,7 +273,10 @@ mod tests {
         assert_eq!(value_len, prop_info.value.len() - 1);
         assert!(prop_info.name.iter().any(|&byte| byte == 0));
         assert!(prop_info.value.iter().any(|&byte| byte == 0));
-        assert_eq!(prop_info.serial >> PROP_VALUE_LEN_SHIFT, (prop_info.value.len() - 1) as u32);
+        assert_eq!(
+            prop_info.serial >> PROP_VALUE_LEN_SHIFT,
+            (prop_info.value.len() - 1) as u32
+        );
     }
 
     #[test]
@@ -255,6 +288,9 @@ mod tests {
         let service: SystemPropertyService = Rc::new(Box::new(|name| {
             (name == "ro.test.key").then(|| "value".to_string())
         }));
-        assert_eq!(lookup_property(Some(&service), "ro.test.key"), Some("value".to_string()));
+        assert_eq!(
+            lookup_property(Some(&service), "ro.test.key"),
+            Some("value".to_string())
+        );
     }
 }

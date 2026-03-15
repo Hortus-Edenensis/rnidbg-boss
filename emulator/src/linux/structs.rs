@@ -326,7 +326,7 @@ macro_rules! impl_va_prim_gr {
         }
         impl<T: Clone> VaPrimitive<T> for $s {
             fn get(list: &mut CVaList<T>, dvm: &DalvikVM64<T>) -> Self {
-                unsafe { mem::transmute(<$u>::get(list, dvm)) }
+                <$u>::get(list, dvm) as $s
             }
         }
     };

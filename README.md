@@ -21,6 +21,31 @@ An ARM64 emulator written in Rust, based on the secondary development of unidbg.
   - macOS `x86_64` and `aarch64`, plus Windows `x86_64`, use the `unicorn` backend for broader portability.
   - Windows `aarch64` release archives are temporarily disabled until Unicorn's upstream Windows ARM64 build stops depending on an x64-only MASM wrapper.
 
+## Container Lab
+
+- The repository includes a reusable BossYzwg container lab that runs through `docker compose`.
+- By default the compose stack mounts this repository at `/workspace/rnidbg` and a reverse-engineering asset workspace at `/workspace/lab-assets`.
+- If your asset workspace is not the sibling path `../drizzle-dumper-rust`, set `RNIDBG_ASSETS_ROOT=/absolute/path/to/assets-repo` before running the helper scripts.
+- The tracked generic config is `config/lab-config.container.json` and is the default for the container helpers.
+
+Common commands:
+
+```bash
+docker compose up -d rnidbg-lab
+./bin/yzwg-invoke.sh --method nativeSignature --arg1 '/api/health-check' --arg2 ''
+./bin/run-trace.sh --method-filter nativeSignature
+./bin/replay-samples.sh 3
+./bin/start-http-bridge.sh
+./bin/verify-http-bridge.sh
+```
+
+- The host HTTP bridge binds to `http://127.0.0.1:28080` by default.
+- To use a custom config inside the container, set `RNIDBG_LAB_CONFIG` to the container-visible config path before invoking the helper scripts.
+- Supporting docs:
+  - `docs/product-usage.md`
+  - `docs/c4-model.md`
+  - `docs/roadmap.md`
+
 ## DEVELOPER DEBUGGING COMPILE TIME VARIABLES
 
 | 变量名                     | 说明                             | 默认值 |

@@ -87,10 +87,7 @@ pub fn qqtea_decrypt(text: &[u8], key: &[u8]) -> Option<Vec<u8>> {
 
 mod tea {
     use byteorder::{BigEndian, ByteOrder};
-    pub use generic_array::{
-        typenum::U16,
-        GenericArray,
-    };
+    pub use generic_array::{typenum::U16, GenericArray};
 
     const TEA_DELTA: u32 = 0x9E3779B9;
 

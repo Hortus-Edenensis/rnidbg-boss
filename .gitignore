@@ -8,3 +8,8 @@
 
 # Ignore build artifacts
 Cargo.lock
+
+# Ignore local lab configs; the tracked container template is config/lab-config.container.json
+config/lab-config.json
+config/lab-config.dynarmic.json
+config/*.local.json
