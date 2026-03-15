@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Result};
 
 pub mod contact;
+pub mod fingerprint;
 pub mod http_bridge;
 pub mod job_detail;
 pub mod private_info;
@@ -68,6 +69,11 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
         }
         "interaction" => {
             let output = contact::run_interaction(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "fingerprint-randomize" | "device-fp-randomize" => {
+            let output = fingerprint::run_fingerprint_randomize(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
@@ -155,6 +161,9 @@ pub fn print_usage() {
     );
     eprintln!(
         "  interaction [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  fingerprint-randomize|device-fp-randomize [--session-path <path>] [--brand <name>] [--model-name <name>] [--network <wifi|2G|3G|4G|5G>] [--operator-name <CMCC|CHN-CT|CHN-UNICOM|CHN-CR>] [--huawei true]"
     );
     eprintln!(
         "  search <keyword> [--city <code>] [--page <n>] [--page-size <n>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
