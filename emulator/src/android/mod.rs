@@ -1,3 +1,4 @@
+use crate::backend::BackendKind;
 use crate::emulator::{syscall_handler, AndroidEmulator};
 use log::error;
 use syscall_handler::register_syscall_handler;
@@ -30,21 +31,42 @@ impl<T: Clone> AndroidEmulator<'_, T> {
         proc_name: &str,
         data: T,
     ) -> AndroidEmulator<'static, T> {
-        let mut context: AndroidEmulator<'static, T> =
-            AndroidEmulator::new(pid, ppid, proc_name.to_string(), data)
-                .map_err(|e| error!("failed to init emu: {}", e))
-                .unwrap();
+        Self::create_arm64_with_backend(pid, ppid, proc_name, data, BackendKind::Auto)
+            .map_err(|e| error!("failed to init emu: {}", e))
+            .unwrap()
+    }
 
-        context.set_errno(0).expect("failed to set errno");
+    pub fn create_arm64_with_backend(
+        pid: u32,
+        ppid: u32,
+        proc_name: &str,
+        data: T,
+        backend_kind: BackendKind,
+    ) -> anyhow::Result<AndroidEmulator<'static, T>> {
+        let mut context: AndroidEmulator<'static, T> = match AndroidEmulator::new_with_backend(
+            pid,
+            ppid,
+            proc_name.to_string(),
+            data,
+            backend_kind,
+        ) {
+            Ok(context) => context,
+            Err(err) => {
+                error!("failed to init emu: {}", err);
+                return Err(err);
+            }
+        };
+
+        context.set_errno(0)?;
 
         register_syscall_handler(&context);
 
-        context
-            .setup_traps()
-            .map_err(|e| error!("failed to setup traps: {}", e))
-            .unwrap();
+        context.setup_traps().map_err(|e| {
+            error!("failed to setup traps: {}", e);
+            e
+        })?;
 
-        context
+        Ok(context)
     }
 }
 

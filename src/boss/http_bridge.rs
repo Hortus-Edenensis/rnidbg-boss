@@ -7,14 +7,20 @@ use base64::Engine;
 use serde_json::{json, Value};
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 
-use crate::boss_yzwg::BossYzwgLab;
+use super::BossYzwgLab;
 
-pub fn serve(config_path: PathBuf, port: u16) -> Result<()> {
-    let mut lab = BossYzwgLab::load(&config_path)?;
+pub fn serve(config_path: PathBuf, port: u16, backend_override: Option<&str>) -> Result<()> {
+    let mut lab = BossYzwgLab::load_with_backend(&config_path, backend_override)?;
     let server = Server::http(("0.0.0.0", port))
         .map_err(|err| anyhow!("failed to bind http bridge on :{port}: {err}"))?;
+    let active_backend = lab.active_backend().to_string();
 
     println!("[rnidbg-http-bridge] config={}", config_path.display());
+    println!(
+        "[rnidbg-http-bridge] requested_backend={} active_backend={}",
+        lab.config().backend,
+        active_backend
+    );
     println!("[rnidbg-http-bridge] listening on http://0.0.0.0:{port}");
     println!("[rnidbg-http-bridge] endpoints:");
     println!("  GET  /health");
@@ -30,6 +36,9 @@ pub fn serve(config_path: PathBuf, port: u16) -> Result<()> {
                 json!({
                     "status": "ok",
                     "timestamp": chrono::Utc::now().timestamp_millis(),
+                    "backend": active_backend,
+                    "requested_backend": lab.config().backend,
+                    "config_path": config_path.display().to_string(),
                 }),
             ),
             (&Method::Post, "/api/encode") => match read_json(&mut request).and_then(|body| {
