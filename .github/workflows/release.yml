@@ -56,6 +56,34 @@ jobs:
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "image=${image}" >> "${GITHUB_OUTPUT}"
 
+      - name: Ensure draft release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        shell: bash
+        run: |
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Reusing existing release ${TAG}"
+            exit 0
+          fi
+
+          args=(
+            release create "${TAG}"
+            --verify-tag
+            --draft
+            --generate-notes
+            --title "rnidbg ${TAG}"
+          )
+
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            args+=(--prerelease --latest=false)
+          else
+            args+=(--latest)
+          fi
+
+          gh "${args[@]}"
+
   binaries:
     name: ${{ matrix.name }}
     needs: prepare
@@ -91,12 +119,6 @@ jobs:
           - name: windows-x86_64-unicorn
             runner: windows-2025
             target: x86_64-pc-windows-msvc
-            backend: unicorn
-            feature_args: --no-default-features --features unicorn
-            archive_ext: zip
-          - name: windows-aarch64-unicorn
-            runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
             backend: unicorn
             feature_args: --no-default-features --features unicorn
             archive_ext: zip
@@ -161,12 +183,11 @@ jobs:
           Copy-Item README.md, LICENSE $archiveDir
           Compress-Archive -Path "$archiveDir/*" -DestinationPath (Join-Path $distDir "${archiveRoot}.${{ matrix.archive_ext }}") -Force
 
-      - name: Upload packaged artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.name }}
-          path: dist/*.${{ matrix.archive_ext }}
-          if-no-files-found: error
+      - name: Upload packaged release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${{ needs.prepare.outputs.tag }}" dist/*.${{ matrix.archive_ext }} --clobber
 
   docker:
     name: Docker package
@@ -219,12 +240,17 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Download packaged artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: release-*
-          merge-multiple: true
-          path: dist
+      - name: Download packaged release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mkdir -p dist
+          gh release download "${{ needs.prepare.outputs.tag }}" \
+            --clobber \
+            --dir dist \
+            --pattern "${APP_NAME}-${{ needs.prepare.outputs.tag }}-*.tar.gz" \
+            --pattern "${APP_NAME}-${{ needs.prepare.outputs.tag }}-*.zip"
 
       - name: Generate checksums
         shell: bash
@@ -232,12 +258,29 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          name: rnidbg ${{ needs.prepare.outputs.tag }}
-          generate_release_notes: true
-          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
-          files: |
-            dist/*
+      - name: Upload checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${{ needs.prepare.outputs.tag }}" dist/SHA256SUMS --clobber
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          args=(
+            release edit "${TAG}"
+            --draft=false
+            --title "rnidbg ${TAG}"
+          )
+
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            args+=(--prerelease)
+          else
+            args+=(--latest)
+          fi
+
+          gh "${args[@]}"
