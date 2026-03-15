@@ -1,3 +1,11 @@
+#![allow(
+    dead_code,
+    deprecated,
+    unused_imports,
+    unused_mut,
+    unused_variables
+)]
+
 use std::collections::HashMap;
 use std::ffi::{c_char, CStr, CString};
 use std::ops::Deref;

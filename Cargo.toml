@@ -50,3 +50,5 @@ overflow-checks = false
 
 [profile.dev]
 
+[patch.crates-io]
+keystone-engine = { path = "vendor/keystone-engine-0.1.0" }

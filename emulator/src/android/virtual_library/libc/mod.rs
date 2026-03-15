@@ -1,35 +1,46 @@
-//__system_property_get
-//__system_property_find
-//__system_property_read
-
+use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use log::info;
-use crate::emulator::{AndroidEmulator, VMPointer};
-use crate::memory::svc_memory::{HookListener, SvcMemory};
+use crate::emulator::AndroidEmulator;
+use crate::memory::svc_memory::HookListener;
 
 pub(super) mod system_properties;
 mod memory;
 mod string;
 
+pub type SystemPropertyService = Rc<Box<dyn Fn(&str) -> Option<String>>>;
+type SharedSystemPropertyService = Rc<RefCell<Option<SystemPropertyService>>>;
+
+#[derive(Clone)]
 pub struct Libc<'a, T> {
-    system_property_service: Option<Rc<Box<dyn Fn(&str) -> Option<String>>>>,
-
-
-
+    system_property_service: SharedSystemPropertyService,
     pd: PhantomData<&'a T>,
 }
 
 impl<T: Clone> Libc<'_, T> {
     pub fn new<'a>() -> Libc<'a, T> {
         Libc {
-            system_property_service: None,
+            system_property_service: Rc::new(RefCell::new(None)),
             pd: PhantomData
         }
     }
 
-    pub fn set_system_property_service(&mut self, service: Rc<Box<dyn Fn(&str) -> Option<String>>>) {
-        self.system_property_service = Some(service);
+    pub fn set_system_property_service(&self, service: SystemPropertyService) {
+        self.system_property_service.replace(Some(service));
+    }
+
+    pub fn clear_system_property_service(&self) {
+        self.system_property_service.replace(None);
+    }
+
+    pub(crate) fn system_property_service(&self) -> Option<SystemPropertyService> {
+        self.system_property_service.borrow().clone()
+    }
+
+    pub(crate) fn lookup_system_property(&self, name: &str) -> Option<String> {
+        self.system_property_service()
+            .and_then(|service| service(name))
     }
 }
 
@@ -42,10 +53,11 @@ impl<'a, T: Clone> HookListener<'a, T> for Libc<'a, T> {
             info!("[libc.so] link {}, old=0x{:X}", symbol_name, old)
         }
         let svc = &mut emu.inner_mut().svc_memory;
+        let service = self.system_property_service();
         let entry = match symbol_name.as_str() {
-            "__system_property_get" => svc.register_svc(Box::new(system_properties::SystemPropertyGet::new(self.system_property_service.clone()))),
-            "__system_property_find" => svc.register_svc(Box::new(system_properties::SystemPropertyFind::new(self.system_property_service.clone()))),
-            "__system_property_read" => svc.register_svc(Box::new(system_properties::SystemPropertyRead::new(self.system_property_service.clone()))),
+            "__system_property_get" => svc.register_svc(Box::new(system_properties::SystemPropertyGet::new(service.clone()))),
+            "__system_property_find" => svc.register_svc(Box::new(system_properties::SystemPropertyFind::new(service))),
+            "__system_property_read" => svc.register_svc(Box::new(system_properties::SystemPropertyRead::new())),
             "strcmp" => svc.register_svc(Box::new(string::StrCmp)),
             "strncmp" => svc.register_svc(Box::new(string::StrNCmp)),
             "strcasecmp" => svc.register_svc(Box::new(string::StrCaseCmp)),
@@ -55,5 +67,26 @@ impl<'a, T: Clone> HookListener<'a, T> for Libc<'a, T> {
 
 
         entry
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+    use super::{Libc, SystemPropertyService};
+
+    #[test]
+    fn cloned_libc_shares_property_service_state() {
+        let libc = Libc::<()>::new();
+        let cloned = libc.clone();
+        let service: SystemPropertyService = Rc::new(Box::new(|name| {
+            (name == "ro.test.key").then(|| "value".to_string())
+        }));
+
+        libc.set_system_property_service(service);
+        assert_eq!(cloned.lookup_system_property("ro.test.key"), Some("value".to_string()));
+
+        libc.clear_system_property_service();
+        assert_eq!(cloned.lookup_system_property("ro.test.key"), None);
     }
 }

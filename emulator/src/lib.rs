@@ -1,3 +1,21 @@
+#![allow(
+    dead_code,
+    deprecated,
+    hidden_glob_reexports,
+    irrefutable_let_patterns,
+    non_camel_case_types,
+    private_interfaces,
+    semicolon_in_expressions_from_macros,
+    unreachable_code,
+    unreachable_patterns,
+    unused_assignments,
+    unused_comparisons,
+    unused_imports,
+    unused_mut,
+    unused_unsafe,
+    unused_variables
+)]
+
 pub mod android;
 pub mod emulator;
 pub mod keystone;

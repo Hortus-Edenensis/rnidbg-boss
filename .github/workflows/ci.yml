@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  cargo:
+    name: Cargo (${{ matrix.backend }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: dynarmic
+            command: cargo test --locked
+          - backend: unicorn
+            command: cargo test --locked --no-default-features --features unicorn
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85.1
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux dependencies
+        run: bash scripts/install-linux-build-deps.sh
+
+      - name: Refresh lockfile state
+        run: cargo generate-lockfile
+
+      - name: Run tests
+        run: ${{ matrix.command }}
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build validation image
+        run: docker build --pull -t rnidbg:ci .

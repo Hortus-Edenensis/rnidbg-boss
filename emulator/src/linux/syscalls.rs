@@ -46,13 +46,13 @@ macro_rules! throw_err {
 }
 macro_rules! ret_u64 {
     ($backend:ident, $X0:expr) => {
-        $backend.reg_write(RegisterARM64::X0, $X0).expect("failed to write x0");
+        $backend.reg_write(RegisterARM64::X0, $X0).expect("failed to write x0")
     };
 }
 
 macro_rules! ret_i32 {
     ($backend:ident, $X0:expr) => {
-        $backend.reg_write_i64(RegisterARM64::X0, ($X0 as i64)).expect("failed to write x0");
+        $backend.reg_write_i64(RegisterARM64::X0, ($X0 as i64)).expect("failed to write x0")
     };
 }
 
@@ -1304,7 +1304,7 @@ pub fn syscall_nr3264_fcntl<T: Clone>(backend: &Backend<T>, emulator: &AndroidEm
 #[inline]
 fn open<T: Clone>(emulator: &AndroidEmulator<T>, path: &str, flags: OFlag, mode: i32, from_module: &str) -> (i32, i32) {
     if path == "/dev/__properties__" {
-        let errno: i32 = Errno::EPERM.into();
+        let errno: i32 = Errno::ENOENT.into();
         return (-errno, errno);
     }
 
