@@ -1899,18 +1899,30 @@ pub(crate) fn now_ms() -> u64 {
 }
 
 pub(crate) fn truncate_for_sig(value: &str, max_len: usize) -> String {
-    if value.len() <= max_len {
-        value.to_string()
-    } else {
-        value[..max_len].to_string()
-    }
+    safe_truncate(value, max_len)
 }
 
 fn truncate(value: &str, max_len: usize) -> String {
+    safe_truncate(value, max_len)
+}
+
+fn safe_truncate(value: &str, max_len: usize) -> String {
     if value.len() <= max_len {
-        value.to_string()
+        return value.to_string();
+    }
+    if value.is_char_boundary(max_len) {
+        return value[..max_len].to_string();
+    }
+    let end = value
+        .char_indices()
+        .map(|(index, _)| index)
+        .take_while(|index| *index < max_len)
+        .last()
+        .unwrap_or(0);
+    if end == 0 {
+        String::new()
     } else {
-        value[..max_len].to_string()
+        value[..end].to_string()
     }
 }
 
@@ -1982,6 +1994,14 @@ mod tests {
             fp_tinker_id: "tinker".to_string(),
             ..SessionConfig::default()
         }
+    }
+
+    #[test]
+    fn safe_truncate_respects_utf8_boundaries() {
+        assert_eq!(safe_truncate("abcdef", 3), "abc");
+        assert_eq!(safe_truncate("你好world", 1), "");
+        assert_eq!(safe_truncate("你好world", 4), "你");
+        assert_eq!(safe_truncate("你好world", 6), "你好");
     }
 
     #[test]
