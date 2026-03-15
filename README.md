@@ -10,10 +10,12 @@ An ARM64 emulator written in Rust, based on the secondary development of unidbg.
 ## Release Automation
 
 - Pull requests and pushes to `main` run GitHub Actions validation for both the default `dynarmic` backend and the `unicorn` backend, plus a full Docker image build.
+- The Docker CI job builds the `unicorn-check` target for containerized test coverage and then builds the `final` target to verify the publishable image layout.
 - Pushing a `v*` tag publishes a multi-architecture GHCR image and uploads release archives for the supported operating system and architecture matrix.
 - Recommended tag format is `vYY.MM.DD` for stable releases, with `-alpha.N` or `-beta.N` suffixes for prereleases, for example `v26.03.14-beta.1`.
 - Prerelease tags publish versioned artifacts and packages without moving the `latest` image tag.
 - Release assets are uploaded directly to GitHub Releases instead of using Actions artifacts, so publishing is not blocked by artifact storage quota limits.
+- Release Docker publishing exports only the `final` target, so it does not rerun the full Rust test suite inside the multi-architecture image build.
 - Release archives are produced on native runners:
   - Linux `x86_64` and `aarch64` use the default `dynarmic` backend.
   - macOS `x86_64` and `aarch64`, plus Windows `x86_64`, use the `unicorn` backend for broader portability.

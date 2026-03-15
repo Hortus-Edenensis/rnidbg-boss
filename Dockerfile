@@ -23,6 +23,10 @@ FROM dynarmic-check AS unicorn-check
 # Verify the Unicorn backend in the same container environment.
 RUN cargo test --no-default-features --features unicorn
 
-FROM unicorn-check AS final
+FROM base AS final
+
+# The release image should not rerun the validation stages. CI builds the
+# `unicorn-check` target explicitly, while release publishing only exports this
+# final image.
 
 CMD ["bash"]
