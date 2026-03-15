@@ -12,6 +12,7 @@ fi
   build-essential \
   clang \
   cmake \
+  curl \
   git \
   libboost-all-dev \
   libfmt-dev \
