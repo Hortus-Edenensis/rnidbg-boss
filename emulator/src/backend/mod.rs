@@ -15,6 +15,41 @@ use crate::emulator::AndroidEmulator;
 #[cfg(feature = "dynarmic_backend")]
 use dynarmic::Dynarmic;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BackendKind {
+    Auto,
+    Unicorn,
+    Dynarmic,
+}
+
+impl BackendKind {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "" | "auto" => Some(Self::Auto),
+            "unicorn" | "unicorn2" => Some(Self::Unicorn),
+            "dynarmic" => Some(Self::Dynarmic),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Unicorn => "unicorn",
+            Self::Dynarmic => "dynarmic",
+        }
+    }
+
+    pub fn available_names() -> Vec<&'static str> {
+        let mut names = Vec::new();
+        #[cfg(feature = "unicorn_backend")]
+        names.push("unicorn");
+        #[cfg(feature = "dynarmic_backend")]
+        names.push("dynarmic");
+        names
+    }
+}
+
 #[derive(Clone)]
 pub enum Backend<'a, T: Clone> {
     #[cfg(feature = "unicorn_backend")]
@@ -25,34 +60,85 @@ pub enum Backend<'a, T: Clone> {
 
 impl<'a, T: Clone> Backend<'a, T> {
     pub fn new(data: T) -> Backend<'static, T> {
-        #[cfg(feature = "unicorn_backend")]
-        {
-            let unicorn = Unicorn::new_with_data(Arch::ARM64, Mode::ARM, data)
-                .expect("failed to initialize Unicorn instance"); // createBackend
+        Self::new_with_kind(data, BackendKind::Auto).expect("failed to initialize emulator backend")
+    }
 
-            unicorn
-                .ctl_set_cpu_model(Arm64CpuModel::UC_CPU_ARM64_A72 as i32)
-                .unwrap();
-            unicorn.ctl_tlb_type(TlbType::CPU).unwrap();
-            unicorn.ctl_exits_disable().unwrap();
-            unicorn.ctl_context_mode(ContextMode::CPU).unwrap();
+    pub fn new_with_kind(data: T, kind: BackendKind) -> anyhow::Result<Backend<'static, T>> {
+        match kind {
+            BackendKind::Auto => {
+                #[cfg(feature = "unicorn_backend")]
+                {
+                    return Self::init_unicorn(data);
+                }
 
-            return Backend::Unicorn(unicorn);
+                #[cfg(feature = "dynarmic_backend")]
+                {
+                    return Self::init_dynarmic();
+                }
+
+                Err(anyhow!("no emulator backend compiled in"))
+            }
+            BackendKind::Unicorn => Self::init_unicorn(data),
+            BackendKind::Dynarmic => Self::init_dynarmic(),
         }
+    }
 
-        #[cfg(feature = "dynarmic_backend")]
-        if dynarmic::dynarmic_version() == 20240814 {
-            let dynarmic = Dynarmic::new();
+    pub fn name(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "unicorn_backend")]
+            Backend::Unicorn(_) => "unicorn",
+            #[cfg(feature = "dynarmic_backend")]
+            Backend::Dynarmic(_) => "dynarmic",
+        }
+    }
 
-            return Backend::Dynarmic(dynarmic);
-        } else {
-            panic!(
+    #[cfg(feature = "unicorn_backend")]
+    fn init_unicorn(data: T) -> anyhow::Result<Backend<'static, T>> {
+        let unicorn = Unicorn::new_with_data(Arch::ARM64, Mode::ARM, data)
+            .map_err(|e| anyhow!("failed to initialize Unicorn instance: {:?}", e))?;
+
+        unicorn
+            .ctl_set_cpu_model(Arm64CpuModel::UC_CPU_ARM64_A72 as i32)
+            .map_err(|e| anyhow!("failed to set Unicorn CPU model: {:?}", e))?;
+        unicorn
+            .ctl_tlb_type(TlbType::CPU)
+            .map_err(|e| anyhow!("failed to configure Unicorn TLB type: {:?}", e))?;
+        unicorn
+            .ctl_exits_disable()
+            .map_err(|e| anyhow!("failed to disable Unicorn exits: {:?}", e))?;
+        unicorn
+            .ctl_context_mode(ContextMode::CPU)
+            .map_err(|e| anyhow!("failed to configure Unicorn context mode: {:?}", e))?;
+
+        Ok(Backend::Unicorn(unicorn))
+    }
+
+    #[cfg(not(feature = "unicorn_backend"))]
+    fn init_unicorn(_data: T) -> anyhow::Result<Backend<'static, T>> {
+        Err(anyhow!(
+            "requested backend unicorn is not compiled in; available={:?}",
+            BackendKind::available_names()
+        ))
+    }
+
+    #[cfg(feature = "dynarmic_backend")]
+    fn init_dynarmic() -> anyhow::Result<Backend<'static, T>> {
+        if dynarmic::dynarmic_version() != 20240814 {
+            return Err(anyhow!(
                 "Dynarmic version mismatch: {}",
                 dynarmic::dynarmic_colorful_egg()
-            );
+            ));
         }
 
-        unreachable!("Not supported backend")
+        Ok(Backend::Dynarmic(Dynarmic::new()))
+    }
+
+    #[cfg(not(feature = "dynarmic_backend"))]
+    fn init_dynarmic() -> anyhow::Result<Backend<'static, T>> {
+        Err(anyhow!(
+            "requested backend dynarmic is not compiled in; available={:?}",
+            BackendKind::available_names()
+        ))
     }
 
     #[inline]

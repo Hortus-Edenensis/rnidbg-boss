@@ -18,5 +18,7 @@ fi
   libfmt-dev \
   libzydis-dev \
   ninja-build \
+  openjdk-17-jdk-headless \
   pkg-config \
-  python3
+  python3 \
+  unzip

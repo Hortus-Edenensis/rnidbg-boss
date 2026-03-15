@@ -18,7 +18,7 @@ use emulator::linux::file_system::{FileIO, StMode};
 use emulator::linux::fs::linux_file::LinuxFileIO;
 use emulator::linux::fs::ByteArrayFileIO;
 use emulator::linux::structs::OFlag;
-use emulator::AndroidEmulator;
+use emulator::{AndroidEmulator, BackendKind};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -57,8 +57,31 @@ impl LabConfig {
         config.asset_sign_encrypt_path = normalize(config.asset_sign_encrypt_path);
         config.purecalc_lookup_path = normalize(config.purecalc_lookup_path);
         config.trace_out_dir = normalize(config.trace_out_dir);
+        config.backend = normalize_backend_name(&config.backend)?.to_string();
         Ok(config)
     }
+
+    pub fn with_backend_override(mut self, backend_override: Option<&str>) -> Result<Self> {
+        if let Some(value) = backend_override {
+            self.backend = normalize_backend_name(value)?.to_string();
+        }
+        Ok(self)
+    }
+
+    pub fn backend_kind(&self) -> Result<BackendKind> {
+        BackendKind::parse(&self.backend)
+            .ok_or_else(|| anyhow!("unsupported backend: {}", self.backend))
+    }
+}
+
+pub fn normalize_backend_name(value: &str) -> Result<&'static str> {
+    BackendKind::parse(value)
+        .map(BackendKind::as_str)
+        .ok_or_else(|| anyhow!("unsupported backend: {value}"))
+}
+
+pub fn compiled_backend_names() -> Vec<&'static str> {
+    BackendKind::available_names()
 }
 
 #[derive(Default, Deserialize)]
@@ -151,11 +174,28 @@ pub struct BossYzwgLab {
 
 impl BossYzwgLab {
     pub fn load(config_path: impl AsRef<Path>) -> Result<Self> {
-        let config = LabConfig::load(config_path)?;
+        Self::load_with_backend(config_path, None)
+    }
+
+    pub fn load_with_backend(
+        config_path: impl AsRef<Path>,
+        backend_override: Option<&str>,
+    ) -> Result<Self> {
+        let config = LabConfig::load(config_path)?.with_backend_override(backend_override)?;
+        Self::from_config(config)
+    }
+
+    fn from_config(config: LabConfig) -> Result<Self> {
         validate_config(&config)?;
 
         let shared = Rc::new(RefCell::new(SharedState::new(config.clone())?));
-        let emulator = AndroidEmulator::create_arm64(PID, PPID, &config.package_name, ());
+        let emulator = AndroidEmulator::create_arm64_with_backend(
+            PID,
+            PPID,
+            &config.package_name,
+            (),
+            config.backend_kind()?,
+        )?;
         install_system_properties(&emulator, &config);
         configure_file_system(&emulator, &config);
 
@@ -203,8 +243,11 @@ impl BossYzwgLab {
         shared.borrow_mut().append_native_trace(
             "init",
             &format!(
-                "module_base=0x{:x}, size=0x{:x}, backend={}",
-                module_base, module_size, config.backend
+                "module_base=0x{:x}, size=0x{:x}, requested_backend={}, active_backend={}",
+                module_base,
+                module_size,
+                config.backend,
+                emulator.backend.name()
             ),
         );
 
@@ -233,12 +276,18 @@ impl BossYzwgLab {
         &self.config
     }
 
+    pub fn active_backend(&self) -> &'static str {
+        self.emulator.backend.name()
+    }
+
     pub fn run_smoke(&mut self) -> Result<Value> {
         let signature = self.call_native_signature(b"/api/health-check", "")?;
         Ok(json!({
             "status": "ok",
             "timestamp": iso_now(),
             "package": self.config.package_name,
+            "requested_backend": self.config.backend,
+            "active_backend": self.active_backend(),
             "signature_non_empty": !signature.is_empty(),
             "signature_preview": truncate(&signature, 40),
             "module_base": format!("0x{:x}", self.module_base),

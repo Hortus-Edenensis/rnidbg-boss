@@ -26,4 +26,5 @@ pub mod memory;
 pub mod pointer;
 pub(crate) mod tool;
 
+pub use backend::BackendKind;
 pub use emulator::AndroidEmulator;

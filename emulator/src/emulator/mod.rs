@@ -13,7 +13,7 @@ use crate::android::dvm::DalvikVM64;
 use crate::android::virtual_library::ld64::ArmLD64;
 use crate::android::virtual_library::libc::{Libc, SystemPropertyService};
 use crate::backend::Context;
-use crate::backend::{Backend, Permission, RegisterARM64};
+use crate::backend::{Backend, BackendKind, Permission, RegisterARM64};
 use crate::emulator::consts::LR;
 use crate::emulator::signal::ISignalTask;
 use crate::emulator::thread::{
@@ -94,7 +94,17 @@ impl<'a, T: Clone> AndroidEmulator<'a, T> {
         proc_name: String,
         data: T,
     ) -> anyhow::Result<AndroidEmulator<'static, T>> {
-        let backend = Backend::new(data);
+        Self::new_with_backend(pid, ppid, proc_name, data, BackendKind::Auto)
+    }
+
+    pub fn new_with_backend(
+        pid: u32,
+        ppid: u32,
+        proc_name: String,
+        data: T,
+        backend_kind: BackendKind,
+    ) -> anyhow::Result<AndroidEmulator<'static, T>> {
+        let backend = Backend::new_with_kind(data, backend_kind)?;
         let mut svc = SvcMemory::new(&backend)?; // ARMSvcMemory
         let libc = Libc::new();
 
