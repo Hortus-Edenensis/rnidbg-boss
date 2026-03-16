@@ -8,9 +8,11 @@ pub mod fingerprint;
 pub mod http_bridge;
 pub mod job_detail;
 pub mod private_info;
+pub mod proxy_pool;
 pub mod qr_authorize;
 pub mod qr_codec;
 pub mod qr_login;
+pub mod qr_web;
 pub mod search;
 pub mod yzwg;
 
@@ -84,6 +86,11 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
+        "hot-job-rec" | "recommend-pool" => {
+            let output = contact::run_hot_job_recommend(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
         "fingerprint-randomize" | "device-fp-randomize" => {
             let output = fingerprint::run_fingerprint_randomize(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
@@ -91,6 +98,11 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
         }
         "search" => {
             let output = search::run_search(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "recommend" | "recommend-jobs" => {
+            let output = search::run_recommend(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
@@ -105,6 +117,7 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
+        "qr-web" | "qr-login-web" => return qr_web::run_qr_web(&opts),
         "qr-consume" => {
             let output = qr_login::run_qr_consume(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
@@ -163,6 +176,7 @@ pub fn print_usage() {
     eprintln!(
         "  job-detail <securityId> [--host <host>] [--lid <id>] [--need-related-job true] [--page <n>] [--request-source <n>] [--source-type <n>] [--way-type <n>] [--keyword <text>] [--query <text>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
+    eprintln!("           built-in token bucket: 120 reqs/min (job-detail only)");
     eprintln!(
         "  friends|contacts [--limit <n>] [--host <contact-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
@@ -191,10 +205,16 @@ pub fn print_usage() {
         "  interaction [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
+        "  hot-job-rec|recommend-pool [--page <n>] [--tag <n>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
         "  fingerprint-randomize|device-fp-randomize [--session-path <path>] [--brand <name>] [--model-name <name>] [--network <wifi|2G|3G|4G|5G>] [--operator-name <CMCC|CHN-CT|CHN-UNICOM|CHN-CR>] [--huawei true]"
     );
     eprintln!(
         "  search <keyword> [--city <code>] [--page <n>] [--page-size <n>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  recommend|recommend-jobs [--city <code>] [--page <n>] [--page-size <n>] [--sort-type <n>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
         "  qr-serve    [--host <addr>] [--port <port>] [--qr-mode <web|change-device>] [--edit-type <type>] [--action-id <id>] [--extra-info <text>]"
@@ -204,8 +224,12 @@ pub fn print_usage() {
         "  qr-authorize|qr-login-real <image-path> [--second-image <path>|--second-qr <qrId>] [--host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--edit-type <type>] [--action-id <id>] [--extra-info <text>] [--login-type <1|2>] [--sleep-before-login-ms <n>] [--loc-per true] [--latitude <v>] [--longitude <v>] [--ssid <name>] [--bssid <mac>] [--out <path>]"
     );
     eprintln!(
+        "  qr-web|qr-login-web [--bind-host <addr>] [--port <port>] [--public-origin <url>] [--state-dir <path>] [--api-host <host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--edit-type <type>] [--action-id <id>] [--extra-info <text>] [--login-type <1|2>] [--sleep-before-login-ms <n>] [--loc-per true] [--latitude <v>] [--longitude <v>] [--ssid <name>] [--bssid <mac>]"
+    );
+    eprintln!(
         "  qr-consume  --producer-id <id> [--base-url <url>] [--login-type <1|2>] [--session-path <path>]"
     );
+    eprintln!("  shared proxy flags: [--socks5-proxy <host:port:user:pass>] [--socks5-proxy-pool-file <path>]");
 }
 
 pub fn default_config_path() -> String {

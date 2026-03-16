@@ -13,3 +13,6 @@ Cargo.lock
 config/lab-config.json
 config/lab-config.dynarmic.json
 config/*.local.json
+
+# Ignore local TLS material for LAN HTTPS helpers
+.local/

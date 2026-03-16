@@ -78,6 +78,30 @@ Default base URL:
 
 - `http://127.0.0.1:28080`
 
+## QR Web Authorization
+
+Start the dedicated QR web container:
+
+```bash
+./bin/start-qr-web.sh
+```
+
+Default host endpoints:
+
+- `http://127.0.0.1:28786/`
+- `http://127.0.0.1:28786/health`
+- `http://127.0.0.1:28786/api/state/latest`
+
+The service runs `boss-yzwg qr-web` inside its own long-lived container and persists:
+
+- uploaded QR images
+- the latest decode result
+- the latest authorize result
+
+Those artifacts live in the named Docker volume mounted at:
+
+- `/workspace/lab-data/qr-web`
+
 ## Config
 
 The tracked default config is:
@@ -95,9 +119,13 @@ export RNIDBG_LAB_CONFIG=/workspace/rnidbg/config/your-target.json
 Replay and trace artifacts are written under the mounted asset workspace, for example:
 
 - `/workspace/lab-assets/artifacts/bosszhipin-reverse-project/rnidbg-trace`
+- QR web persisted state is written under `/workspace/lab-data/qr-web`
 
 ## Troubleshooting
 
 - If the bridge port conflicts, set `RNIDBG_HTTP_PORT` before starting the bridge.
+- If the QR web port conflicts, set `RNIDBG_QR_WEB_HOST_PORT` before running `./bin/start-qr-web.sh`.
+- If the QR web service should use a specific mounted session file, set `RNIDBG_QR_WEB_SESSION_PATH`.
+- If you want the page to show the externally reachable LAN URL instead of the container-local origin, set `RNIDBG_QR_WEB_PUBLIC_ORIGIN`.
 - If assets are missing, verify `RNIDBG_ASSETS_ROOT` and the mounted file layout.
 - If you need a different container repo path, override `RNIDBG_CONTAINER_REPO_ROOT`.

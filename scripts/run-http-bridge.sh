@@ -35,8 +35,6 @@ PY
 )"
 fi
 
-if [[ "${BACKEND}" == "unicorn" || "${BACKEND}" == "unicorn2" ]]; then
-  exec cargo run --no-default-features --features unicorn -- http-bridge "$@"
-fi
+RNIDBG_BIN="$("${SCRIPT_DIR}/ensure-rnidbg-bin.sh" "${BACKEND}")"
 
-exec cargo run -- http-bridge "$@"
+exec "${RNIDBG_BIN}" http-bridge "$@"
