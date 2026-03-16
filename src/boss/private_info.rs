@@ -11,6 +11,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Url, Version};
 use serde_json::{json, Value};
 
+use super::proxy_pool::{build_reqwest_client, resolve_socks5_proxy_for_opts, SelectedSocks5Proxy};
 use super::qr_login::{build_stage_inbound_headers, load_session, DeviceConfig, SessionConfig};
 use super::yzwg::{compiled_backend_names, LabConfig};
 
@@ -199,14 +200,13 @@ pub fn run_private_info(opts: &HashMap<String, String>) -> Result<Value> {
     let transport_runtime =
         TransportRuntime::parse(opts.get("--transport-runtime").map(String::as_str))?;
     let http1_only = parse_bool_flag(opts, "--http1-only");
-    let mut client_builder =
-        Client::builder().timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECONDS));
-    if http1_only {
-        client_builder = client_builder.http1_only();
-    }
-    let client = client_builder
-        .build()
-        .context("failed to build private-info client")?;
+    let direct_proxy = resolve_socks5_proxy_for_opts(opts)?;
+    let client = build_reqwest_client(
+        Duration::from_secs(DEFAULT_TIMEOUT_SECONDS),
+        http1_only,
+        direct_proxy.as_ref(),
+    )?;
+    let direct_transport = DirectRequestTransport::new(client, direct_proxy);
     let okhttp_bridge = OkHttpBridgeTransport::discover(transport_runtime, &lab_config, opts)?;
     let okhttp_bridge_meta = okhttp_bridge
         .as_ref()
@@ -234,7 +234,7 @@ pub fn run_private_info(opts: &HashMap<String, String>) -> Result<Value> {
         if !force_so && transport_runtime.allows_direct() && session_only_supported(endpoint) {
             for host in &hosts {
                 let attempt = match request_private_info(
-                    RequestTransport::Direct(&client),
+                    RequestTransport::Direct(&direct_transport),
                     RequestMode::SessionOnly,
                     host,
                     endpoint,
@@ -249,7 +249,7 @@ pub fn run_private_info(opts: &HashMap<String, String>) -> Result<Value> {
                         RequestMode::SessionOnly,
                         host,
                         endpoint,
-                        Some(RequestTransport::Direct(&client).label()),
+                        Some(RequestTransport::Direct(&direct_transport).label()),
                         None,
                         &format!("{err:#}"),
                     ),
@@ -318,7 +318,7 @@ pub fn run_private_info(opts: &HashMap<String, String>) -> Result<Value> {
                         "secret"
                     };
                     let attempt = match request_private_info(
-                        RequestTransport::Direct(&client),
+                        RequestTransport::Direct(&direct_transport),
                         RequestMode::RnIdbgSo,
                         host,
                         endpoint,
@@ -333,7 +333,7 @@ pub fn run_private_info(opts: &HashMap<String, String>) -> Result<Value> {
                             RequestMode::RnIdbgSo,
                             host,
                             endpoint,
-                            Some(RequestTransport::Direct(&client).label()),
+                            Some(RequestTransport::Direct(&direct_transport).label()),
                             Some(key_mode),
                             &format!("{err:#}"),
                         ),
@@ -559,7 +559,7 @@ impl TransportRuntime {
 
 #[derive(Clone, Copy)]
 enum RequestTransport<'a> {
-    Direct(&'a Client),
+    Direct(&'a DirectRequestTransport),
     OkHttpBridge(&'a OkHttpBridgeTransport),
 }
 
@@ -569,6 +569,24 @@ impl<'a> RequestTransport<'a> {
             Self::Direct(_) => "direct",
             Self::OkHttpBridge(_) => "okhttp_bridge",
         }
+    }
+}
+
+struct DirectRequestTransport {
+    client: Client,
+    proxy: Option<SelectedSocks5Proxy>,
+}
+
+impl DirectRequestTransport {
+    fn new(client: Client, proxy: Option<SelectedSocks5Proxy>) -> Self {
+        Self { client, proxy }
+    }
+
+    fn proxy_description(&self) -> Value {
+        self.proxy
+            .as_ref()
+            .map(SelectedSocks5Proxy::describe)
+            .unwrap_or(Value::Null)
     }
 }
 
@@ -772,7 +790,7 @@ impl OkHttpBridgeTransport {
                     )?)))
                 } else {
                     Ok(Some(Self::BossApk(BossApkOkHttpTransport::new(
-                        lab_config,
+                        lab_config, opts,
                     )?)))
                 }
             }
@@ -913,10 +931,11 @@ impl RemoteOkHttpBridgeTransport {
 struct BossApkOkHttpTransport {
     apk_path: PathBuf,
     script_path: PathBuf,
+    proxy: Option<SelectedSocks5Proxy>,
 }
 
 impl BossApkOkHttpTransport {
-    fn new(lab_config: &LabConfig) -> Result<Self> {
+    fn new(lab_config: &LabConfig, opts: &HashMap<String, String>) -> Result<Self> {
         let script_path = resolve_repo_root().join("scripts/run-boss-apk-okhttp.sh");
         if !script_path.is_file() {
             return Err(anyhow!(
@@ -933,6 +952,7 @@ impl BossApkOkHttpTransport {
         Ok(Self {
             apk_path: lab_config.apk_path.clone(),
             script_path,
+            proxy: resolve_socks5_proxy_for_opts(opts)?,
         })
     }
 
@@ -942,6 +962,7 @@ impl BossApkOkHttpTransport {
             "transport_runtime": "okhttp_bridge",
             "flow": "boss_apk_okhttp",
             "apk_path": self.apk_path.display().to_string(),
+            "proxy": self.proxy.as_ref().map(SelectedSocks5Proxy::describe).unwrap_or(Value::Null),
         })
     }
 
@@ -962,6 +983,9 @@ impl BossApkOkHttpTransport {
             .arg(url);
         for (key, value) in headers {
             command.arg("--header").arg(format!("{key}: {value}"));
+        }
+        if let Some(proxy) = &self.proxy {
+            proxy.append_java_cli_args(&mut command);
         }
 
         let output = run_command_with_timeout(
@@ -1192,7 +1216,7 @@ fn execute_request(
     let RequestTransport::Direct(client) = transport else {
         unreachable!()
     };
-    let mut request = client.get(url);
+    let mut request = client.client.get(url);
     request = request.headers(to_header_map(headers)?);
     let response = request.send();
     match response {
@@ -1207,6 +1231,7 @@ fn execute_request(
                 "http_version": http_version,
                 "final_url": final_url,
                 "response_headers": response_headers,
+                "proxy": client.proxy_description(),
             });
             if let Some(value) = parse_response_body(&text, so_invoker, session_secret_key)? {
                 return Ok(attach_transport(value, transport));
@@ -1967,15 +1992,7 @@ fn build_host_candidates(preferred_host: Option<&str>) -> Vec<String> {
             return vec![normalized];
         }
     }
-
-    let mut hosts = Vec::new();
-    for candidate in [DEFAULT_HOST, ALT_HOST] {
-        let candidate = candidate.to_string();
-        if !hosts.contains(&candidate) {
-            hosts.push(candidate);
-        }
-    }
-    hosts
+    vec![DEFAULT_HOST.to_string()]
 }
 
 fn normalize_host(host: &str) -> String {

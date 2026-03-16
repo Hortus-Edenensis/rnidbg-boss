@@ -3,6 +3,8 @@ package rnidbg.boss.okhttp;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -31,12 +33,34 @@ public final class BossApkOkHttpCli {
     }
 
     private static Envelope execute(RequestSpec spec) throws Exception {
-        f0 client = new f0.b()
+        f0.b clientBuilder = new f0.b()
                 .f(15, TimeUnit.SECONDS)
                 .t(20, TimeUnit.SECONDS)
                 .w(20, TimeUnit.SECONDS)
-                .r(Collections.singletonList(Protocol.HTTP_1_1))
-                .d();
+                .r(Collections.singletonList(Protocol.HTTP_1_1));
+        if (spec.socks5Host != null && !spec.socks5Host.isEmpty() && spec.socks5Port > 0) {
+            System.setProperty("socksProxyHost", spec.socks5Host);
+            System.setProperty("socksProxyPort", Integer.toString(spec.socks5Port));
+            if (spec.socks5Username != null && !spec.socks5Username.isEmpty()) {
+                final String proxyUser = spec.socks5Username;
+                final char[] proxyPassword =
+                        spec.socks5Password != null ? spec.socks5Password.toCharArray() : new char[0];
+                System.setProperty("java.net.socks.username", proxyUser);
+                System.setProperty(
+                        "java.net.socks.password",
+                        spec.socks5Password != null ? spec.socks5Password : "");
+                Authenticator.setDefault(new Authenticator() {
+                    @Override
+                    protected PasswordAuthentication getPasswordAuthentication() {
+                        if (getRequestorType() == RequestorType.PROXY) {
+                            return new PasswordAuthentication(proxyUser, proxyPassword);
+                        }
+                        return null;
+                    }
+                });
+            }
+        }
+        f0 client = clientBuilder.d();
         h0.a builder = new h0.a().url(spec.url);
         for (Header header : spec.headers) {
             builder.addHeader(header.name, header.value);
@@ -79,13 +103,30 @@ public final class BossApkOkHttpCli {
         final List<Header> headers;
         final String bodyBase64;
         final String contentType;
+        final String socks5Host;
+        final int socks5Port;
+        final String socks5Username;
+        final String socks5Password;
 
-        RequestSpec(String method, String url, List<Header> headers, String bodyBase64, String contentType) {
+        RequestSpec(
+                String method,
+                String url,
+                List<Header> headers,
+                String bodyBase64,
+                String contentType,
+                String socks5Host,
+                int socks5Port,
+                String socks5Username,
+                String socks5Password) {
             this.method = method;
             this.url = url;
             this.headers = headers;
             this.bodyBase64 = bodyBase64;
             this.contentType = contentType;
+            this.socks5Host = socks5Host;
+            this.socks5Port = socks5Port;
+            this.socks5Username = socks5Username;
+            this.socks5Password = socks5Password;
         }
 
         static RequestSpec parse(String[] args) {
@@ -93,6 +134,10 @@ public final class BossApkOkHttpCli {
             String url = null;
             String bodyBase64 = null;
             String contentType = null;
+            String socks5Host = null;
+            int socks5Port = 0;
+            String socks5Username = null;
+            String socks5Password = null;
             List<Header> headers = new ArrayList<>();
 
             for (int i = 0; i < args.length; i++) {
@@ -107,6 +152,14 @@ public final class BossApkOkHttpCli {
                     bodyBase64 = args[++i];
                 } else if ("--content-type".equals(current) && i + 1 < args.length) {
                     contentType = args[++i];
+                } else if ("--socks5-host".equals(current) && i + 1 < args.length) {
+                    socks5Host = args[++i];
+                } else if ("--socks5-port".equals(current) && i + 1 < args.length) {
+                    socks5Port = Integer.parseInt(args[++i]);
+                } else if ("--socks5-username".equals(current) && i + 1 < args.length) {
+                    socks5Username = args[++i];
+                } else if ("--socks5-password".equals(current) && i + 1 < args.length) {
+                    socks5Password = args[++i];
                 } else {
                     throw new IllegalArgumentException("unsupported argument: " + current);
                 }
@@ -115,7 +168,16 @@ public final class BossApkOkHttpCli {
             if (url == null || url.isEmpty()) {
                 throw new IllegalArgumentException("missing --url");
             }
-            return new RequestSpec(method, url, headers, bodyBase64, contentType);
+            return new RequestSpec(
+                    method,
+                    url,
+                    headers,
+                    bodyBase64,
+                    contentType,
+                    socks5Host,
+                    socks5Port,
+                    socks5Username,
+                    socks5Password);
         }
     }
 
