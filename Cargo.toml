@@ -39,6 +39,7 @@ lz4_flex = "0.11.3"
 prost = "0.13.1"
 image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png"] }
 quircs = "0.10.3"
+rnidbg-boss-gt3 = { path = "modules/gt3-geetest" }
 
 [build-dependencies]
 prost-build = "0.13.1"
