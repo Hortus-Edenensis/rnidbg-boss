@@ -42,7 +42,7 @@ quircs = "0.10.3"
 rnidbg-boss-gt3 = { path = "modules/gt3-geetest" }
 
 [build-dependencies]
-prost-build = "0.13.1"
+prost-build = "0.14.3"
 walkdir = "2.3"
 rustls = { version = "0.23.12", default-features = false, features = ["std", "tls12", "ring"] }
 # forbidden to use the default features: OpenSSL
