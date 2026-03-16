@@ -11,6 +11,10 @@ CONTENT_TYPE=""
 BODY_BASE64=""
 OUT_DIR=""
 HEADERS=()
+SOCKS5_HOST=""
+SOCKS5_PORT=""
+SOCKS5_USERNAME=""
+SOCKS5_PASSWORD=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +46,22 @@ while [[ $# -gt 0 ]]; do
       HEADERS+=("$2")
       shift 2
       ;;
+    --socks5-host)
+      SOCKS5_HOST="$2"
+      shift 2
+      ;;
+    --socks5-port)
+      SOCKS5_PORT="$2"
+      shift 2
+      ;;
+    --socks5-username)
+      SOCKS5_USERNAME="$2"
+      shift 2
+      ;;
+    --socks5-password)
+      SOCKS5_PASSWORD="$2"
+      shift 2
+      ;;
     *)
       echo "unsupported argument: $1" >&2
       exit 1
@@ -69,6 +89,19 @@ if ((${#HEADERS[@]})); then
   for header in "${HEADERS[@]}"; do
     CMD+=(--header "$header")
   done
+fi
+
+if [[ -n "$SOCKS5_HOST" ]]; then
+  CMD+=(--socks5-host "$SOCKS5_HOST")
+fi
+if [[ -n "$SOCKS5_PORT" ]]; then
+  CMD+=(--socks5-port "$SOCKS5_PORT")
+fi
+if [[ -n "$SOCKS5_USERNAME" ]]; then
+  CMD+=(--socks5-username "$SOCKS5_USERNAME")
+fi
+if [[ -n "$SOCKS5_PASSWORD" ]]; then
+  CMD+=(--socks5-password "$SOCKS5_PASSWORD")
 fi
 
 exec "${CMD[@]}"

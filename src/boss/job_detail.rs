@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
+use std::fs::{self, OpenOptions};
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::Duration;
@@ -9,8 +11,10 @@ use base64::Engine as _;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Url, Version};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use super::proxy_pool::{build_reqwest_client, resolve_socks5_proxy_for_opts, SelectedSocks5Proxy};
 use super::qr_login::{build_stage_inbound_headers, load_session, DeviceConfig, SessionConfig};
 use super::yzwg::{compiled_backend_names, LabConfig};
 
@@ -35,6 +39,10 @@ const JOB_DETAIL_BATCH_REQUEST_PATH: &str = "/api/batch/requests";
 const JOB_DETAIL_SUBREQ_PATH: &str = "/api/zpgeek/jobapp/geek/job/querydetail";
 const BZP_BODY_MAGIC: &[u8; 8] = b"BZPBlock";
 const BZP_BODY_HEADER_SIZE: usize = 24;
+const JOB_DETAIL_RATE_LIMIT_CAPACITY: f64 = 120.0;
+const JOB_DETAIL_RATE_LIMIT_REFILL_PER_MINUTE: f64 = 120.0;
+const JOB_DETAIL_RATE_LIMIT_REFILL_PER_MS: f64 = JOB_DETAIL_RATE_LIMIT_REFILL_PER_MINUTE / 60_000.0;
+const JOB_DETAIL_RATE_LIMIT_LOCK_RETRY_MS: u64 = 25;
 
 pub fn run_job_detail(opts: &HashMap<String, String>) -> Result<Value> {
     let security_id = required_security_id(opts)?;
@@ -73,6 +81,7 @@ pub fn run_job_detail(opts: &HashMap<String, String>) -> Result<Value> {
         now_ms(),
         &build_traceid(),
     )?;
+    let rate_limit = enforce_job_detail_rate_limit()?;
     let response_raw = execute_post(
         &transport,
         &prepared.url,
@@ -94,6 +103,7 @@ pub fn run_job_detail(opts: &HashMap<String, String>) -> Result<Value> {
         "original_okhttp_available": transport.original_okhttp_available(),
         "native_invoker": signer.describe(),
         "transport": transport.describe(),
+        "rate_limit": rate_limit.describe(),
         "request_contract": prepared.contract,
         "request": {
             "url": prepared.url,
@@ -120,6 +130,419 @@ pub fn run_job_detail(opts: &HashMap<String, String>) -> Result<Value> {
     })?;
 
     Ok(output)
+}
+
+#[derive(Clone, Debug)]
+struct JobDetailRateLimitResult {
+    worker: RateLimitWorkerInfo,
+    total_wait_ms: u64,
+    throttle_wait_ms: u64,
+    lock_wait_ms: u64,
+    throttle_sleep_count: u64,
+    lock_contention_count: u64,
+    state_path: String,
+    lock_path: String,
+    observed_at_ms: u64,
+    tokens_before_consume: f64,
+    tokens_remaining: f64,
+    grant_sequence: u64,
+    previous_consumer: Option<RateLimitConsumerSnapshot>,
+    last_observed_lock_holder: Option<RateLimitLockMetadata>,
+}
+
+impl JobDetailRateLimitResult {
+    fn describe(&self) -> Value {
+        json!({
+            "strategy": "token_bucket",
+            "scope": "job_detail_only",
+            "limit": {
+                "capacity": JOB_DETAIL_RATE_LIMIT_CAPACITY as u64,
+                "refill_per_minute": JOB_DETAIL_RATE_LIMIT_REFILL_PER_MINUTE as u64,
+            },
+            "worker": self.worker.describe(),
+            "wait": {
+                "total_ms": self.total_wait_ms,
+                "throttle_ms": self.throttle_wait_ms,
+                "lock_ms": self.lock_wait_ms,
+                "throttle_sleep_count": self.throttle_sleep_count,
+                "lock_contention_count": self.lock_contention_count,
+            },
+            "bucket": {
+                "observed_at_ms": self.observed_at_ms,
+                "tokens_before_consume": round_token_value(self.tokens_before_consume),
+                "tokens_after_consume": round_token_value(self.tokens_remaining),
+                "grant_sequence": self.grant_sequence,
+            },
+            "state_path": self.state_path,
+            "lock_path": self.lock_path,
+            "previous_consumer": self.previous_consumer.as_ref().map(RateLimitConsumerSnapshot::describe),
+            "last_observed_lock_holder": self
+                .last_observed_lock_holder
+                .as_ref()
+                .map(RateLimitLockMetadata::describe),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct RateLimitWorkerInfo {
+    pid: u32,
+    #[serde(default)]
+    hostname: String,
+    #[serde(default)]
+    executable: String,
+}
+
+impl RateLimitWorkerInfo {
+    fn current() -> Self {
+        let executable = std::env::current_exe()
+            .ok()
+            .and_then(|path| {
+                path.file_name()
+                    .map(|value| value.to_string_lossy().to_string())
+            })
+            .unwrap_or_else(|| "rnidbg".to_string());
+        let hostname = std::env::var("HOSTNAME")
+            .or_else(|_| std::env::var("COMPUTERNAME"))
+            .unwrap_or_else(|_| "unknown".to_string());
+        Self {
+            pid: std::process::id(),
+            hostname,
+            executable,
+        }
+    }
+
+    fn describe(&self) -> Value {
+        json!({
+            "pid": self.pid,
+            "hostname": self.hostname,
+            "executable": self.executable,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct RateLimitConsumerSnapshot {
+    #[serde(default)]
+    pid: u32,
+    #[serde(default)]
+    hostname: String,
+    #[serde(default)]
+    executable: String,
+    #[serde(default)]
+    granted_at_ms: u64,
+    #[serde(default)]
+    tokens_before_consume: f64,
+    #[serde(default)]
+    tokens_after_consume: f64,
+    #[serde(default)]
+    grant_sequence: u64,
+}
+
+impl RateLimitConsumerSnapshot {
+    fn from_worker(
+        worker: &RateLimitWorkerInfo,
+        granted_at_ms: u64,
+        tokens_before_consume: f64,
+        tokens_after_consume: f64,
+        grant_sequence: u64,
+    ) -> Self {
+        Self {
+            pid: worker.pid,
+            hostname: worker.hostname.clone(),
+            executable: worker.executable.clone(),
+            granted_at_ms,
+            tokens_before_consume,
+            tokens_after_consume,
+            grant_sequence,
+        }
+    }
+
+    fn describe(&self) -> Value {
+        json!({
+            "pid": self.pid,
+            "hostname": self.hostname,
+            "executable": self.executable,
+            "granted_at_ms": self.granted_at_ms,
+            "tokens_before_consume": round_token_value(self.tokens_before_consume),
+            "tokens_after_consume": round_token_value(self.tokens_after_consume),
+            "grant_sequence": self.grant_sequence,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct RateLimitLockMetadata {
+    #[serde(default)]
+    pid: u32,
+    #[serde(default)]
+    hostname: String,
+    #[serde(default)]
+    executable: String,
+    #[serde(default)]
+    acquired_at_ms: u64,
+}
+
+impl RateLimitLockMetadata {
+    fn from_worker(worker: &RateLimitWorkerInfo, acquired_at_ms: u64) -> Self {
+        Self {
+            pid: worker.pid,
+            hostname: worker.hostname.clone(),
+            executable: worker.executable.clone(),
+            acquired_at_ms,
+        }
+    }
+
+    fn describe(&self) -> Value {
+        json!({
+            "pid": self.pid,
+            "hostname": self.hostname,
+            "executable": self.executable,
+            "acquired_at_ms": self.acquired_at_ms,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct RateLimitLockAcquireReport {
+    waited_ms: u64,
+    contention_count: u64,
+    observed_holder: Option<RateLimitLockMetadata>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct TokenBucketState {
+    available_tokens: f64,
+    last_refill_ms: u64,
+    #[serde(default)]
+    total_grants: u64,
+    #[serde(default)]
+    last_consumer: Option<RateLimitConsumerSnapshot>,
+}
+
+impl TokenBucketState {
+    fn new_full(now_ms: u64) -> Self {
+        Self {
+            available_tokens: JOB_DETAIL_RATE_LIMIT_CAPACITY,
+            last_refill_ms: now_ms,
+            total_grants: 0,
+            last_consumer: None,
+        }
+    }
+
+    fn refill(&mut self, now_ms: u64) {
+        if now_ms <= self.last_refill_ms {
+            return;
+        }
+        let elapsed_ms = now_ms - self.last_refill_ms;
+        let replenished = elapsed_ms as f64 * JOB_DETAIL_RATE_LIMIT_REFILL_PER_MS;
+        self.available_tokens =
+            (self.available_tokens + replenished).min(JOB_DETAIL_RATE_LIMIT_CAPACITY);
+        self.last_refill_ms = now_ms;
+    }
+
+    fn wait_time_ms_for_next_token(&self) -> u64 {
+        if self.available_tokens >= 1.0 {
+            return 0;
+        }
+        let deficit = 1.0 - self.available_tokens;
+        ((deficit / JOB_DETAIL_RATE_LIMIT_REFILL_PER_MS).ceil() as u64).max(1)
+    }
+}
+
+struct JobDetailRateLimitLock {
+    path: PathBuf,
+    _file: fs::File,
+}
+
+impl JobDetailRateLimitLock {
+    fn acquire(
+        path: &Path,
+        worker: &RateLimitWorkerInfo,
+    ) -> Result<(Self, RateLimitLockAcquireReport)> {
+        let started = std::time::Instant::now();
+        let mut report = RateLimitLockAcquireReport::default();
+        loop {
+            match OpenOptions::new().write(true).create_new(true).open(path) {
+                Ok(mut file) => {
+                    let metadata = RateLimitLockMetadata::from_worker(worker, now_ms());
+                    let bytes = serde_json::to_vec(&metadata)
+                        .context("failed to serialize job-detail lock metadata")?;
+                    file.write_all(&bytes)
+                        .context("failed to persist job-detail lock metadata")?;
+                    file.flush()
+                        .context("failed to flush job-detail lock metadata")?;
+                    report.waited_ms = started.elapsed().as_millis() as u64;
+                    return Ok((
+                        Self {
+                            path: path.to_path_buf(),
+                            _file: file,
+                        },
+                        report,
+                    ));
+                }
+                Err(err) if err.kind() == ErrorKind::AlreadyExists => {
+                    report.contention_count += 1;
+                    if let Ok(holder) = read_lock_metadata(path) {
+                        report.observed_holder = holder;
+                    }
+                    std::thread::sleep(Duration::from_millis(JOB_DETAIL_RATE_LIMIT_LOCK_RETRY_MS));
+                }
+                Err(err) => {
+                    return Err(err).with_context(|| {
+                        format!(
+                            "failed to acquire job-detail rate limit lock: {}",
+                            path.display()
+                        )
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Drop for JobDetailRateLimitLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+fn enforce_job_detail_rate_limit() -> Result<JobDetailRateLimitResult> {
+    let state_path = job_detail_rate_limit_state_path();
+    if let Some(parent) = state_path.parent() {
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "failed to create job-detail rate limit dir: {}",
+                parent.display()
+            )
+        })?;
+    }
+    let lock_path = state_path.with_extension("lock");
+    let worker = RateLimitWorkerInfo::current();
+    let mut throttle_wait_ms = 0_u64;
+    let mut lock_wait_ms = 0_u64;
+    let mut throttle_sleep_count = 0_u64;
+    let mut lock_contention_count = 0_u64;
+    let mut last_observed_lock_holder = None;
+
+    loop {
+        let (_lock, lock_report) = JobDetailRateLimitLock::acquire(&lock_path, &worker)?;
+        lock_wait_ms += lock_report.waited_ms;
+        lock_contention_count += lock_report.contention_count;
+        if lock_report.observed_holder.is_some() {
+            last_observed_lock_holder = lock_report.observed_holder;
+        }
+        let current_ms = now_ms();
+        let mut state = read_token_bucket_state(&state_path, current_ms)?;
+        state.refill(current_ms);
+
+        if state.available_tokens >= 1.0 {
+            let tokens_before_consume = state.available_tokens;
+            let previous_consumer = state.last_consumer.clone();
+            state.available_tokens -= 1.0;
+            state.total_grants += 1;
+            state.last_consumer = Some(RateLimitConsumerSnapshot::from_worker(
+                &worker,
+                current_ms,
+                tokens_before_consume,
+                state.available_tokens,
+                state.total_grants,
+            ));
+            write_token_bucket_state(&state_path, &state)?;
+            return Ok(JobDetailRateLimitResult {
+                worker,
+                total_wait_ms: throttle_wait_ms + lock_wait_ms,
+                throttle_wait_ms,
+                lock_wait_ms,
+                throttle_sleep_count,
+                lock_contention_count,
+                state_path: state_path.display().to_string(),
+                lock_path: lock_path.display().to_string(),
+                observed_at_ms: current_ms,
+                tokens_before_consume,
+                tokens_remaining: state.available_tokens,
+                grant_sequence: state.total_grants,
+                previous_consumer,
+                last_observed_lock_holder,
+            });
+        }
+
+        let sleep_ms = state.wait_time_ms_for_next_token();
+        write_token_bucket_state(&state_path, &state)?;
+        drop(_lock);
+        std::thread::sleep(Duration::from_millis(sleep_ms));
+        throttle_wait_ms += sleep_ms;
+        throttle_sleep_count += 1;
+    }
+}
+
+fn read_lock_metadata(path: &Path) -> Result<Option<RateLimitLockMetadata>> {
+    let content = match fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(err) if err.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(err) => {
+            return Err(err).with_context(|| {
+                format!(
+                    "failed to read job-detail lock metadata: {}",
+                    path.display()
+                )
+            })
+        }
+    };
+    if content.trim().is_empty() {
+        return Ok(None);
+    }
+    match serde_json::from_str::<RateLimitLockMetadata>(&content) {
+        Ok(metadata) => Ok(Some(metadata)),
+        Err(_) => Ok(None),
+    }
+}
+
+fn read_token_bucket_state(path: &Path, current_ms: u64) -> Result<TokenBucketState> {
+    if !path.is_file() {
+        return Ok(TokenBucketState::new_full(current_ms));
+    }
+    let content = fs::read_to_string(path).with_context(|| {
+        format!(
+            "failed to read job-detail rate limit state: {}",
+            path.display()
+        )
+    })?;
+    match serde_json::from_str::<TokenBucketState>(&content) {
+        Ok(state) => Ok(state),
+        Err(_) => Ok(TokenBucketState::new_full(current_ms)),
+    }
+}
+
+fn write_token_bucket_state(path: &Path, state: &TokenBucketState) -> Result<()> {
+    let bytes = serde_json::to_vec_pretty(state)
+        .context("failed to serialize job-detail rate limit state")?;
+    fs::write(path, bytes).with_context(|| {
+        format!(
+            "failed to write job-detail rate limit state: {}",
+            path.display()
+        )
+    })
+}
+
+fn job_detail_rate_limit_state_path() -> PathBuf {
+    if let Some(path) = std::env::var_os("RNIDBG_JOB_DETAIL_RATE_LIMIT_STATE") {
+        return PathBuf::from(path);
+    }
+
+    let repo_root = resolve_repo_root();
+    if repo_root.starts_with("/workspace/") {
+        PathBuf::from("/workspace/lab-data/rate-limit/job-detail-token-bucket.json")
+    } else {
+        repo_root
+            .join(".local")
+            .join("rate-limit")
+            .join("job-detail-token-bucket.json")
+    }
+}
+
+fn round_token_value(value: f64) -> f64 {
+    (value * 1000.0).round() / 1000.0
 }
 
 #[derive(Clone, Debug)]
@@ -695,9 +1118,29 @@ impl TransportRuntime {
 }
 
 pub(crate) enum HttpTransport {
-    Direct(Client),
+    Direct(DirectHttpTransport),
     Remote(RemoteOkHttpBridgeTransport),
     BossApk(BossApkOkHttpTransport),
+}
+
+pub(crate) struct DirectHttpTransport {
+    client: Client,
+    proxy: Option<SelectedSocks5Proxy>,
+}
+
+impl DirectHttpTransport {
+    fn new(client: Client, proxy: Option<SelectedSocks5Proxy>) -> Self {
+        Self { client, proxy }
+    }
+
+    fn describe(&self) -> Value {
+        json!({
+            "status": "ready",
+            "transport_runtime": "direct",
+            "flow": "reqwest_direct",
+            "proxy": self.proxy.as_ref().map(SelectedSocks5Proxy::describe).unwrap_or(Value::Null),
+        })
+    }
 }
 
 impl HttpTransport {
@@ -714,7 +1157,7 @@ impl HttpTransport {
             .filter(|value| !value.trim().is_empty());
 
         match mode {
-            TransportRuntime::Direct => Self::build_direct(http1_only),
+            TransportRuntime::Direct => Self::build_direct(http1_only, opts),
             TransportRuntime::OkHttpBridge => {
                 if let Some(configured_url) = configured_url {
                     let base_url = normalize_bridge_url(&configured_url)?;
@@ -722,7 +1165,9 @@ impl HttpTransport {
                         &base_url,
                     )?))
                 } else {
-                    Ok(Self::BossApk(BossApkOkHttpTransport::new(lab_config)?))
+                    Ok(Self::BossApk(BossApkOkHttpTransport::new(
+                        lab_config, opts,
+                    )?))
                 }
             }
             TransportRuntime::Auto => {
@@ -732,22 +1177,20 @@ impl HttpTransport {
                         &base_url,
                     )?))
                 } else {
-                    Self::build_direct(http1_only)
+                    Self::build_direct(http1_only, opts)
                 }
             }
         }
     }
 
-    fn build_direct(http1_only: bool) -> Result<Self> {
-        let mut builder = Client::builder().timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECONDS));
-        if http1_only {
-            builder = builder.http1_only();
-        }
-        Ok(Self::Direct(
-            builder
-                .build()
-                .context("failed to build direct reqwest client")?,
-        ))
+    fn build_direct(http1_only: bool, opts: &HashMap<String, String>) -> Result<Self> {
+        let proxy = resolve_socks5_proxy_for_opts(opts)?;
+        let client = build_reqwest_client(
+            Duration::from_secs(DEFAULT_TIMEOUT_SECONDS),
+            http1_only,
+            proxy.as_ref(),
+        )?;
+        Ok(Self::Direct(DirectHttpTransport::new(client, proxy)))
     }
 
     pub(crate) fn label(&self) -> &'static str {
@@ -763,11 +1206,7 @@ impl HttpTransport {
 
     pub(crate) fn describe(&self) -> Value {
         match self {
-            Self::Direct(_) => json!({
-                "status": "ready",
-                "transport_runtime": "direct",
-                "flow": "reqwest_direct",
-            }),
+            Self::Direct(transport) => transport.describe(),
             Self::Remote(transport) => transport.describe(),
             Self::BossApk(transport) => transport.describe(),
         }
@@ -949,10 +1388,11 @@ impl RemoteOkHttpBridgeTransport {
 pub(crate) struct BossApkOkHttpTransport {
     apk_path: PathBuf,
     script_path: PathBuf,
+    proxy: Option<SelectedSocks5Proxy>,
 }
 
 impl BossApkOkHttpTransport {
-    fn new(lab_config: &LabConfig) -> Result<Self> {
+    fn new(lab_config: &LabConfig, opts: &HashMap<String, String>) -> Result<Self> {
         let script_path = resolve_repo_root().join("scripts/run-boss-apk-okhttp.sh");
         if !script_path.is_file() {
             return Err(anyhow!(
@@ -969,6 +1409,7 @@ impl BossApkOkHttpTransport {
         Ok(Self {
             apk_path: lab_config.apk_path.clone(),
             script_path,
+            proxy: resolve_socks5_proxy_for_opts(opts)?,
         })
     }
 
@@ -978,6 +1419,7 @@ impl BossApkOkHttpTransport {
             "transport_runtime": "okhttp_bridge",
             "flow": "boss_apk_okhttp",
             "apk_path": self.apk_path.display().to_string(),
+            "proxy": self.proxy.as_ref().map(SelectedSocks5Proxy::describe).unwrap_or(Value::Null),
         })
     }
 
@@ -1007,6 +1449,9 @@ impl BossApkOkHttpTransport {
             .arg(STANDARD.encode(body));
         for (key, value) in headers {
             command.arg("--header").arg(format!("{key}: {value}"));
+        }
+        if let Some(proxy) = &self.proxy {
+            proxy.append_java_cli_args(&mut command);
         }
 
         let output = run_command_with_timeout(
@@ -1098,6 +1543,9 @@ impl BossApkOkHttpTransport {
         for (key, value) in headers {
             command.arg("--header").arg(format!("{key}: {value}"));
         }
+        if let Some(proxy) = &self.proxy {
+            proxy.append_java_cli_args(&mut command);
+        }
 
         let output = run_command_with_timeout(
             &mut command,
@@ -1180,8 +1628,9 @@ pub(crate) fn execute_post(
     session_secret_key: &str,
 ) -> Result<Value> {
     match transport {
-        HttpTransport::Direct(client) => {
-            let response = client
+        HttpTransport::Direct(transport) => {
+            let response = transport
+                .client
                 .post(url)
                 .headers(to_header_map(headers)?)
                 .body(body.to_vec())
@@ -1198,6 +1647,7 @@ pub(crate) fn execute_post(
                         "http_version": http_version,
                         "final_url": final_url,
                         "response_headers": response_headers,
+                        "proxy": transport.proxy.as_ref().map(SelectedSocks5Proxy::describe).unwrap_or(Value::Null),
                     });
                     if let Some(value) = parse_response_body(&text, signer, session_secret_key)? {
                         return Ok(attach_transport(value, transport));
@@ -1232,8 +1682,12 @@ pub(crate) fn execute_get(
     session_secret_key: &str,
 ) -> Result<Value> {
     match transport {
-        HttpTransport::Direct(client) => {
-            let response = client.get(url).headers(to_header_map(headers)?).send();
+        HttpTransport::Direct(transport) => {
+            let response = transport
+                .client
+                .get(url)
+                .headers(to_header_map(headers)?)
+                .send();
             match response {
                 Ok(resp) => {
                     let status = resp.status();
@@ -1246,6 +1700,7 @@ pub(crate) fn execute_get(
                         "http_version": http_version,
                         "final_url": final_url,
                         "response_headers": response_headers,
+                        "proxy": transport.proxy.as_ref().map(SelectedSocks5Proxy::describe).unwrap_or(Value::Null),
                     });
                     if let Some(value) = parse_response_body(&text, signer, session_secret_key)? {
                         return Ok(attach_transport(value, transport));
@@ -2519,6 +2974,38 @@ mod tests {
             summary.get("security_id").and_then(Value::as_str),
             Some("sec_a")
         );
+    }
+
+    #[test]
+    fn token_bucket_refill_caps_at_capacity() {
+        let mut state = TokenBucketState {
+            available_tokens: 0.5,
+            last_refill_ms: 1_000,
+            total_grants: 0,
+            last_consumer: None,
+        };
+        state.refill(61_000);
+        assert!((state.available_tokens - JOB_DETAIL_RATE_LIMIT_CAPACITY).abs() < 1e-6);
+        assert_eq!(state.last_refill_ms, 61_000);
+    }
+
+    #[test]
+    fn token_bucket_wait_time_matches_half_second_refill() {
+        let state = TokenBucketState {
+            available_tokens: 0.0,
+            last_refill_ms: 1_000,
+            total_grants: 0,
+            last_consumer: None,
+        };
+        assert_eq!(state.wait_time_ms_for_next_token(), 500);
+
+        let half_full = TokenBucketState {
+            available_tokens: 0.5,
+            last_refill_ms: 1_000,
+            total_grants: 0,
+            last_consumer: None,
+        };
+        assert_eq!(half_full.wait_time_ms_for_next_token(), 250);
     }
 
     #[test]
