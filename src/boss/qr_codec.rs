@@ -58,6 +58,32 @@ pub fn run_qr_decode(opts: &HashMap<String, String>) -> Result<Value> {
 pub fn decode_login_qr_image(path: &Path) -> Result<DecodedQrImage> {
     let image = image::open(path)
         .with_context(|| format!("failed to open qr image: {}", path.display()))?;
+    decode_login_qr_dynamic_image(path.display().to_string(), &image)
+}
+
+pub fn decode_login_qr_bytes(source_label: &str, bytes: &[u8]) -> Result<DecodedQrImage> {
+    let image = image::load_from_memory(bytes)
+        .with_context(|| format!("failed to decode qr image bytes for {source_label}"))?;
+    decode_login_qr_dynamic_image(source_label.to_string(), &image)
+}
+
+pub fn manual_login_qr_payload(source_label: &str, scanned_text: &str) -> Result<DecodedQrImage> {
+    let recognized = recognize_login_qr_text(scanned_text)?;
+    Ok(DecodedQrImage {
+        image_path: source_label.to_string(),
+        image_width: 0,
+        image_height: 0,
+        decoder_backend: "manual".to_string(),
+        decoder_variant: "manual-text".to_string(),
+        recognized,
+        contract_alignment: qr_contract_alignment(),
+    })
+}
+
+fn decode_login_qr_dynamic_image(
+    image_path: String,
+    image: &DynamicImage,
+) -> Result<DecodedQrImage> {
     let width = image.width();
     let height = image.height();
 
@@ -65,7 +91,7 @@ pub fn decode_login_qr_image(path: &Path) -> Result<DecodedQrImage> {
         if let Some(decoded_text) = decode_with_quircs(&candidate)? {
             let recognized = recognize_login_qr_text(&decoded_text)?;
             return Ok(DecodedQrImage {
-                image_path: path.display().to_string(),
+                image_path: image_path.clone(),
                 image_width: width,
                 image_height: height,
                 decoder_backend: "quircs".to_string(),
@@ -78,7 +104,7 @@ pub fn decode_login_qr_image(path: &Path) -> Result<DecodedQrImage> {
 
     bail!(
         "failed to decode QR image {} with quircs variants",
-        path.display()
+        image_path
     )
 }
 

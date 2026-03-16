@@ -13,6 +13,7 @@ services:
     volumes:
       - ${RNIDBG_REPO_ROOT:-.}:/workspace/rnidbg
       - ${RNIDBG_ASSETS_ROOT:-../drizzle-dumper-rust}:/workspace/lab-assets
+      - lab-data:/workspace/lab-data
       - cargo-registry:/usr/local/cargo/registry
       - cargo-git:/usr/local/cargo/git
     ports:
@@ -20,7 +21,73 @@ services:
     tty: true
     stdin_open: true
     command: ["sleep", "infinity"]
+  rnidbg-qr-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: rnidbg-lab:dev
+    container_name: rnidbg-qr-web
+    working_dir: /workspace/rnidbg
+    restart: unless-stopped
+    environment:
+      PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      RNIDBG_CONTAINER_REPO_ROOT: /workspace/rnidbg
+      RNIDBG_LAB_CONFIG: ${RNIDBG_LAB_CONFIG:-/workspace/rnidbg/config/lab-config.container.json}
+      RNIDBG_QR_WEB_BIND_HOST: ${RNIDBG_QR_WEB_BIND_HOST:-0.0.0.0}
+      RNIDBG_QR_WEB_PORT: ${RNIDBG_QR_WEB_PORT:-8786}
+      RNIDBG_QR_WEB_STATE_DIR: ${RNIDBG_QR_WEB_STATE_DIR:-/workspace/lab-data/qr-web}
+      RNIDBG_QR_WEB_PUBLIC_ORIGIN: ${RNIDBG_QR_WEB_PUBLIC_ORIGIN:-}
+    volumes:
+      - ${RNIDBG_REPO_ROOT:-.}:/workspace/rnidbg
+      - ${RNIDBG_ASSETS_ROOT:-../drizzle-dumper-rust}:/workspace/lab-assets
+      - lab-data:/workspace/lab-data
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+    ports:
+      - "${RNIDBG_QR_WEB_HOST_PORT:-28786}:${RNIDBG_QR_WEB_PORT:-8786}"
+    command:
+      - bash
+      - -lc
+      - >
+        cd /workspace/rnidbg &&
+        ./scripts/run-qr-web.sh
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c 'import json, os, urllib.request;
+          port = int(os.environ.get("RNIDBG_QR_WEB_PORT", "8786"));
+          body = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3).read().decode("utf-8"));
+          raise SystemExit(0 if str(body.get("status", "")).lower() == "ok" else 1)'
+      interval: 20s
+      timeout: 5s
+      retries: 6
+  rnidbg-qr-web-https:
+    image: nginx:1.27-alpine
+    container_name: rnidbg-qr-web-https
+    depends_on:
+      rnidbg-qr-web:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      RNIDBG_QR_WEB_PORT: ${RNIDBG_QR_WEB_PORT:-8786}
+      RNIDBG_QR_WEB_TLS_SERVER_NAME: ${RNIDBG_QR_WEB_TLS_SERVER_NAME:-localhost}
+    volumes:
+      - ${RNIDBG_QR_WEB_TLS_DIR:-./.local/qr-web-tls}:/certs:ro
+      - ${RNIDBG_REPO_ROOT:-.}/config/qr-web-nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "${RNIDBG_QR_WEB_TLS_HOST_PORT:-28443}:443"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q --spider --no-check-certificate https://127.0.0.1/ || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 6
 
 volumes:
   cargo-registry:
   cargo-git:
+  lab-data:

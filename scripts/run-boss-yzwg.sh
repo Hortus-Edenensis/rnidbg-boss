@@ -8,15 +8,20 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONTAINER_REPO_ROOT="${RNIDBG_CONTAINER_REPO_ROOT:-${REPO_ROOT}}"
 DEFAULT_CONFIG="${RNIDBG_LAB_CONFIG:-${CONTAINER_REPO_ROOT}/config/lab-config.container.json}"
 CONFIG="${DEFAULT_CONFIG}"
+BACKEND_OVERRIDE=""
 
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
   if [[ "${args[$i]}" == "--config" ]] && (( i + 1 < ${#args[@]} )); then
     CONFIG="${args[$((i + 1))]}"
-    break
+  fi
+  if [[ "${args[$i]}" == "--backend" ]] && (( i + 1 < ${#args[@]} )); then
+    BACKEND_OVERRIDE="${args[$((i + 1))]}"
   fi
 done
 
+BACKEND="${BACKEND_OVERRIDE}"
+if [[ -z "${BACKEND}" ]]; then
 BACKEND="$(python3 - "$CONFIG" <<'PY'
 import json, sys
 from pathlib import Path
@@ -28,9 +33,8 @@ with path.open("r", encoding="utf-8") as fh:
 print(str(data.get("backend", "dynarmic")).strip().lower())
 PY
 )"
-
-if [[ "${BACKEND}" == "unicorn" || "${BACKEND}" == "unicorn2" ]]; then
-  exec cargo run --no-default-features --features unicorn -- boss-yzwg "$@"
 fi
 
-exec cargo run -- boss-yzwg "$@"
+RNIDBG_BIN="$("${SCRIPT_DIR}/ensure-rnidbg-bin.sh" "${BACKEND}")"
+
+exec "${RNIDBG_BIN}" boss-yzwg "$@"

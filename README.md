@@ -40,6 +40,17 @@ docker compose up -d rnidbg-lab
 ```
 
 - The host HTTP bridge binds to `http://127.0.0.1:28080` by default.
+- The QR web authorization service can run as a dedicated persistent container:
+
+```bash
+./bin/start-qr-web.sh
+```
+
+- Default host endpoints for the QR web service:
+  - `http://127.0.0.1:28786/`
+  - `http://127.0.0.1:28786/health`
+  - `http://127.0.0.1:28786/api/state/latest`
+- Its persisted uploads and latest decode/authorize snapshots are written into the named Docker volume mounted at `/workspace/lab-data/qr-web` inside the container.
 - To use a custom config inside the container, set `RNIDBG_LAB_CONFIG` to the container-visible config path before invoking the helper scripts.
 - Supporting docs:
   - `docs/product-usage.md`

@@ -11,7 +11,7 @@ use super::job_detail::{
     parse_bool_flag, redact_headers, resolve_output_path, resolved_session_path, response_code,
     truncate_for_sig, BossSigner, HttpTransport, RnIdbgSoInvoker, TransportRuntime,
 };
-use super::qr_codec::{decode_login_qr_image, DecodedQrImage};
+use super::qr_codec::{decode_login_qr_image, manual_login_qr_payload, DecodedQrImage};
 use super::qr_login::{build_stage_inbound_headers, load_session, DeviceConfig, SessionConfig};
 use super::yzwg::LabConfig;
 
@@ -39,6 +39,29 @@ pub fn run_qr_authorize(opts: &HashMap<String, String>) -> Result<Value> {
         .ok_or_else(|| anyhow!("missing required qr image path, use qr-authorize <image-path>"))?;
     let decoded = decode_login_qr_image(PathBuf::from(&image_path).as_path())?;
     let second_decoded = resolve_second_qr_payload(opts)?;
+    let output = authorize_decoded_qrs(&decoded, second_decoded.as_ref(), opts)?;
+    if let Some(out_path) = opts.get("--out") {
+        let output_path = resolve_output_path(Some(out_path.as_str()), "qr_authorize_result.json");
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("failed to create output parent dir: {}", parent.display())
+            })?;
+        }
+        std::fs::write(&output_path, serde_json::to_vec_pretty(&output)?).with_context(|| {
+            format!(
+                "failed to write qr-authorize result: {}",
+                output_path.display()
+            )
+        })?;
+    }
+    Ok(output)
+}
+
+pub fn authorize_decoded_qrs(
+    decoded: &DecodedQrImage,
+    second_decoded: Option<&DecodedQrImage>,
+    opts: &HashMap<String, String>,
+) -> Result<Value> {
     let login_type = opts
         .get("--login-type")
         .and_then(|value| value.parse::<i32>().ok())
@@ -63,10 +86,6 @@ pub fn run_qr_authorize(opts: &HashMap<String, String>) -> Result<Value> {
 
     let session_path = opts.get("--session-path").map(String::as_str);
     let resolved_session_path = resolved_session_path(session_path);
-    let output_path = resolve_output_path(
-        opts.get("--out").map(String::as_str),
-        "qr_authorize_result.json",
-    );
     let config_path = PathBuf::from(
         opts.get("--config")
             .cloned()
@@ -94,8 +113,8 @@ pub fn run_qr_authorize(opts: &HashMap<String, String>) -> Result<Value> {
         for secret_key in &secret_candidates {
             let chain = execute_qr_chain(
                 host,
-                &decoded,
-                second_decoded.as_ref(),
+                decoded,
+                second_decoded,
                 &edit_type,
                 &action_id,
                 &extra_info,
@@ -121,7 +140,7 @@ pub fn run_qr_authorize(opts: &HashMap<String, String>) -> Result<Value> {
         }
     }
 
-    let output = json!({
+    Ok(json!({
         "ok": success.is_some(),
         "session_path": resolved_session_path,
         "transport_runtime": transport.label(),
@@ -130,7 +149,6 @@ pub fn run_qr_authorize(opts: &HashMap<String, String>) -> Result<Value> {
         "native_invoker": signer.describe(),
         "decoded_first": serde_json::to_value(&decoded)?,
         "decoded_second": second_decoded
-            .as_ref()
             .map(serde_json::to_value)
             .transpose()?
             .unwrap_or(Value::Null),
@@ -142,20 +160,7 @@ pub fn run_qr_authorize(opts: &HashMap<String, String>) -> Result<Value> {
         "location_hint": location.describe(),
         "attempts": attempts,
         "success": success,
-    });
-
-    if let Some(parent) = output_path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create output parent dir: {}", parent.display()))?;
-    }
-    std::fs::write(&output_path, serde_json::to_vec_pretty(&output)?).with_context(|| {
-        format!(
-            "failed to write qr-authorize result: {}",
-            output_path.display()
-        )
-    })?;
-
-    Ok(output)
+    }))
 }
 
 fn execute_qr_chain(
@@ -571,15 +576,7 @@ fn resolve_second_qr_payload(opts: &HashMap<String, String>) -> Result<Option<De
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
     {
-        return Ok(Some(DecodedQrImage {
-            image_path: "<manual-second-qr>".to_string(),
-            image_width: 0,
-            image_height: 0,
-            decoder_backend: "manual".to_string(),
-            decoder_variant: "manual-second-qr".to_string(),
-            recognized: super::qr_codec::recognize_login_qr_text(second_qr_id)?,
-            contract_alignment: Value::Null,
-        }));
+        return manual_login_qr_payload("<manual-second-qr>", second_qr_id).map(Some);
     }
     Ok(None)
 }
