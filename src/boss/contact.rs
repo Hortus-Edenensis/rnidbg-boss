@@ -37,6 +37,7 @@ const MESSAGE_PULL_PATH: &str = "/api/zpchat/message/historyMsg";
 const MESSAGE_PULL_SYNC_PATH: &str = "/api/zpmsg/history/pull";
 const EXCHANGE_LIST_PATH: &str = "/api/zprelation/exchange/getExchangeList";
 const INTERACTION_INFO_PATH: &str = "/api/zprelation/interaction/geekGetInfo";
+const INTERACTION_HOT_JOB_REC_PATH: &str = "/api/zprelation/interaction/geekGetHotJobRec";
 const CHAT_PAYLOAD_PROTOCOL_VERSION: &str = "1.4";
 const CHAT_KERNEL_PROTOCOL_VERSION: &str = "1.3";
 const CHAT_MESSAGE_TYPE_TEXT: i32 = 1;
@@ -576,10 +577,12 @@ pub fn run_send_text(opts: &HashMap<String, String>) -> Result<Value> {
             FRIEND_BASE_INFO_PATH,
             BTreeMap::from([("friendIds".to_string(), friend_id.clone())]),
         )?;
-        if let Some(refreshed_ctx) = extract_friend_context(refreshed_lookup.response_payload(), &friend_id)
+        if let Some(refreshed_ctx) =
+            extract_friend_context(refreshed_lookup.response_payload(), &friend_id)
         {
             let refreshed_name =
-                extract_friend_name(refreshed_lookup.response_payload(), &friend_id).unwrap_or_default();
+                extract_friend_name(refreshed_lookup.response_payload(), &friend_id)
+                    .unwrap_or_default();
             let refreshed_bootstrap = if skip_bootstrap {
                 None
             } else {
@@ -669,9 +672,8 @@ pub fn run_send_text(opts: &HashMap<String, String>) -> Result<Value> {
     }
     let encoded = draft.encode()?;
     let presence_last_message_id = latest_history_message_id(&ctx, &friend_ctx, opts)?;
-    let requested_payload_builder_mode = normalize_payload_builder_mode(
-        opts.get("--payload-builder-mode").map(String::as_str),
-    );
+    let requested_payload_builder_mode =
+        normalize_payload_builder_mode(opts.get("--payload-builder-mode").map(String::as_str));
     let mut dispatch = Jf0Dispatch::run(
         &ctx,
         &draft,
@@ -890,9 +892,8 @@ pub fn run_chat_payload(opts: &HashMap<String, String>) -> Result<Value> {
     let encoded = draft.encode()?;
     let presence_last_message_id = latest_history_message_id(&ctx, &friend_ctx, opts)?;
     let mqtt_dispatch = BossApkMqttDispatch::new(&ctx.lab_config)?;
-    let requested_payload_builder_mode = normalize_payload_builder_mode(
-        opts.get("--payload-builder-mode").map(String::as_str),
-    );
+    let requested_payload_builder_mode =
+        normalize_payload_builder_mode(opts.get("--payload-builder-mode").map(String::as_str));
     let (selected_payload_base64, payload_builder) = mqtt_dispatch.build_payload(
         &ctx.session,
         &draft,
@@ -1140,6 +1141,47 @@ pub fn run_interaction(opts: &HashMap<String, String>) -> Result<Value> {
     Ok(output)
 }
 
+pub fn run_hot_job_recommend(opts: &HashMap<String, String>) -> Result<Value> {
+    let ctx = BossContactContext::from_opts(opts)?;
+    let page = opts
+        .get("--page")
+        .cloned()
+        .unwrap_or_else(|| "1".to_string());
+    let tag = opts
+        .get("--tag")
+        .cloned()
+        .unwrap_or_else(|| "0".to_string());
+    let result = ctx.signed_get_contact_direct(
+        INTERACTION_HOT_JOB_REC_PATH,
+        BTreeMap::from([
+            ("page".to_string(), page.clone()),
+            ("tag".to_string(), tag.clone()),
+        ]),
+    )?;
+    let cards = extract_hot_job_recommend_cards(result.response_payload());
+    let output = json!({
+        "ok": response_code(Some(result.response_payload())) == Some(0) && !cards.is_empty(),
+        "route": "interaction_hot_job_rec_single_route",
+        "session_path": ctx.resolved_session_path,
+        "transport_runtime": ctx.transport.label(),
+        "original_okhttp_available": ctx.transport.original_okhttp_available(),
+        "transport": ctx.transport.describe(),
+        "native_invoker": ctx.signer.describe(),
+        "page": page,
+        "tag": tag,
+        "recommend": result.to_value(),
+        "summary": summarize_hot_job_recommend_cards(&cards),
+        "cards": cards,
+    });
+
+    ctx.write_output(
+        opts.get("--out").map(String::as_str),
+        "hot_job_recommend_result.json",
+        &output,
+    )?;
+    Ok(output)
+}
+
 struct BossContactContext {
     resolved_session_path: String,
     lab_config: LabConfig,
@@ -1248,29 +1290,13 @@ impl BossContactContext {
         path: &str,
         params: BTreeMap<String, String>,
     ) -> Result<Vec<SignedGetResult>> {
-        let mut attempts = Vec::new();
-        attempts.push(self.signed_get(
-            &self.api_host,
-            path,
-            params.clone(),
-            BTreeMap::new(),
-            "legacy_api",
-        )?);
-        attempts.push(self.signed_get(
-            &self.direct_host,
-            path,
-            params.clone(),
-            BTreeMap::new(),
-            "direct_host_legacy",
-        )?);
-        attempts.push(self.signed_get(
+        Ok(vec![self.signed_get(
             &self.direct_host,
             path,
             params,
             BTreeMap::from([("app_id".to_string(), APP_ID.to_string())]),
             "direct_host_unsigned_app_id",
-        )?);
-        Ok(attempts)
+        )?])
     }
 
     fn probe_chat_form_like(
@@ -1278,17 +1304,7 @@ impl BossContactContext {
         path: &str,
         form_params: BTreeMap<String, String>,
     ) -> Result<Vec<SignedPostResult>> {
-        let mut attempts = Vec::new();
-        attempts.push(self.signed_post_api(path, form_params.clone())?);
-        attempts.push(self.signed_post(
-            &self.direct_host,
-            path,
-            form_params.clone(),
-            BTreeMap::new(),
-            "direct_host_legacy_form_post",
-        )?);
-        attempts.push(self.signed_post_contact_direct(path, form_params)?);
-        Ok(attempts)
+        Ok(vec![self.signed_post_contact_direct(path, form_params)?])
     }
 
     fn probe_chat_get_like(
@@ -1296,23 +1312,13 @@ impl BossContactContext {
         path: &str,
         params: BTreeMap<String, String>,
     ) -> Result<Vec<SignedGetResult>> {
-        let mut attempts = Vec::new();
-        attempts.push(self.signed_get_api(path, params.clone())?);
-        attempts.push(self.signed_get(
-            &self.direct_host,
-            path,
-            params.clone(),
-            BTreeMap::new(),
-            "direct_host_legacy",
-        )?);
-        attempts.push(self.signed_get(
+        Ok(vec![self.signed_get(
             &self.direct_host,
             path,
             params,
             BTreeMap::from([("app_id".to_string(), APP_ID.to_string())]),
             "direct_host_unsigned_app_id",
-        )?);
-        Ok(attempts)
+        )?])
     }
 
     fn signed_get(
@@ -2126,6 +2132,29 @@ fn summarize_interaction(payload: &Value) -> Value {
         );
     }
     Value::Object(summary)
+}
+
+fn extract_hot_job_recommend_cards(payload: &Value) -> Vec<Value> {
+    payload
+        .get("zpData")
+        .and_then(|value| value.get("cardList"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn summarize_hot_job_recommend_cards(cards: &[Value]) -> Value {
+    let first = cards.first().cloned().unwrap_or_else(|| json!({}));
+    json!({
+        "job_count": cards.len(),
+        "first_job": {
+            "jobName": first.get("jobName").cloned().unwrap_or(Value::Null),
+            "brandName": first.get("brandName").or_else(|| first.get("company")).cloned().unwrap_or(Value::Null),
+            "salaryDesc": first.get("salaryDesc").cloned().unwrap_or(Value::Null),
+            "securityId": first.get("securityId").cloned().unwrap_or(Value::Null),
+            "encryptJobId": first.get("encryptJobId").or_else(|| first.get("encryptId")).cloned().unwrap_or(Value::Null),
+        }
+    })
 }
 
 fn summarize_window_config(payload: &Value) -> Value {
@@ -3292,7 +3321,9 @@ fn next_payload_builder_retry_mode(
         return None;
     }
     match selected_payload_builder(dispatch) {
-        Some("apk_serializer") | Some("apk_chat_bean_factory") => Some(PAYLOAD_BUILDER_MODE_PATCHED),
+        Some("apk_serializer") | Some("apk_chat_bean_factory") => {
+            Some(PAYLOAD_BUILDER_MODE_PATCHED)
+        }
         Some("apk_serializer_with_security_id") => Some(PAYLOAD_BUILDER_MODE_MANUAL),
         Some("manual_builder") => None,
         _ => Some(PAYLOAD_BUILDER_MODE_PATCHED),
@@ -3311,7 +3342,8 @@ fn proactive_send_succeeded(value: &Value) -> bool {
         .and_then(Value::as_bool)
         .unwrap_or(false)
         && response_code(
-            value.get("result")
+            value
+                .get("result")
                 .and_then(|result| result.get("response")),
         ) == Some(0)
 }
@@ -4576,7 +4608,10 @@ mod tests {
                 }
             }),
         };
-        assert_eq!(next_payload_builder_retry_mode(&manual_dispatch, None), None);
+        assert_eq!(
+            next_payload_builder_retry_mode(&manual_dispatch, None),
+            None
+        );
     }
 
     #[test]

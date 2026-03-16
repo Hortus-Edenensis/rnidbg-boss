@@ -22,6 +22,7 @@ const SEARCH_STAGE1_PATH: &str = "/api/batch/batchRunV2";
 const SEARCH_STAGE2_PATH: &str = "/api/batch/requests";
 const SEARCH_CARDLIST_PATH: &str = "/api/zpgeek/app/geek/search/cardlist";
 const SEARCH_LISTAD_PATH: &str = "/api/zpgeek/app/search/listad/query";
+const RECOMMEND_JOBLIST_PATH: &str = "/api/zpgeek/app/geek/recommend/joblist";
 const DEFAULT_SEARCH_HOST: &str = "https://api-and.zhipin.com";
 const ALT_SEARCH_HOST: &str = "https://api5.zhipin.com";
 const API_SEARCH_HOST: &str = "https://api.zhipin.com";
@@ -247,6 +248,177 @@ pub fn run_search(opts: &HashMap<String, String>) -> Result<Value> {
     Ok(output)
 }
 
+pub fn run_recommend(opts: &HashMap<String, String>) -> Result<Value> {
+    let recommend_opts = RecommendOptions::from_opts(opts)?;
+    let session_path = opts.get("--session-path").map(String::as_str);
+    let resolved_session_path = resolved_session_path(session_path);
+    let output_path = resolve_output_path(
+        opts.get("--out").map(String::as_str),
+        "recommend_result.json",
+    );
+    let config_path = std::path::PathBuf::from(
+        opts.get("--config")
+            .cloned()
+            .unwrap_or_else(super::default_config_path),
+    );
+    let lab_config = LabConfig::load(&config_path)?
+        .with_backend_override(opts.get("--backend").map(String::as_str))?;
+    let session = load_session(session_path)?;
+    let device = DeviceConfig::from_session(&session);
+    let signer = RnIdbgSoInvoker::new(config_path, &lab_config, opts)?;
+    let transport_runtime =
+        TransportRuntime::parse(opts.get("--transport-runtime").map(String::as_str))?;
+    let http1_only = parse_bool_flag(opts, "--http1-only");
+    let transport = HttpTransport::discover(transport_runtime, &lab_config, opts, http1_only)?;
+    let hosts = build_host_candidates(opts.get("--host").map(String::as_str));
+
+    let mut attempts = Vec::new();
+    let mut last_response = json!({
+        "code": -1,
+        "message": "recommend did not execute",
+    });
+
+    for host in hosts {
+        let mut expect_ctx: Option<ExpectContext> = None;
+        for (profile_name, methods) in SEARCH_PROFILES {
+            let materialized_methods = materialize_profile_methods(profile_name, methods);
+            let stage1_seed = SearchOptions::seed(recommend_opts.city_code.clone());
+            let stage1 = PreparedStage1Request::sign(
+                &stage1_seed,
+                &host,
+                profile_name,
+                &materialized_methods,
+                &device,
+                &session,
+                &*signer,
+                now_ms(),
+                &build_traceid(),
+            )?;
+            let stage1_raw = execute_post(
+                &transport,
+                &stage1.url,
+                &stage1.headers,
+                &stage1.body_bytes,
+                Some(&*signer),
+                session.secret_key.as_str(),
+            )?;
+            let stage1_response = normalize_search_payload(&stage1_raw);
+            if response_code(Some(&stage1_response)) == Some(0) {
+                expect_ctx = extract_expect_context(&stage1_response, &stage1_seed).or(expect_ctx);
+            }
+            attempts.push(json!({
+                "host": host,
+                "phase": "bootstrap_expect_context",
+                "profile": profile_name,
+                "request_contract": stage1.contract,
+                "request": {
+                    "url": stage1.url,
+                    "traceid": stage1.traceid,
+                    "request_headers": redact_headers(&stage1.headers),
+                    "body_form": stage1.body_form,
+                },
+                "response": stage1_response,
+                "expect_context": expect_ctx.as_ref().map(ExpectContext::to_value).unwrap_or(Value::Null),
+            }));
+            if expect_ctx.is_some() {
+                break;
+            }
+            last_response = stage1_response;
+        }
+
+        let Some(expect_ctx) = expect_ctx else {
+            continue;
+        };
+
+        let stage2 = PreparedRecommendStage2Request::sign(
+            &recommend_opts,
+            &expect_ctx,
+            &host,
+            &device,
+            &session,
+            &*signer,
+            now_ms(),
+            &build_traceid(),
+        )?;
+        let stage2_raw = execute_post(
+            &transport,
+            &stage2.url,
+            &stage2.headers,
+            &stage2.body_bytes,
+            Some(&*signer),
+            session.secret_key.as_str(),
+        )?;
+        let decoded_stage2 =
+            decode_stage2_non_raw_payload(stage2_raw, &*signer, session.secret_key.as_str())?;
+        let response = normalize_search_payload(&decoded_stage2);
+        last_response = response.clone();
+        attempts.push(json!({
+            "host": host,
+            "phase": "recommend_stage2",
+            "expect_context": expect_ctx.to_value(),
+            "request_contract": stage2.contract,
+            "request": {
+                "url": stage2.url,
+                "traceid": stage2.traceid,
+                "request_headers": redact_headers(&stage2.headers),
+                "body_json": stage2.body_json,
+                "body_len": stage2.body_bytes.len(),
+            },
+            "response": response,
+        }));
+
+        let jobs = find_job_list(&last_response).unwrap_or_default();
+        let output = json!({
+            "ok": !jobs.is_empty() && response_code(Some(&last_response)) == Some(0),
+            "route": "recommend_pool_complex_single_route",
+            "session_path": resolved_session_path,
+            "page": recommend_opts.page,
+            "page_size": recommend_opts.page_size,
+            "sort_type": recommend_opts.sort_type,
+            "city_code": recommend_opts.city_code,
+            "native_invoker": signer.describe(),
+            "transport_runtime": transport.label(),
+            "original_okhttp_available": transport.original_okhttp_available(),
+            "transport": transport.describe(),
+            "response": last_response,
+            "summary": summarize_jobs(&jobs),
+            "attempts": attempts,
+        });
+        std::fs::write(&output_path, serde_json::to_vec_pretty(&output)?).with_context(|| {
+            format!(
+                "failed to write recommend result: {}",
+                output_path.display()
+            )
+        })?;
+        return Ok(output);
+    }
+
+    let jobs = find_job_list(&last_response).unwrap_or_default();
+    let output = json!({
+        "ok": !jobs.is_empty() && response_code(Some(&last_response)) == Some(0),
+        "route": "recommend_pool_complex_single_route",
+        "session_path": resolved_session_path,
+        "page": recommend_opts.page,
+        "page_size": recommend_opts.page_size,
+        "sort_type": recommend_opts.sort_type,
+        "city_code": recommend_opts.city_code,
+        "native_invoker": signer.describe(),
+        "transport_runtime": transport.label(),
+        "original_okhttp_available": transport.original_okhttp_available(),
+        "transport": transport.describe(),
+        "response": last_response,
+        "summary": summarize_jobs(&jobs),
+        "attempts": attempts,
+    });
+    std::fs::write(&output_path, serde_json::to_vec_pretty(&output)?).with_context(|| {
+        format!(
+            "failed to write recommend result: {}",
+            output_path.display()
+        )
+    })?;
+    Ok(output)
+}
+
 fn finalize_search_output(
     search_opts: &SearchOptions,
     resolved_session_path: &str,
@@ -283,6 +455,15 @@ struct SearchOptions {
 }
 
 impl SearchOptions {
+    fn seed(city_code: String) -> Self {
+        Self {
+            keyword: String::new(),
+            city_code,
+            page: "1".to_string(),
+            page_size: "15".to_string(),
+        }
+    }
+
     fn from_opts(opts: &HashMap<String, String>) -> Result<Self> {
         let keyword = opts
             .get("--keyword")
@@ -320,10 +501,47 @@ impl SearchOptions {
 }
 
 #[derive(Clone, Debug)]
+struct RecommendOptions {
+    city_code: String,
+    page: String,
+    page_size: String,
+    sort_type: String,
+}
+
+impl RecommendOptions {
+    fn from_opts(opts: &HashMap<String, String>) -> Result<Self> {
+        let city_code = opts
+            .get("--city")
+            .cloned()
+            .or_else(|| opts.get("--city-code").cloned())
+            .unwrap_or_else(|| DEFAULT_CITY_CODE.to_string());
+        let page = opts
+            .get("--page")
+            .cloned()
+            .unwrap_or_else(|| "1".to_string());
+        let page_size = opts
+            .get("--page-size")
+            .cloned()
+            .unwrap_or_else(|| "15".to_string());
+        let sort_type = opts
+            .get("--sort-type")
+            .cloned()
+            .unwrap_or_else(|| "1".to_string());
+        Ok(Self {
+            city_code,
+            page,
+            page_size,
+            sort_type,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
 struct ExpectContext {
     encrypt_expect_id: String,
     expect_id: String,
     city_code: String,
+    expect_position: String,
 }
 
 impl ExpectContext {
@@ -332,6 +550,7 @@ impl ExpectContext {
             "encrypt_expect_id": self.encrypt_expect_id,
             "expect_id": self.expect_id,
             "city_code": self.city_code,
+            "expect_position": self.expect_position,
         })
     }
 }
@@ -493,6 +712,86 @@ impl PreparedStage2Request {
     }
 }
 
+struct PreparedRecommendStage2Request {
+    url: String,
+    traceid: String,
+    headers: HashMap<String, String>,
+    body_json: String,
+    body_bytes: Vec<u8>,
+    contract: Value,
+}
+
+impl PreparedRecommendStage2Request {
+    fn sign(
+        recommend_opts: &RecommendOptions,
+        expect_ctx: &ExpectContext,
+        host: &str,
+        device: &DeviceConfig,
+        session: &SessionConfig,
+        signer: &dyn BossSigner,
+        req_time_ms: u64,
+        traceid: &str,
+    ) -> Result<Self> {
+        let common_params = build_common_params(device, req_time_ms);
+        let canonical = canonicalize_params(&common_params);
+        let body_json = build_recommend_stage2_body_json(recommend_opts, expect_ctx);
+        let body_bytes = signer
+            .encode_request_body(body_json.as_bytes(), "")
+            .context("failed to encode recommend body")?;
+        let crc = crc32fast::hash(&body_bytes);
+        let sp = signer
+            .encode_request(canonical.as_bytes(), "")
+            .context("failed to build recommend sp")?;
+        let sig_input = format!(
+            "{}{}{}",
+            SEARCH_STAGE2_PATH,
+            truncate_for_sig(&canonical, 5000),
+            crc
+        );
+        let sig = signer
+            .signature(sig_input.as_bytes(), "")
+            .context("failed to build recommend sig")?;
+
+        let mut query = common_params.clone();
+        query.insert("sp".to_string(), sp);
+        query.insert("sig".to_string(), sig);
+        query.insert("app_id".to_string(), APP_ID.to_string());
+        let url = build_query_url(host, SEARCH_STAGE2_PATH, &query)?;
+
+        let zp_tag = signer
+            .encode_request(traceid.as_bytes(), "")
+            .context("failed to build recommend zp-tag")?;
+        let headers = request_headers(
+            host,
+            device,
+            session,
+            traceid,
+            &zp_tag,
+            "application/octet-stream",
+        )?;
+
+        Ok(Self {
+            url,
+            traceid: traceid.to_string(),
+            headers,
+            body_json,
+            body_bytes,
+            contract: json!({
+                "type": "batch_requests_recommend_stage2",
+                "endpoint": SEARCH_STAGE2_PATH,
+                "host": host,
+                "sub_requests": [
+                    { "path": RECOMMEND_JOBLIST_PATH }
+                ],
+                "expect_context": expect_ctx.to_value(),
+                "page": recommend_opts.page,
+                "page_size": recommend_opts.page_size,
+                "sort_type": recommend_opts.sort_type,
+            }),
+        })
+    }
+}
+
 fn build_stage2_body_json(
     search_opts: &SearchOptions,
     expect_ctx: Option<&ExpectContext>,
@@ -553,6 +852,37 @@ fn build_stage2_body_json(
     )
 }
 
+fn build_recommend_stage2_body_json(
+    recommend_opts: &RecommendOptions,
+    expect_ctx: &ExpectContext,
+) -> String {
+    let filter_params = json!({
+        "cityCode": expect_ctx.city_code,
+        "chattedJob": 0,
+        "switchCity": 0,
+    });
+    let sub_reqs = json!({
+        "subReqs": [
+            {
+                "method": "GET",
+                "path": RECOMMEND_JOBLIST_PATH,
+                "query": encode_stage2_query(&[
+                    ("expectId".to_string(), expect_ctx.expect_id.clone()),
+                    ("encryptExpectId".to_string(), expect_ctx.encrypt_expect_id.clone()),
+                    ("page".to_string(), recommend_opts.page.clone()),
+                    ("pageSize".to_string(), recommend_opts.page_size.clone()),
+                    ("sortType".to_string(), recommend_opts.sort_type.clone()),
+                    ("expectPosition".to_string(), expect_ctx.expect_position.clone()),
+                    ("filterParams".to_string(), serde_json::to_string(&filter_params).unwrap_or_else(|_| "{}".to_string())),
+                ]),
+            }
+        ]
+    });
+    escape_batch_body_json(
+        &serde_json::to_string(&sub_reqs).unwrap_or_else(|_| "{\"subReqs\":[]}".to_string()),
+    )
+}
+
 fn build_search_batch_method_feed(methods: &[String]) -> String {
     let quoted = methods
         .iter()
@@ -584,11 +914,7 @@ fn build_host_candidates(preferred_host: Option<&str>) -> Vec<String> {
     if let Some(host) = preferred_host {
         return vec![normalize_host(host)];
     }
-    vec![
-        DEFAULT_SEARCH_HOST.to_string(),
-        ALT_SEARCH_HOST.to_string(),
-        API_SEARCH_HOST.to_string(),
-    ]
+    vec![DEFAULT_SEARCH_HOST.to_string()]
 }
 
 fn request_headers(
@@ -713,6 +1039,14 @@ fn normalize_search_payload(payload: &Value) -> Value {
     if response_code(Some(payload)) != Some(0) {
         return payload.clone();
     }
+    if let Some(jobs) = extract_named_job_list(payload) {
+        let mut out = payload.clone();
+        if let Some(zp_data) = out.get_mut("zpData").and_then(Value::as_object_mut) {
+            zp_data.insert("jobList".to_string(), json!(jobs.clone()));
+            zp_data.insert("data".to_string(), json!(jobs));
+        }
+        return out;
+    }
     let Some((jobs, meta)) = extract_search_cardlist_jobs(payload) else {
         return payload.clone();
     };
@@ -781,6 +1115,15 @@ fn extract_expect_context(payload: &Value, search_opts: &SearchOptions) -> Optio
         Some(Value::Number(value)) => value.to_string(),
         _ => search_opts.city_code.clone(),
     };
+    let expect_position = match selected
+        .get("position")
+        .or_else(|| selected.get("positionLv2"))
+        .or_else(|| selected.get("positionName"))
+    {
+        Some(Value::String(value)) => value.trim().to_string(),
+        Some(Value::Number(value)) => value.to_string(),
+        _ => String::new(),
+    };
 
     if encrypt_expect_id.is_empty() || expect_id.is_empty() {
         return None;
@@ -790,7 +1133,26 @@ fn extract_expect_context(payload: &Value, search_opts: &SearchOptions) -> Optio
         encrypt_expect_id,
         expect_id,
         city_code,
+        expect_position,
     })
+}
+
+fn extract_named_job_list(payload: &Value) -> Option<Vec<Value>> {
+    let zp_data = payload.get("zpData")?.as_object()?;
+    for key in [
+        RECOMMEND_JOBLIST_PATH,
+        "zpgeek.app.geek.recommend.joblist",
+        "/api/zpgeek/search/joblist.json",
+        "zpgeek/search/joblist.json",
+    ] {
+        let Some(node) = zp_data.get(key) else {
+            continue;
+        };
+        if let Some(hit) = find_job_list(node) {
+            return Some(hit);
+        }
+    }
+    None
 }
 
 fn extract_search_cardlist_jobs(payload: &Value) -> Option<(Vec<Value>, BTreeMap<String, Value>)> {
@@ -1098,6 +1460,7 @@ mod tests {
                 encrypt_expect_id: "enc123".to_string(),
                 expect_id: "exp456".to_string(),
                 city_code: "101010100".to_string(),
+                expect_position: "123456".to_string(),
             }),
         );
         let body_obj: Value = serde_json::from_str(&body).unwrap();
