@@ -46,6 +46,50 @@ impl ModuleSymbol {
         }
     }
 
+    fn resolve_virtual_hook<'a, T: Clone>(
+        &self,
+        emulator: &AndroidEmulator<'a, T>,
+        listeners: &Vec<Box<dyn HookListener<'a, T>>>,
+        cache_hook: &mut HashMap<u64, u64>,
+        library_name: &str,
+        symbol_name: &str,
+    ) -> anyhow::Result<ModuleSymbol> {
+        let hash = tool::calculate_hash(&format!("{}#{}", library_name, symbol_name));
+
+        if cache_hook.contains_key(&hash) {
+            return Ok(ModuleSymbol::new(
+                self.so_name.to_string(),
+                WEAK_BASE,
+                self.symbol.clone(),
+                self.relocation_addr,
+                library_name.to_string(),
+                *cache_hook.get(&hash).unwrap(),
+            ));
+        }
+
+        for listener in listeners {
+            let hook = listener.hook(
+                emulator,
+                library_name.to_string(),
+                symbol_name.to_string(),
+                self.offset,
+            );
+            if hook > 0 {
+                cache_hook.insert(hash, hook);
+                return Ok(ModuleSymbol::new(
+                    self.so_name.clone(),
+                    WEAK_BASE,
+                    self.symbol.clone(),
+                    self.relocation_addr,
+                    library_name.to_string(),
+                    hook,
+                ));
+            }
+        }
+
+        Err(anyhow!("Failed to resolve symbol: {}", symbol_name))
+    }
+
     pub(crate) fn resolve<'a, T: Clone>(
         &self,
         emulator: &AndroidEmulator<'a, T>,
@@ -161,41 +205,32 @@ impl ModuleSymbol {
             | "android_dlwarning"
             | "dl_unwind_find_exidx" => {
                 if resolve_weak {
-                    let hash = tool::calculate_hash(&format!("{}#{}", "libdl.so", symbol_name));
-
-                    if cache_hook.contains_key(&hash) {
-                        return Ok(ModuleSymbol::new(
-                            self.so_name.to_string(),
-                            WEAK_BASE,
-                            self.symbol.clone(),
-                            self.relocation_addr,
-                            "libdl.so".to_string(),
-                            *cache_hook.get(&hash).unwrap(),
-                        ));
-                    }
-
-                    for listener in listeners {
-                        let hook = listener.hook(
-                            &emulator,
-                            "libdl.so".to_string(),
-                            symbol_name.to_string(),
-                            self.offset,
-                        );
-                        if hook > 0 {
-                            cache_hook.insert(hash, hook);
-                            return Ok(ModuleSymbol::new(
-                                self.so_name.clone(),
-                                WEAK_BASE,
-                                self.symbol.clone(),
-                                self.relocation_addr,
-                                "libdl.so".to_string(),
-                                hook,
-                            ));
-                        }
-                    }
+                    return self.resolve_virtual_hook(
+                        emulator,
+                        listeners,
+                        cache_hook,
+                        "libdl.so",
+                        symbol_name.as_str(),
+                    );
                 }
                 Err(anyhow!("Failed to resolve symbol: {}", symbol_name))
             }
+            "__system_property_get"
+            | "__system_property_find"
+            | "__system_property_read"
+            | "__cxa_atexit"
+            | "__cxa_finalize"
+            | "__register_atfork"
+            | "strcmp"
+            | "strncmp"
+            | "strcasecmp"
+            | "strncasecmp" => self.resolve_virtual_hook(
+                emulator,
+                listeners,
+                cache_hook,
+                "libc.so",
+                symbol_name.as_str(),
+            ),
             &_ => Err(anyhow::Error::msg(format!(
                 "Failed to resolve symbol: {}",
                 symbol_name

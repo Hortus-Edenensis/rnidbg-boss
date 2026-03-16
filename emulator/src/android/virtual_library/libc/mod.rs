@@ -1,5 +1,7 @@
 use crate::emulator::AndroidEmulator;
 use crate::memory::svc_memory::HookListener;
+use crate::memory::svc_memory::SvcCallResult::{RET, VOID};
+use crate::memory::svc_memory::{SimpleArm64Svc, SvcCallResult};
 use log::info;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -70,6 +72,16 @@ impl<'a, T: Clone> HookListener<'a, T> for Libc<'a, T> {
             "__system_property_read" => {
                 svc.register_svc(Box::new(system_properties::SystemPropertyRead::new()))
             }
+            "__cxa_atexit" => {
+                svc.register_svc(SimpleArm64Svc::new("__cxa_atexit", cxa_atexit::<T>))
+            }
+            "__cxa_finalize" => {
+                svc.register_svc(SimpleArm64Svc::new("__cxa_finalize", cxa_finalize::<T>))
+            }
+            "__register_atfork" => svc.register_svc(SimpleArm64Svc::new(
+                "__register_atfork",
+                register_atfork::<T>,
+            )),
             "strcmp" => svc.register_svc(Box::new(string::StrCmp)),
             "strncmp" => svc.register_svc(Box::new(string::StrNCmp)),
             "strcasecmp" => svc.register_svc(Box::new(string::StrCaseCmp)),
@@ -81,9 +93,42 @@ impl<'a, T: Clone> HookListener<'a, T> for Libc<'a, T> {
     }
 }
 
+fn cxa_atexit_result() -> SvcCallResult {
+    // Native modules often register C++ destructors during startup. We do not
+    // unload these DSOs today, so acknowledging registration is sufficient.
+    RET(0)
+}
+
+fn cxa_atexit<T: Clone>(_: &str, _: &AndroidEmulator<T>) -> SvcCallResult {
+    cxa_atexit_result()
+}
+
+fn cxa_finalize_result() -> SvcCallResult {
+    // Bionic/libc++ may attempt global destructor finalization during unload or
+    // process teardown. Ignoring it keeps one-shot worker subprocesses alive.
+    VOID
+}
+
+fn cxa_finalize<T: Clone>(_: &str, _: &AndroidEmulator<T>) -> SvcCallResult {
+    cxa_finalize_result()
+}
+
+fn register_atfork_result() -> SvcCallResult {
+    // The emulator does not implement fork(), so atfork callbacks are never
+    // observed. Accepting registration matches the benign bionic behavior.
+    RET(0)
+}
+
+fn register_atfork<T: Clone>(_: &str, _: &AndroidEmulator<T>) -> SvcCallResult {
+    register_atfork_result()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Libc, SystemPropertyService};
+    use super::{
+        cxa_atexit_result, cxa_finalize_result, register_atfork_result, Libc, SystemPropertyService,
+    };
+    use crate::memory::svc_memory::SvcCallResult::{RET, VOID};
     use std::rc::Rc;
 
     #[test]
@@ -102,5 +147,12 @@ mod tests {
 
         libc.clear_system_property_service();
         assert_eq!(cloned.lookup_system_property("ro.test.key"), None);
+    }
+
+    #[test]
+    fn cxx_runtime_stubs_match_bionic_style_success_values() {
+        assert!(matches!(cxa_atexit_result(), RET(0)));
+        assert!(matches!(register_atfork_result(), RET(0)));
+        assert!(matches!(cxa_finalize_result(), VOID));
     }
 }
