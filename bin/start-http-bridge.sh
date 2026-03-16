@@ -8,7 +8,35 @@ CONFIG="${RNIDBG_LAB_CONFIG:-${CONTAINER_REPO_ROOT}/config/lab-config.container.
 HOST_PORT="${RNIDBG_HTTP_PORT:-28080}"
 CONTAINER_PORT="${RNIDBG_BRIDGE_PORT:-18080}"
 
-docker compose -f "${COMPOSE_FILE}" up -d rnidbg-lab
+if python3 - "${HOST_PORT}" <<'PY'
+import json, sys, urllib.request
+port = int(sys.argv[1])
+url = f"http://127.0.0.1:{port}/health"
+try:
+    with urllib.request.urlopen(url, timeout=2) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+        if str(body.get("status", "")).lower() == "ok":
+            print(f"[+] rnidbg http bridge already healthy on :{port}")
+            raise SystemExit(0)
+except Exception:
+    raise SystemExit(1)
+PY
+then
+  exit 0
+fi
+
+python3 - "${COMPOSE_FILE}" <<'PY'
+import subprocess, sys
+compose_file = sys.argv[1]
+try:
+    subprocess.run(
+        ["docker", "compose", "-f", compose_file, "up", "-d", "rnidbg-lab"],
+        check=True,
+        timeout=60,
+    )
+except subprocess.TimeoutExpired as exc:
+    raise SystemExit(f"docker compose up timed out after {exc.timeout}s")
+PY
 
 docker compose -f "${COMPOSE_FILE}" exec -T rnidbg-lab bash -lc '
   if [[ -f /tmp/rnidbg-http-bridge.pid ]]; then

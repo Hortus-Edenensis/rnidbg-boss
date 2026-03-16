@@ -49,8 +49,18 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
+        "messages-all" | "chat-all" | "all-messages" => {
+            let output = contact::run_messages_all(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
         "chat-bootstrap" => {
             let output = contact::run_chat_bootstrap(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "chat-payload" | "chat-construct" => {
+            let output = contact::run_chat_payload(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
@@ -160,13 +170,19 @@ pub fn print_usage() {
         "  messages|chat <friendId> [--uid <friendId>] [--count <n>] [--friend-source <n>] [--max-msg-id <id>] [--last-msg-id <id>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
+        "  messages-all|chat-all [--limit <n>] [--count <n>] [--max-msg-id <id>] [--last-msg-id <id>] [--base-info-batch <n>] [--skip-sync true] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
         "  chat-bootstrap <friendId> [--uid <friendId>] [--source-security-id <id>] [--k810 <0|1>] [--window-ids <csv>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "  chat-payload|chat-construct <friendId> <text> [--uid <friendId>] [--text <message>] [--my-name <name>] [--extend <json>] [--task-id <id>] [--quote-id <id>] [--biz-id <id>] [--biz-type <n>] [--payload-builder-mode <serializer|patched|manual>] [--skip-bootstrap true] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
         "  proactive-send|chat-send-http <friendId> [--uid <friendId>] [--security-id <id>] [--scene <n>] [--host <api-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
-        "  send-text|chat-send-native <friendId> <text> [--uid <friendId>] [--text <message>] [--my-name <name>] [--extend <json>] [--send-runtime <mock|dump>] [--mock-server-mid <id>] [--skip-bootstrap true] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+        "  send-text|chat-send-native <friendId> <text> [--uid <friendId>] [--text <message>] [--my-name <name>] [--extend <json>] [--task-id <id>] [--quote-id <id>] [--biz-id <id>] [--biz-type <n>] [--send-runtime <mqtt|mock|dump>] [--payload-builder-mode <serializer|patched|manual>] [--mock-server-mid <id>] [--skip-bootstrap true] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
     );
     eprintln!(
         "  exchange [--page <n>] [--host <contact-host>] [--session-path <path>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
