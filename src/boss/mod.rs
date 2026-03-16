@@ -3,8 +3,10 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 
+pub mod captcha_mock;
 pub mod contact;
 pub mod fingerprint;
+pub mod gt3;
 pub mod http_bridge;
 pub mod job_detail;
 pub mod private_info;
@@ -33,6 +35,21 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
         }
         "private-info" | "profile" => {
             let output = private_info::run_private_info(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "captcha-mock" => {
+            let output = captcha_mock::run_captcha_mock(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "gt3-call-chain" | "gt3-chain" => {
+            let output = gt3::run_gt3_call_chain(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "gt3-pipeline" | "gt3-image-solve" => {
+            let output = gt3::run_gt3_pipeline(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
@@ -170,6 +187,16 @@ pub fn print_usage() {
         "  invoke  [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> --arg1 <utf8|hex:...> [--arg2 <key>] [--dump-rc4 true]"
     );
     eprintln!("  replay  [--config <path>] [--backend <auto|dynarmic|unicorn>] [--lookup <path>] [--limit <N>] [--mode <sp|sig|both>]");
+    eprintln!(
+        "  captcha-mock --session-path <path> [--dialog-result-json <json>|--dialog-result-file <path>] [--host <host>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "           real flow: GET /zpsecureflow/captcha/gettype (signed via libyzwg.so) then POST /zpsecureflow/captcha/validate with user-supplied GT3 dialog result"
+    );
+    eprintln!("  gt3-call-chain|gt3-chain [--format <json|markdown>] [--out <path>]");
+    eprintln!(
+        "  gt3-pipeline|gt3-image-solve [--background-url <url>|--background-image <path>] [--slider-url <url>|--slider-image <path>] [--user-agent <ua>] [--referer <url>] [--edge-low <f32>] [--edge-high <f32>] [--seed <u64>] [--out <path>]"
+    );
     eprintln!(
         "  private-info|profile [--session-path <path>] [--host <host>] [--city-code <code>] [--user-id <id>] [--sub-location <id>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>] [--force-so true]"
     );

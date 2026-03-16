@@ -1,0 +1,3 @@
+[submodule "modules/gt3-geetest"]
+	path = modules/gt3-geetest
+	url = https://github.com/Hortus-Edenensis/rnidbg-boss-gt3.git
