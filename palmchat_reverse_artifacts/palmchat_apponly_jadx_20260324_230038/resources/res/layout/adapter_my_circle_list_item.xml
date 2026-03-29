@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="54dp">
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/circleAvatarImg"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginLeft="15dp"
+        android:src="@drawable/shape_circle_avatar_bg"/>
+    <TextView
+        android:textSize="16dp"
+        android:textColor="#ff202020"
+        android:id="@+id/circleNameTv"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:text="小可爱、Alice、宝藏男人"
+        android:singleLine="true"
+        android:layout_weight="1"/>
+</LinearLayout>

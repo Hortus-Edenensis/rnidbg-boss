@@ -1,0 +1,92 @@
+package com.zenmen.palmchat.zx.storage;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes4.dex */
+public final class R$color {
+    public static final int abc_background_cache_hint_selector_material_dark = 2131099680;
+    public static final int abc_background_cache_hint_selector_material_light = 2131099681;
+    public static final int abc_btn_colored_borderless_text_material = 2131099682;
+    public static final int abc_btn_colored_text_material = 2131099683;
+    public static final int abc_color_highlight_material = 2131099684;
+    public static final int abc_hint_foreground_material_dark = 2131099687;
+    public static final int abc_hint_foreground_material_light = 2131099688;
+    public static final int abc_primary_text_disable_only_material_dark = 2131099689;
+    public static final int abc_primary_text_disable_only_material_light = 2131099690;
+    public static final int abc_primary_text_material_dark = 2131099691;
+    public static final int abc_primary_text_material_light = 2131099692;
+    public static final int abc_search_url_text = 2131099693;
+    public static final int abc_search_url_text_normal = 2131099694;
+    public static final int abc_search_url_text_pressed = 2131099695;
+    public static final int abc_search_url_text_selected = 2131099696;
+    public static final int abc_secondary_text_material_dark = 2131099697;
+    public static final int abc_secondary_text_material_light = 2131099698;
+    public static final int abc_tint_btn_checkable = 2131099699;
+    public static final int abc_tint_default = 2131099700;
+    public static final int abc_tint_edittext = 2131099701;
+    public static final int abc_tint_seek_thumb = 2131099702;
+    public static final int abc_tint_spinner = 2131099703;
+    public static final int abc_tint_switch_track = 2131099704;
+    public static final int accent_material_dark = 2131099705;
+    public static final int accent_material_light = 2131099706;
+    public static final int background_floating_material_dark = 2131099718;
+    public static final int background_floating_material_light = 2131099719;
+    public static final int background_material_dark = 2131099720;
+    public static final int background_material_light = 2131099721;
+    public static final int bright_foreground_disabled_material_dark = 2131099731;
+    public static final int bright_foreground_disabled_material_light = 2131099732;
+    public static final int bright_foreground_inverse_material_dark = 2131099733;
+    public static final int bright_foreground_inverse_material_light = 2131099734;
+    public static final int bright_foreground_material_dark = 2131099735;
+    public static final int bright_foreground_material_light = 2131099736;
+    public static final int button_material_dark = 2131099747;
+    public static final int button_material_light = 2131099748;
+    public static final int dim_foreground_disabled_material_dark = 2131099884;
+    public static final int dim_foreground_disabled_material_light = 2131099885;
+    public static final int dim_foreground_material_dark = 2131099886;
+    public static final int dim_foreground_material_light = 2131099887;
+    public static final int error_color_material_dark = 2131099898;
+    public static final int error_color_material_light = 2131099899;
+    public static final int foreground_material_dark = 2131100089;
+    public static final int foreground_material_light = 2131100090;
+    public static final int highlighted_text_material_dark = 2131100221;
+    public static final int highlighted_text_material_light = 2131100222;
+    public static final int material_blue_grey_800 = 2131100617;
+    public static final int material_blue_grey_900 = 2131100618;
+    public static final int material_blue_grey_950 = 2131100619;
+    public static final int material_deep_teal_200 = 2131100621;
+    public static final int material_deep_teal_500 = 2131100622;
+    public static final int material_grey_100 = 2131100692;
+    public static final int material_grey_300 = 2131100693;
+    public static final int material_grey_50 = 2131100694;
+    public static final int material_grey_600 = 2131100695;
+    public static final int material_grey_800 = 2131100696;
+    public static final int material_grey_850 = 2131100697;
+    public static final int material_grey_900 = 2131100698;
+    public static final int notification_action_color_filter = 2131100794;
+    public static final int notification_icon_bg_color = 2131100795;
+    public static final int primary_dark_material_dark = 2131100862;
+    public static final int primary_dark_material_light = 2131100863;
+    public static final int primary_material_dark = 2131100864;
+    public static final int primary_material_light = 2131100865;
+    public static final int primary_text_default_material_dark = 2131100866;
+    public static final int primary_text_default_material_light = 2131100867;
+    public static final int primary_text_disabled_material_dark = 2131100868;
+    public static final int primary_text_disabled_material_light = 2131100869;
+    public static final int ripple_material_dark = 2131100881;
+    public static final int ripple_material_light = 2131100882;
+    public static final int secondary_text_default_material_dark = 2131100883;
+    public static final int secondary_text_default_material_light = 2131100884;
+    public static final int secondary_text_disabled_material_dark = 2131100885;
+    public static final int secondary_text_disabled_material_light = 2131100886;
+    public static final int switch_thumb_disabled_material_dark = 2131100909;
+    public static final int switch_thumb_disabled_material_light = 2131100910;
+    public static final int switch_thumb_material_dark = 2131100911;
+    public static final int switch_thumb_material_light = 2131100912;
+    public static final int switch_thumb_normal_material_dark = 2131100913;
+    public static final int switch_thumb_normal_material_light = 2131100914;
+    public static final int tooltip_background_dark = 2131100982;
+    public static final int tooltip_background_light = 2131100983;
+
+    private R$color() {
+    }
+}

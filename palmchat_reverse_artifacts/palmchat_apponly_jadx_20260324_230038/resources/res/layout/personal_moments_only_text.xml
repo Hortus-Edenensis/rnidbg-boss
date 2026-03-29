@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <include layout="@layout/personal_moments_header_year"/>
+    <View
+        android:id="@+id/higher_margin"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="23dp"/>
+    <View
+        android:id="@+id/short_margin"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"/>
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <include layout="@layout/personal_moments_date_header"/>
+        <RelativeLayout
+            android:layout_gravity="bottom"
+            android:id="@+id/album_click_area"
+            android:background="@drawable/shape_shape_moment_personal_feed_bg"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="16dp"
+            android:layout_weight="1">
+            <TextView
+                android:textSize="@dimen/B3"
+                android:textColor="@color/Gb"
+                android:ellipsize="end"
+                android:layout_gravity="center_vertical"
+                android:id="@+id/album_only_text_tv"
+                android:padding="8dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="2"/>
+            <ImageView
+                android:id="@+id/send_fail_ic"
+                android:visibility="gone"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginRight="2dp"
+                android:src="@drawable/status_fail_hint"
+                android:scaleType="centerCrop"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"/>
+        </RelativeLayout>
+    </LinearLayout>
+</LinearLayout>

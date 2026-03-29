@@ -1,0 +1,19 @@
+package androidx.databinding.adapters;
+
+import android.content.res.ColorStateList;
+import android.graphics.drawable.ColorDrawable;
+import androidx.databinding.BindingConversion;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+public class Converters {
+    @BindingConversion
+    public static ColorStateList convertColorToColorStateList(int i) {
+        return ColorStateList.valueOf(i);
+    }
+
+    @BindingConversion
+    public static ColorDrawable convertColorToDrawable(int i) {
+        return new ColorDrawable(i);
+    }
+}

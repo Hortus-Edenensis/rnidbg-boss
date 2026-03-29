@@ -1,0 +1,124 @@
+package com.getui.gtc.base.log.a;
+
+import android.content.Context;
+import com.getui.gtc.base.log.ILogController;
+import com.getui.gtc.base.log.ILogFormatter;
+import com.getui.gtc.base.util.CommonUtil;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Properties;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public class a implements ILogController {
+    private static List<String> b;
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    private String f5696a = "sdk.debug";
+    private final Context c;
+    private final ILogFormatter d;
+    private boolean e;
+
+    public a(Context context, ILogFormatter iLogFormatter) {
+        this.c = context;
+        this.d = (ILogFormatter) com.getui.gtc.base.log.e.a.a(iLogFormatter);
+        a(this.f5696a);
+    }
+
+    /* JADX WARN: Can't wrap try/catch for region: R(8:(2:43|6)(4:7|(1:9)(2:10|(1:12)(1:13))|14|(2:49|38)(2:18|19))|41|20|(4:23|(1:60)(3:56|29|61)|57|21)|53|(3:45|32|52)(1:50)|38|3) */
+    /* JADX WARN: Removed duplicated region for block: B:45:0x00a4 A[EXC_TOP_SPLITTER, PHI: r4
+      0x00a4: PHI (r4v5 java.io.InputStream) = (r4v4 java.io.InputStream), (r4v6 java.io.InputStream) binds: [B:36:0x00ab, B:31:0x00a2] A[DONT_GENERATE, DONT_INLINE], SYNTHETIC] */
+    /* JADX WARN: Removed duplicated region for block: B:51:0x00ae A[SYNTHETIC] */
+    /*
+        Code decompiled incorrectly, please refer to instructions dump.
+    */
+    private static List<String> a(Context context) {
+        InputStream inputStreamOpen;
+        File file;
+        ArrayList arrayList = new ArrayList();
+        String str = context.getPackageName() + ".properties";
+        File externalFilesDir = CommonUtil.getExternalFilesDir(context);
+        for (int i = 0; i < 4; i++) {
+            if (i == 0) {
+                try {
+                    inputStreamOpen = context.getAssets().open(str);
+                } catch (Throwable unused) {
+                    inputStreamOpen = null;
+                    if (inputStreamOpen == null) {
+                    }
+                }
+            } else {
+                if (i == 1) {
+                    file = new File(externalFilesDir, str);
+                } else if (i == 2) {
+                    file = new File(context.getFilesDir(), str);
+                } else {
+                    file = new File(externalFilesDir, context.getPackageName() + "-online.properties");
+                }
+                if (file.exists() && file.canRead()) {
+                    inputStreamOpen = new FileInputStream(file);
+                }
+            }
+            Properties properties = new Properties();
+            properties.load(inputStreamOpen);
+            Enumeration enumerationKeys = properties.keys();
+            while (enumerationKeys.hasMoreElements()) {
+                String str2 = (String) enumerationKeys.nextElement();
+                String property = properties.getProperty(str2);
+                if (property != null && Boolean.parseBoolean(property.trim()) && !arrayList.contains(str2)) {
+                    arrayList.add(str2);
+                }
+            }
+            if (inputStreamOpen != null) {
+                try {
+                    inputStreamOpen.close();
+                } catch (IOException unused2) {
+                }
+            }
+        }
+        return arrayList;
+    }
+
+    @Override // com.getui.gtc.base.log.ILogController
+    public boolean isLoggable(int i, String str) {
+        int i2 = i & 240;
+        if (i2 == 0 || i2 == 32) {
+            return this.e;
+        }
+        return false;
+    }
+
+    @Override // com.getui.gtc.base.log.ILogController
+    public void log(int i, String str, String str2, Throwable th) {
+        if ((i & 240) != 0) {
+            i &= 15;
+        }
+        this.d.log(i, str, str2, th);
+    }
+
+    public final void a(String str) {
+        this.f5696a = str;
+        this.e = a(this.c, str);
+    }
+
+    private static boolean a(Context context, String str) {
+        try {
+            if (b == null) {
+                synchronized (a.class) {
+                    if (b == null) {
+                        b = Collections.unmodifiableList(a(context));
+                    }
+                }
+            }
+            return b.contains(str);
+        } catch (Throwable unused) {
+            return false;
+        }
+    }
+}

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    style="@style/wfSdkDfContainerLayoutStyle">
+    <TextView
+        android:id="@+id/wf_sdk_df_item_title"
+        android:text="@string/wf_shell_df_app_name"
+        style="@style/wfSdkDfSubTextLeftStyle"/>
+    <TextView
+        android:id="@+id/wf_sdk_df_item_txt"
+        android:text="@string/wf_shell_df_app_msg"
+        style="@style/wfSdkDfSubTextRightStyle"/>
+    <TextView
+        android:id="@+id/wf_sdk_df_item_extra"
+        android:text="@string/wf_shell_df_app_msg"
+        style="@style/wfSdkDfSubTextRightStyle"/>
+    <ImageView
+        android:id="@+id/wf_sdk_df_item_image_dependency"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="10dp"/>
+</LinearLayout>

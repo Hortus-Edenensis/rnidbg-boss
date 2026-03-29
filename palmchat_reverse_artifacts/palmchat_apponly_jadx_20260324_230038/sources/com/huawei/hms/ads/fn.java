@@ -1,0 +1,11 @@
+package com.huawei.hms.ads;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes8.dex */
+public class fn {
+    public static fm Code() {
+        fm fmVarCode = fj.Code();
+        fmVarCode.Code(fg.Code());
+        return fmVarCode;
+    }
+}

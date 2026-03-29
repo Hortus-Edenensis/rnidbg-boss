@@ -1,0 +1,14 @@
+package com.bef.effectsdk;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes6.dex */
+public final class RequirementResourceMapper {
+    private RequirementResourceMapper() {
+    }
+
+    private static native String[] nativePeekResourcesNeededByRequirements(String[] strArr);
+
+    public static String[] peekResourcesNeededByRequirements(String[] strArr) {
+        return nativePeekResourcesNeededByRequirements(strArr);
+    }
+}

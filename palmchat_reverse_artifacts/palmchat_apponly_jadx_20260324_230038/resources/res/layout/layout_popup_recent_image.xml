@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <ImageView
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/imageView"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="38dp"
+        android:src="@drawable/media_pick_grid_item_background"
+        android:scaleType="centerCrop"/>
+    <ImageView
+        android:id="@+id/clickView"
+        android:clickable="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/selector_recent_image"/>
+    <TextView
+        android:textSize="@dimen/text_size_tiny2"
+        android:textColor="@color/color_858585"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="6dp"
+        android:maxWidth="60dp"
+        android:text="@string/recent_image_pick"/>
+</RelativeLayout>

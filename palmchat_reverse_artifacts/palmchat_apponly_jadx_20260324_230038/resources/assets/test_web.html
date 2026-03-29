@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8"/>
+    <title>看对眼WebView测试页</title>
+    <meta name="viewport" content="width=device-width,initial-scale=0.5,user-scalable=no"/>
+</head>
+<style>
+    .app {
+        font-size: 30px;
+        margin-bottom: 50px;
+    }
+
+    .btn {
+        text-align: center;
+        background: #d8d8d8;
+        color: #222;
+        padding: 20px;
+        margin: 50px;
+        font-size: 30px;
+        border-radius: 4px;
+        box-shadow: 4px 2px 10px #999;
+    }
+
+    .btn:active {
+        opacity: 0.7;
+        box-shadow: 4px 2px 10px #555;
+    }
+
+</style>
+<body background="#FFFFFF;opacity:1.0">
+<script type="text/javascript">
+    function globalMethod(fn, autoDestroy) {
+        var rid = +new Date() + '_' + Math.ceil(Math.random() * 100)
+        var name = '__globalMethod__' + rid
+        window[name] = function(o) {
+            fn.apply(null, arguments)
+            if (autoDestroy !== false) delete window[name]
+        }
+        return name
+    }
+    const jsbridge = {
+        call: (method, params, callback) => {
+            const cmd = '__jsapi__:' + JSON.stringify({
+                method,
+                params,
+                callback: globalMethod(callback)
+            })
+            window.prompt(cmd)
+        }
+    }
+
+    function closeWindow(){
+        jsbridge.call('closeWindow')
+    }
+
+    function userInfo(){
+        jsbridge.call('userInfo', {}, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function track(){
+        jsbridge.call('track', {"name":"onDoSomething", "extra":{"key1":"value1", "key2":"value2"}})
+    }
+    
+    function pay(){
+        jsbridge.call('pay', {
+            "goodsPackageId": "607fc92a00b2369651fd61a4",
+            "promPrice": "0.01"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function req1(){
+        jsbridge.call('request', {
+            "method": "tinder.activity.210801.level"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function req2(){
+        jsbridge.call('request', {
+            "method": "tinder.queryGoodsPackageList.v1",
+            "params": {"type":21080101}
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function req3(){
+        jsbridge.call('request', {
+            "method": "tinder.activity.210801.getlevelreward",
+            "params": {"id":0}
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function share(){
+        jsbridge.call('share', {
+            "url":"zenxin://activity?page=a00010&url=https%3a%2f%2fwww.baidu.com%2f",
+
+            "appIcon":"https://wine-avatar.cdn.lianxinapp.com/avatar/2021/3/22/d/z/2412587877318656-8-2-c446f56c083c4259afcce6ed86046e8a-qqd6qy.png",
+            "appName":"大标题",
+
+            "subject":"小标题",
+            "desc":"描述内容",
+
+            "iconUrl":"https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache",
+
+            "sourceIcon":"https://palmchat.cdn.lianxinapp.com/static/resource/logo/wine/w6.png",
+            "sourceName":"邂逅浪漫"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function share2(){
+        jsbridge.call('share', {
+
+            // "url":"zenxin://webapp?url=https%3a%2f%2fwww.bing.com%2f",
+            "url":"zenxin://activity?page=a00010&url=https%3A%2F%2Fwww.jianshu.com%2Fp%2F08f35f6d72cf&kdy_url=https%3A%2F%2Fshort0.lx-qa.com%2Fzz-act%2Fyflb.html",
+            "appIcon":"https://wine-avatar.cdn.lianxinapp.com/avatar/2021/3/22/d/z/2412587877318656-8-2-c446f56c083c4259afcce6ed86046e8a-qqd6qy.png",
+            "appName":"2大标题URL",
+            "subject":"2小标题URL",
+            "desc":"描述内容",
+            "iconUrl":"https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache",
+            "sourceIcon":"https://palmchat.cdn.lianxinapp.com/static/resource/logo/wine/w6.png",
+            "sourceName":"2邂逅浪漫"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function share3(){
+        jsbridge.call('share', {
+            // "url":"zenxin://webapp?url=https%3a%2f%2fwww.bing.com%2f",
+            "url":"zenxin://activity?page=a00010&url=https%3A%2F%2Fwww.jianshu.com%2Fp%2F08f35f6d72cf&kdy_url=https%3A%2F%2Fshort0.lx-qa.com%2Fzz-act%2FyflbPop.html",
+            "appIcon":"https://wine-avatar.cdn.lianxinapp.com/avatar/2021/3/22/d/z/2412587877318656-8-2-c446f56c083c4259afcce6ed86046e8a-qqd6qy.png",
+            "appName":"3大标题URL",
+            "subject":"3小标题URL",
+            "desc":"描述内容",
+            "iconUrl":"https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache",
+            "sourceIcon":"https://palmchat.cdn.lianxinapp.com/static/resource/logo/wine/w6.png",
+            "sourceName":"3邂逅浪漫"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function openUrl1(){
+        jsbridge.call('openUrl', {
+            "url": "zenxin://activity?page=a00010&url=https%3A%2F%2Fwww.jianshu.com%2Fp%2F08f35f6d72cf&kdy_url=https%3A%2F%2Fshort0.lx-qa.com%2Fzz-act%2Fyflb.html"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function openUrl2(){
+        closeWindow();
+        jsbridge.call('openUrl', {
+            "url": "zenxin://activity?page=a00010&url=https%3A%2F%2Fwww.jianshu.com%2Fp%2F08f35f6d72cf&kdy_url=https%3A%2F%2Fshort0.lx-qa.com%2Fzz-act%2Fyflb.html&source=4&mid=act_210801"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function openUrl3(){
+        jsbridge.call('openUrl', {
+            "url": "zenxin://activity?page=a00010&url=https%3A%2F%2Fwww.jianshu.com%2Fp%2F08f35f6d72cf"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function openUrl4(){
+        closeWindow();
+        jsbridge.call('openUrl', {
+            "url": "zenxin://activity?page=a00010&url=https%3A%2F%2Fwww.jianshu.com%2Fp%2F08f35f6d72cf"
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+    
+
+</script>
+<div class="app">
+    <div class="btn" onclick="closeWindow()">关闭窗口</div>
+    <div class="btn" onclick="userInfo()">个人信息</div>
+    <div class="btn" onclick="track()">打点</div>
+    <div class="btn" onclick="pay()">支付</div>
+    <div class="btn" onclick="req1()">REQ:获取进度</div>
+    <div class="btn" onclick="openUrl1()">打开页面1</div>
+    <div class="btn" onclick="openUrl2()">打开页面2</div>
+    <div class="btn" onclick="openUrl3()">打开纯网页</div>
+    <div class="btn" onclick="openUrl4()">打开纯网页2</div>
+    <div class="btn" onclick="alert('heihei')">alert</div>
+    
+    <div class="value"></div>
+</div>
+</body>
+</html>

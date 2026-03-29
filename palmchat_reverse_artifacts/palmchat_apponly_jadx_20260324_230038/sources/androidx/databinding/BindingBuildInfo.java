@@ -1,0 +1,10 @@
+package androidx.databinding;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+@Target({ElementType.TYPE})
+public @interface BindingBuildInfo {
+}

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>测试cordova plugins</title>
+    <style>
+
+        .buttontest{
+            width: 100%;
+            height: 80px;
+            font-size: xx-large;
+            margin-top: 30px;
+        }
+        body{
+        background-color:transparent;
+            background: rgba(0,0,0,0.5);
+         }
+    </style>
+</head>
+
+<body style="background-color:transparent;background: rgba(0,0,0,0.2);">
+    <script type="text/javascript" src="/zx_local_res/jssdk/cordova.js"></script>
+    <script type="text/javascript" src="/zx_local_res/jssdk/zx.js"></script>
+    <script type="text/javascript">
+        var app = {
+            // Application Constructor
+            initialize: function() {
+                this.bindEvents();
+            },
+
+            // Bind Event Listeners
+            //
+            // Bind any events that are required on startup. Common events are:
+            // 'load', 'deviceready', 'offline', and 'online'.
+            bindEvents: function() {
+                document.addEventListener('deviceready', this.onDeviceReady, false);
+            },
+
+            // deviceready Event Handler
+            //
+            // The scope of 'this' is the event. In order to call the 'receivedEvent'
+            // function, we must explicitly call 'app.receivedEvent(...);'
+            onDeviceReady: function() {
+                alert("onDeviceReady ua="+navigator.userAgent);
+            }
+        };
+
+        app.initialize();
+
+        function startBootGuideActivity() {
+            zx.startBootGuideActivity();
+        }
+
+        function showUid() {
+            zx.getUid(function (uid) {
+               alert(uid);
+            });
+        }
+
+        function showUserProfile() {
+            zx.getUserProfile(function (userProfile) {
+                alert(JSON.stringify(userProfile));
+            });
+        }
+
+        function showUserAgent() {
+            zx.getUserAgent(function (userAgent) {
+                alert(JSON.stringify(userAgent));
+            });
+        }
+
+        function getUserInfoForPay() {
+            zx.getUserInfoForPay(function (info) {
+                alert(JSON.stringify(info));
+            });
+        }
+
+        function getSzlmId() {
+            zx.getSzlmId(function (info) {
+                alert(JSON.stringify(info));
+            });
+        }
+
+        function setTextData() {
+            var hello = "hello world";
+            zx.setTextData(hello);
+        }
+
+        function getChatInfo() {
+            zx.getChatInfo(function (result) {
+                alert(result);
+            });
+        }
+
+        function getTextData() {
+            zx.getTextData(function (text) {
+                alert(text);
+            });
+        }
+
+        function callLocalApi() {
+            zx.requestLocalApi(function (result) {
+                alert(JSON.stringify(result));
+            }," https://short2.lx-qa.com/user/v4/profile.json", 1, null);
+        }
+
+         function callLocalApiLxServer() {
+            zx.requestLocalApiWithLxServer(function (result) {
+                alert(JSON.stringify(result));
+            },"/user/v4/profile.json", 0, null);
+        }
+
+        function addFriendAlert() {
+            zx.addFriendAlert("22", "33", "444");
+        }
+
+        function isContactClose() {
+            zx.isContactClose(function (text) {
+                alert(text);
+            });
+        }
+
+        function uploadContact() {
+            zx.uploadContact(function (data) {
+                alert(data);
+            });
+        }
+
+        function callMessage() {
+            zx.callMessage({"txt":"你有一张卷要领取","ph":"13254361765"});
+        }
+
+        function callMessageV2() {
+            zx.callMessageV2({"txt":"你有一张卷要领取","ph":"13254361765"},function (data) {
+                alert(data);
+            });
+        }
+
+        function createImg() {
+            zx.createImg({"title":"title","content":"content","url":"www.baidu.com/adfsdfhajkshdfjklahsdfjhasf"},function (data) {
+                alert(data);
+            });
+        }
+
+        function addToBlackListWithUid() {
+            zx.addToBlackListWithUid("4825840402841600",function (data) {
+                alert(data);
+            });
+        }
+
+        function isAppInstalled() {
+            zx.isAppInstalled("com.snda.wifilocating",function (data) {
+                alert(data);
+            });
+        }
+
+        function startApp() {
+            zx.startApp("com.snda.wifilocating",function (data) {
+                alert(data);
+            });
+        }
+
+
+        function openApp() {
+            zx.openApp("com.snda.wifilocating","wkb://www.baidu.com",function (data) {
+                alert(data);
+            });
+        }
+
+        function downloadApp() {
+            zx.downloadApp("com.snda.wifilocating","http://www.baidu.com",function (data) {
+                alert(data);
+            });
+        }
+
+        function isContactUploaded() {
+            zx.isContactUploaded(function (text) {
+                alert(text);
+            });
+        }
+
+        function showWallet() {
+            zx.showWallet();
+        }
+
+        function getValidateInfo() {
+            zx.getValidateInfo(function (userAgent) {
+                alert(JSON.stringify(userAgent));
+            });
+        }
+
+        function openWallet() {
+            zx.openWallet();
+        }
+
+        function saveImage() {
+            zx.saveImage("https://www.baidu.com/img/bd_logo1.png",function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function getTaiChiInfo() {
+            zx.getTaiChiInfo("LX-12696",function (data) {
+                alert(data);
+            });
+        }
+
+        function screenshot() {
+            zx.screenshot(0.2,0.2,function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+         function jumpToChat() {
+            zx.jumpToChat("88888000");
+        }
+
+        function jumpToSquarePublish() {
+            zx.jumpToSquarePublish(3, function (result) {
+                alert(result);
+            });
+        }
+
+         function onTokenReady() {
+            showUserInfo();
+        }
+
+        function getDeviceInfo() {
+            zx.getDeviceInfo(function (deviceInfo) {
+                alert(JSON.stringify(deviceInfo));
+            });
+        }
+
+        function getDeviceInfo_pub() {
+            zx.public.getDeviceInfo(function (deviceInfo) {
+                alert(JSON.stringify(deviceInfo));
+            });
+        }
+
+        function getToken() {
+            zx.getToken(function (token) {
+                alert(JSON.stringify(token));
+            });
+        }
+
+        function jumpToCordova() {
+            zx.jumpToCordova("http://www.baidu.com",function (data) {
+                alert(data);
+            });
+        }
+
+        function closeWebView() {
+            zx.closeWebView(function (data) {
+                alert(data);
+            });
+        }
+
+        function reloadWebView() {
+            zx.reloadWebView("http://www.qq.com",function (data) {
+                alert(data);
+            });
+        }
+
+        function loadErrorView() {
+            zx.loadErrorView("?errorMsg = html error" ,function (data) {
+                alert(data);
+            });
+        }
+
+        function showBadge() {
+            zx.setBonusUnreadBadge(1 ,function (data) {
+                alert(data);
+            });
+        }
+        function hideBadge() {
+            zx.setBonusUnreadBadge(0 ,function (data) {
+                alert(data);
+            });
+        }
+
+        function getUserInfoForAds() {
+            zx.getUserInfoForAds(function (data) {
+                alert(JSON.stringify(data));
+
+            });
+        }
+
+        function getUserInfoForAds_pub() {
+            zx.public.getUserInfoForAds(function (data) {
+                alert(data);
+            });
+        }
+
+        function carame(){
+            zx.camera(function (result) {
+                alert(result);
+            }, function (error) {
+                alert(error)
+            });
+        }
+
+        function takePicture(){
+            zx.takePicture(function (result) {
+                alert(result);
+            }, function (error) {
+                alert(error)
+            });
+        }
+
+        function actionUrl(){
+            zx.actionUrl("zenmen://activity?page=a0070&url=https://redpacket.youni.im/bonush5/redpack/sendTab.html");
+        }
+
+        function setWebViewHeight(){
+            zx.setWebViewHeight(500);
+        }
+
+        function getScreen(){
+            zx.getScreen(function (data) {
+                alert(JSON.stringify(data));
+            }, function (error) {
+                alert(error)
+            });
+        }
+        //纯活体检测
+        function sdpDetectionLive(bioassayTicket){
+            zx.sdpDetectionLive({"bioassayTicket":bioassayTicket},function (data) {
+                alert(JSON.stringify(data));
+            }, function (error) {
+                alert(error)
+            });
+        }
+        //活体加身份证校验检测
+        function sdpDetectionLiveAndAuth(bioassayTicket){
+            zx.sdpDetectionLiveAndAuth({"bioassayTicket":bioassayTicket},function (data) {
+                alert(JSON.stringify(data));
+            }, function (error) {
+                alert(error)
+            });
+        }
+        //退出钱包
+        function sdpExitWallet(){
+            zx.sdpExitWallet(function (data) {
+                alert(JSON.stringify(data));
+            }, function (error) {
+                alert(error)
+            });
+        }
+
+        //上传通讯录（动态权限）
+        function uploadContactExt(){
+            zx.uploadContactExt(function (data) {
+                alert(JSON.stringify(data));
+            }, function (error) {
+                alert(error)
+            });
+        }
+
+        function getRecentChat(){
+            zx.execAction("openRecentChatContacts", {"scene":"test_jsapi"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        //分享链接到朋友圈
+        function shareWebLinkToMoments(){
+            zx.shareWebLinkToMoments("testTitle","https://www.baidu.com/img/flexible/logo/pc/result@2.png","https://www.baidu.com/",null);
+        }
+
+        function showToast() {
+            zx.generalAction("showToast", {'content':'这个是一个toast', 'duration':1}, null);
+        }
+
+        function getLastLocation() {
+            zx.execAction("getLastLocation", "{}", function (data) {
+                alert(JSON.stringify(data));
+            }, function (error) {
+                alert(error)
+            });
+        }
+
+    </script>
+
+    <button class="buttontest"  type="button" onclick="startBootGuideActivity()">启动权限引导界面</button>
+    <button class="buttontest"  type="button" onclick="showUid()">显示uid</button>
+    <button class="buttontest"  type="button" onclick="showUserAgent()">显示UserAgent</button>
+    <button class="buttontest"  type="button" onclick="setTextData()">复制到剪贴板</button>
+    <button class="buttontest"  type="button" onclick="getTextData()">从剪贴板获取</button>
+    <button class="buttontest"  type="button" onclick="getChatInfo()">getChatInfo</button>
+    <button class="buttontest"  type="button" onclick="callLocalApi()">请求本地api</button>
+    <button class="buttontest"  type="button" onclick="callLocalApiLxServer()">请求本地api(LxServer)</button>
+    <button class="buttontest"  type="button" onclick="addFriendAlert()">好友请求</button>
+    <button class="buttontest"  type="button" onclick="showUserProfile()">显示头像昵称</button>
+    <button class="buttontest"  type="button" onclick="isContactClose()">用户是否关闭通讯录权限</button>
+    <button class="buttontest"  type="button" onclick="uploadContact()">上传通讯录</button>
+    <button class="buttontest"  type="button" onclick="callMessage()">调起系统短信</button>
+    <button class="buttontest"  type="button" onclick="callMessageV2()">调起系统短信V2</button>f
+    <button class="buttontest"  type="button" onclick="createImg()">根据传入参数生成图片（红包拉新专用</button>
+    <button class="buttontest"  type="button" onclick="isAppInstalled()">判断app是否安装</button>
+    <button class="buttontest"  type="button" onclick="openApp()">打开app，并跳到指定页面</button>
+    <button class="buttontest"  type="button" onclick="downloadApp()">下载app</button>
+    <button class="buttontest"  type="button" onclick="isContactUploaded()">客户端是否已经上传过通讯录</button>
+    <button class="buttontest"  type="button" onclick="showWallet()">显示钱包入口</button>
+    <button class="buttontest"  type="button" onclick="getValidateInfo()">获取用户详细信息</button>
+    <button class="buttontest"  type="button" onclick="openWallet()">打开钱包</button>
+    <button class="buttontest"  type="button" onclick="screenshot()">截屏</button>
+    <button class="buttontest"  type="button" onclick="saveImage()">保存百度图片</button>
+    <button class="buttontest"  type="button" onclick="getUserInfoForPay()">获取钱包js信息</button>
+    <button class="buttontest"  type="button" onclick="jumpToChat()">跳转到聊天</button>
+    <button class="buttontest"  type="button" onclick="getDeviceInfo()">显示DeviceInfo</button>
+    <button class="buttontest"  type="button" onclick="getToken()">显示Token</button>
+    <button class="buttontest"  type="button" onclick="jumpToCordova()">跳转到百度</button>
+    <button class="buttontest"  type="button" onclick="closeWebView()">closeWebView</button>
+    <button class="buttontest"  type="button" onclick="reloadWebView()">reloadWebView</button>
+    <button class="buttontest"  type="button" onclick="loadErrorView()">loadErrorView</button>
+    <button class="buttontest"  type="button" onclick="showBadge()">showBadge</button>
+    <button class="buttontest"  type="button" onclick="hideBadge()">hideBadge</button>
+    <button class="buttontest"  type="button" onclick="getUserInfoForAds()">getUserInfoForAds</button>
+    <button class="buttontest"  type="button" onclick="startApp()">startApp</button>
+    <button class="buttontest"  type="button" onclick="carame()">调起摄像头</button>
+    <button class="buttontest"  type="button" onclick="takePicture()">打开相册</button>
+    <button class="buttontest"  type="button" onclick="jumpToSquarePublish()">打开广场发布</button>
+    <button class="buttontest"  type="button" onclick="getScreen()">获取屏幕长宽</button>
+    <button class="buttontest"  type="button" onclick="setWebViewHeight()">设置webview高度</button>
+    <button class="buttontest"  type="button" onclick="actionUrl()">banner跳转</button>
+    <button class="buttontest"  type="button" onclick="getSzlmId()">getSzlmId</button>
+    <button class="buttontest"  type="button" onclick="getDeviceInfo_pub()">getDeviceInfo_pub</button>
+    <button class="buttontest"  type="button" onclick="getUserInfoForAds_pub()">getUserInfoForAds_pub</button>
+    <button class="buttontest"  type="button" onclick="getTaiChiInfo()">getTaiChiInfo</button>
+    <button class="buttontest"  type="button" onclick="addToBlackListWithUid()">addToBlackListWithUid</button>
+    <button class="buttontest"  type="button" onclick="sdpDetectionLive('12345')">活体检测</button>
+    <button class="buttontest"  type="button" onclick="sdpDetectionLiveAndAuth('12345')">活体检测加身份证校验</button>
+    <button class="buttontest"  type="button" onclick="sdpExitWallet()">退出钱包</button>
+    <button class="buttontest"  type="button" onclick="uploadContactExt()">上传通讯录（动态权限）</button>
+    <button class="buttontest"  type="button" onclick="shareWebLinkToMoments()">分享链接消息到朋友圈</button>
+    <button class="buttontest"  type="button" onclick="showToast()">展示Toast</button>
+    <button class="buttontest"  type="button" onclick="getLastLocation()">getLastLocation</button>
+    <button class="buttontest"  type="button" onclick="getRecentChat()">获取最近聊天</button>
+</body>
+</html>

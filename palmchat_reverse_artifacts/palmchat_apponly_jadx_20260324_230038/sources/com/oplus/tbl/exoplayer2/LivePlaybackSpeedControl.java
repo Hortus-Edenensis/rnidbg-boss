@@ -1,0 +1,17 @@
+package com.oplus.tbl.exoplayer2;
+
+import com.oplus.tbl.exoplayer2.MediaItem;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes9.dex */
+public interface LivePlaybackSpeedControl {
+    float getAdjustedPlaybackSpeed(long j, long j2);
+
+    long getTargetLiveOffsetUs();
+
+    void notifyRebuffer();
+
+    void setLiveConfiguration(MediaItem.LiveConfiguration liveConfiguration);
+
+    void setTargetLiveOffsetOverrideUs(long j);
+}

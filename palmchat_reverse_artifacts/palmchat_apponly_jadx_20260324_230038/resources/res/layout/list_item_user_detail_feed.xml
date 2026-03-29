@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:paddingLeft="2dp"
+    android:paddingRight="2dp"
+    android:layout_width="76dp"
+    android:layout_height="72dp">
+    <com.zenmen.square.dynamiclife.DynamicCornerImageView
+        android:id="@+id/iv_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"/>
+    <ImageView
+        android:id="@+id/iv_video"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_video_play_26"
+        android:layout_centerInParent="true"/>
+    <TextView
+        android:textSize="13dp"
+        android:textColor="#222222"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:id="@+id/text_thumbnail"
+        android:background="@drawable/shape_feed_text_bg_4"
+        android:paddingLeft="3dp"
+        android:paddingTop="2dp"
+        android:paddingRight="3dp"
+        android:paddingBottom="4dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:maxLines="3"
+        android:includeFontPadding="false"/>
+</RelativeLayout>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="17dp">
+    <View
+        android:id="@+id/view_line"
+        android:background="#d8d8d8"
+        android:layout_width="0.5dp"
+        android:layout_height="12dp"
+        android:layout_marginLeft="1dp"/>
+    <TextView
+        android:textSize="@dimen/B3"
+        android:textColor="@color/Gb"
+        android:ellipsize="end"
+        android:id="@+id/text_hot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="22dp"
+        android:text="呼呼度维护"
+        android:maxLines="1"
+        android:maxEms="10"/>
+</LinearLayout>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="#ffffff"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.zenmen.palmchat.widget.ClearEditText
+        android:textSize="@dimen/text_size_middle"
+        android:textColor="#333333"
+        android:textColorHint="#999999"
+        android:gravity="center"
+        android:background="@drawable/shape_light_gray_underline_v2"
+        android:paddingRight="15dp"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginLeft="15dp"
+        android:hint="@string/add_phone_number"
+        android:singleLine="true"
+        android:maxLength="40"
+        android:inputType="phone"
+        android:textCursorDrawable="@null"/>
+    <ImageView
+        android:layout_gravity="right"
+        android:visibility="gone"
+        android:clickable="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="17dp"
+        android:src="@drawable/ic_remark_tel_info"/>
+</FrameLayout>

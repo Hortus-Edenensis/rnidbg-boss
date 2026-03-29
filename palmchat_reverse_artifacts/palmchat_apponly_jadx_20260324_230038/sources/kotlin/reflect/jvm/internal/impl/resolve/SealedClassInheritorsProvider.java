@@ -1,0 +1,6 @@
+package kotlin.reflect.jvm.internal.impl.resolve;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes4.dex */
+public abstract class SealedClassInheritorsProvider {
+}

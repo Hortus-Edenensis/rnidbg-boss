@@ -1,0 +1,17 @@
+package com.oplus.tbl.exoplayer2.mediacodec;
+
+import com.oplus.tbl.exoplayer2.mediacodec.MediaCodecUtil;
+import java.util.List;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes9.dex */
+public interface MediaCodecSelector {
+    public static final MediaCodecSelector DEFAULT = new MediaCodecSelector() { // from class: mf3
+        @Override // com.oplus.tbl.exoplayer2.mediacodec.MediaCodecSelector
+        public final List getDecoderInfos(String str, boolean z, boolean z2) {
+            return MediaCodecUtil.getDecoderInfos(str, z, z2);
+        }
+    };
+
+    List<MediaCodecInfo> getDecoderInfos(String str, boolean z, boolean z2) throws MediaCodecUtil.DecoderQueryException;
+}

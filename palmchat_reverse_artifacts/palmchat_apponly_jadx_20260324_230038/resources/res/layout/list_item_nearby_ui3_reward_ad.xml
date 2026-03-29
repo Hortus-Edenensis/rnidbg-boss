@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@drawable/shape_white_rectangle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:orientation="horizontal"
+        android:background="@drawable/shape_nearby_item_reward_ad_bg"
+        android:padding="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="12dp"
+        android:layout_marginTop="34dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginBottom="12dp">
+        <TextView
+            android:textSize="@dimen/B3"
+            android:textColor="@color/Ab"
+            android:ellipsize="end"
+            android:gravity="left"
+            android:layout_gravity="center_vertical"
+            android:id="@+id/text"
+            android:paddingRight="24dp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:maxLines="2"
+            android:includeFontPadding="false"
+            android:layout_weight="1"/>
+        <ImageView
+            android:layout_gravity="center_vertical"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/nearby_item_reward_ad_icon"
+            android:scaleType="centerInside"/>
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar_custom_button"/>
+    <com.zenmen.palmchat.utils.ImageUtils.CropImageView
+        android:id="@+id/crop_image"
+        android:background="#353535"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</LinearLayout>

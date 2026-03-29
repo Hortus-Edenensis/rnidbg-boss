@@ -1,0 +1,82 @@
+package com.google.android.exoplayer2.source.hls;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public final class R$id {
+    public static final int accessibility_action_clickable_span = 2131361848;
+    public static final int accessibility_custom_action_0 = 2131361849;
+    public static final int accessibility_custom_action_1 = 2131361850;
+    public static final int accessibility_custom_action_10 = 2131361851;
+    public static final int accessibility_custom_action_11 = 2131361852;
+    public static final int accessibility_custom_action_12 = 2131361853;
+    public static final int accessibility_custom_action_13 = 2131361854;
+    public static final int accessibility_custom_action_14 = 2131361855;
+    public static final int accessibility_custom_action_15 = 2131361856;
+    public static final int accessibility_custom_action_16 = 2131361857;
+    public static final int accessibility_custom_action_17 = 2131361858;
+    public static final int accessibility_custom_action_18 = 2131361859;
+    public static final int accessibility_custom_action_19 = 2131361860;
+    public static final int accessibility_custom_action_2 = 2131361861;
+    public static final int accessibility_custom_action_20 = 2131361862;
+    public static final int accessibility_custom_action_21 = 2131361863;
+    public static final int accessibility_custom_action_22 = 2131361864;
+    public static final int accessibility_custom_action_23 = 2131361865;
+    public static final int accessibility_custom_action_24 = 2131361866;
+    public static final int accessibility_custom_action_25 = 2131361867;
+    public static final int accessibility_custom_action_26 = 2131361868;
+    public static final int accessibility_custom_action_27 = 2131361869;
+    public static final int accessibility_custom_action_28 = 2131361870;
+    public static final int accessibility_custom_action_29 = 2131361871;
+    public static final int accessibility_custom_action_3 = 2131361872;
+    public static final int accessibility_custom_action_30 = 2131361873;
+    public static final int accessibility_custom_action_31 = 2131361874;
+    public static final int accessibility_custom_action_4 = 2131361875;
+    public static final int accessibility_custom_action_5 = 2131361876;
+    public static final int accessibility_custom_action_6 = 2131361877;
+    public static final int accessibility_custom_action_7 = 2131361878;
+    public static final int accessibility_custom_action_8 = 2131361879;
+    public static final int accessibility_custom_action_9 = 2131361880;
+    public static final int action_container = 2131361909;
+    public static final int action_divider = 2131361912;
+    public static final int action_image = 2131361914;
+    public static final int action_text = 2131361924;
+    public static final int actions = 2131361935;
+    public static final int async = 2131362238;
+    public static final int blocking = 2131362470;
+    public static final int chronometer = 2131362834;
+    public static final int dialog_button = 2131363307;
+    public static final int forever = 2131363842;
+    public static final int icon = 2131364273;
+    public static final int icon_group = 2131364277;
+    public static final int info = 2131364398;
+    public static final int italic = 2131364460;
+    public static final int line1 = 2131365501;
+    public static final int line3 = 2131365503;
+    public static final int normal = 2131366222;
+    public static final int notification_background = 2131366236;
+    public static final int notification_main_column = 2131366237;
+    public static final int notification_main_column_container = 2131366238;
+    public static final int right_icon = 2131366803;
+    public static final int right_side = 2131366805;
+    public static final int tag_accessibility_actions = 2131367474;
+    public static final int tag_accessibility_clickable_spans = 2131367475;
+    public static final int tag_accessibility_heading = 2131367476;
+    public static final int tag_accessibility_pane_title = 2131367477;
+    public static final int tag_on_apply_window_listener = 2131367500;
+    public static final int tag_on_receive_content_listener = 2131367501;
+    public static final int tag_on_receive_content_mime_types = 2131367502;
+    public static final int tag_screen_reader_focusable = 2131367505;
+    public static final int tag_state_description = 2131367507;
+    public static final int tag_transition_group = 2131367509;
+    public static final int tag_unhandled_key_event_manager = 2131367510;
+    public static final int tag_unhandled_key_listeners = 2131367511;
+    public static final int tag_window_insets_animation_callback = 2131367512;
+    public static final int text = 2131367530;
+    public static final int text2 = 2131367532;
+    public static final int time = 2131367620;
+    public static final int title = 2131367638;
+    public static final int view_tree_lifecycle_owner = 2131368326;
+
+    private R$id() {
+    }
+}

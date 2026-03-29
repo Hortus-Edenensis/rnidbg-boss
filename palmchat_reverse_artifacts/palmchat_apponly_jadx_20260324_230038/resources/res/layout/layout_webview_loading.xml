@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@color/white"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.zenmen.palmchat.webplatform.miniPrograms.widget.CircleImageView
+        android:id="@+id/iv_loading"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="150dp"
+        android:src="@drawable/media_pick_grid_item_background"
+        android:layout_centerHorizontal="true"/>
+    <TextView
+        android:textSize="17dp"
+        android:textColor="@color/black"
+        android:id="@+id/tv_loading"
+        android:layout_width="wrap_content"
+        android:layout_height="50dp"
+        android:layout_marginTop="220dp"
+        android:layout_centerHorizontal="true"/>
+    <com.zenmen.palmchat.webplatform.miniPrograms.widget.AVLoadingIndicatorView
+        android:id="@+id/loading_indicator"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="300dp"
+        android:layout_centerHorizontal="true"/>
+</RelativeLayout>

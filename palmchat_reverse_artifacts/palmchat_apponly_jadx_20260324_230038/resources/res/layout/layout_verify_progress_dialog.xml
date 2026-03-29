@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:background="@drawable/bg_verify_progress_dialog"
+    android:layout_width="173dp"
+    android:layout_height="166dp">
+    <ImageView
+        android:id="@+id/progress_img_upload"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_upload"
+        android:layout_centerHorizontal="true"/>
+    <ImageView
+        android:gravity="center"
+        android:id="@+id/progress_img"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_shield"
+        android:layout_alignTop="@+id/progress_img_upload"
+        android:layout_alignBottom="@+id/progress_img_upload"
+        android:layout_centerHorizontal="true"/>
+    <TextView
+        android:textSize="@dimen/B2"
+        android:textColor="@color/Gh"
+        android:id="@+id/message_textview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="安全登录中…"
+        android:layout_below="@+id/progress_img_upload"
+        android:layout_centerHorizontal="true"/>
+</RelativeLayout>

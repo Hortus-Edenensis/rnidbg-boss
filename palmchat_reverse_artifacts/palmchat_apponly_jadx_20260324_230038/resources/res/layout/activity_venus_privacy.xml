@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:id="@+id/container"
+    android:background="@color/settings_background_gray"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar"/>
+    <com.zenmen.palmchat.widget.CommonInfoCellView
+        android:id="@+id/privacy1"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/settings_item_height"
+        app:infoCellRedDot="false"
+        app:infoCellTitle="连信直播主播协议"/>
+    <com.zenmen.palmchat.widget.CommonInfoCellView
+        android:id="@+id/privacy2"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/settings_item_height"
+        app:infoCellRedDot="false"
+        app:infoCellTitle="连信实名认证服务协议"/>
+    <com.zenmen.palmchat.widget.CommonInfoCellView
+        android:id="@+id/privacy3"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/settings_item_height"
+        app:infoCellRedDot="false"
+        app:infoCellTitle="支付服务协议"/>
+    <com.zenmen.palmchat.widget.CommonInfoCellView
+        android:id="@+id/privacy4"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/settings_item_height"
+        app:infoCellRedDot="false"
+        app:infoCellTitle="礼物服务协议"/>
+</LinearLayout>

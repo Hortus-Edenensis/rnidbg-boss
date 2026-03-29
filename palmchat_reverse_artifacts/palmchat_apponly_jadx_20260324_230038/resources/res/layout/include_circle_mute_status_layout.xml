@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/circle_mute_block"
+    android:background="@color/white"
+    android:paddingLeft="11dp"
+    android:paddingTop="12dp"
+    android:paddingRight="11dp"
+    android:paddingBottom="12dp"
+    android:visibility="gone"
+    android:clickable="true"
+    android:layout_width="match_parent"
+    android:layout_height="60dp"
+    android:layout_alignParentBottom="true">
+    <TextView
+        android:textSize="15dp"
+        android:textColor="@color/color_999999"
+        android:gravity="center"
+        android:id="@+id/circle_mute_status_tv"
+        android:background="@drawable/shape_voice_record_button_background"
+        android:layout_width="match_parent"
+        android:layout_height="33dp"
+        android:text="全员禁言中"/>
+</LinearLayout>

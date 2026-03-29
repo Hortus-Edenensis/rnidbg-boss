@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <include layout="@layout/include_moments_single_header"/>
+    <LinearLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="74dp"
+        android:layout_marginTop="-35dp"
+        android:layout_marginRight="@dimen/moment_item_padding">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="這是空内容的動態哦~理論上來説它不應該出現的o"/>
+    </LinearLayout>
+    <include layout="@layout/include_album_single_bottom_right"/>
+</LinearLayout>

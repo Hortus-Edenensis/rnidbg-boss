@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+    android:background="#000"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <SurfaceView
+        android:id="@+id/id_surface_view"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_centerInParent="true"
+        android:keepScreenOn="true"/>
+    <SeekBar
+        android:id="@+id/activity_play_seek_bar"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"/>
+    <Button
+        android:id="@+id/id_btn_mute"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Mute"
+        android:layout_below="@+id/activity_play_seek_bar"/>
+    <Button
+        android:id="@+id/id_btn_pause"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pause"
+        android:layout_toRightOf="@+id/id_btn_mute"
+        android:layout_below="@+id/activity_play_seek_bar"/>
+</RelativeLayout>

@@ -1,0 +1,11 @@
+package defpackage;
+
+import android.app.Notification;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+public final /* synthetic */ class x14 {
+    public static /* bridge */ /* synthetic */ Class a() {
+        return Notification.DecoratedCustomViewStyle.class;
+    }
+}

@@ -1,0 +1,31 @@
+package defpackage;
+
+import android.app.Activity;
+import android.content.Intent;
+import com.zenmen.palmchat.QRCodeScan.ScannerActivity;
+import com.zenmen.palmchat.R;
+import com.zenmen.palmchat.maintab.cell.DefaultCellViewController;
+import com.zenmen.palmchat.maintab.config.CellItem;
+import com.zenmen.palmchat.videocall.c;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes3.dex */
+public class p25 extends DefaultCellViewController {
+    @Override // com.zenmen.palmchat.maintab.cell.DefaultCellViewController
+    public Integer getDefaultGuideIconResId() {
+        return null;
+    }
+
+    @Override // com.zenmen.palmchat.maintab.cell.DefaultCellViewController, com.zenmen.palmchat.maintab.cell.AbsCellViewController
+    public int getDefaultIconResId() {
+        return R.drawable.ic_dynamic_cell_scan;
+    }
+
+    @Override // com.zenmen.palmchat.maintab.cell.DefaultCellViewController, com.zenmen.palmchat.maintab.cell.AbsCellViewController, defpackage.zz
+    public void processOnClick(Activity activity, CellItem cellItem) {
+        if (c.f()) {
+            return;
+        }
+        activity.startActivity(new Intent(activity, (Class<?>) ScannerActivity.class));
+    }
+}

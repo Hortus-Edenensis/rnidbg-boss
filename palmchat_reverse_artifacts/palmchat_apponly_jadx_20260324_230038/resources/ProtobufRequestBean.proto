@@ -1,0 +1,27 @@
+syntax = "proto3";
+package com.lantern.core.protobuf;
+message ProtobufRequestBean {
+    string dhid = 1;
+    string uhid = 2;
+    string pid = 3;
+    string lang = 4;
+    string appId = 5;
+    string mac = 6;
+    string verCode = 7;
+    string chanId = 8;
+    string origChanId = 9;
+    string imei = 10;
+    string verName = 11;
+    string capSsid = 12;
+    string capBssid = 13;
+    string netModel = 14;
+    string ts = 15;
+    string longi = 16;
+    string lati = 17;
+    string mapSP = 18;
+    string userToken = 19;
+    string oid = 20;
+    string sn = 21;
+    string sr = 22;
+    string androidId = 23;
+}

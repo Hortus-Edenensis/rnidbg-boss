@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    style="@style/wfSdkDfItemLayoutStyle">
+    <TextView
+        android:textSize="15sp"
+        android:textColor="@color/wf_shell_df_title_5"
+        android:gravity="center_vertical"
+        android:id="@+id/wf_sdk_df_item_title"
+        android:layout_width="wrap_content"
+        android:layout_height="45dp"
+        android:text="@string/wf_shell_df_app_name"
+        android:layout_marginStart="@dimen/wf_shell_df_item_left"/>
+    <TextView
+        android:id="@+id/wf_sdk_df_item_txt"
+        android:text="@string/wf_shell_df_app_msg"
+        android:textIsSelectable="true"
+        android:layout_marginStart="@dimen/wf_shell_df_item_left"
+        style="@style/wfSdkDfSubTextRightStyle"/>
+</LinearLayout>

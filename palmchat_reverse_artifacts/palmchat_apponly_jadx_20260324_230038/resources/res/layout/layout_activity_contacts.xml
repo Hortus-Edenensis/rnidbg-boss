@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@color/color_FFFFFF"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ListView
+        android:gravity="top"
+        android:id="@+id/contacts_list"
+        android:scrollbars="none"
+        android:fadingEdge="none"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:listSelector="#00000000"
+        android:stackFromBottom="false"
+        android:scrollingCache="false"
+        android:cacheColorHint="#00000000"
+        android:divider="#00000000"
+        android:dividerHeight="0dp"/>
+    <TextView
+        android:textSize="@dimen/text_size_48"
+        android:textColor="#ffffff"
+        android:gravity="center"
+        android:layout_gravity="center"
+        android:id="@+id/char_indicator"
+        android:background="@drawable/shape_gray_rectangle_round_corner"
+        android:visibility="gone"
+        android:layout_width="79dp"
+        android:layout_height="79dp"
+        android:text="A"/>
+    <com.zenmen.palmchat.widget.CharIndexView
+        android:layout_gravity="right"
+        android:id="@+id/index_view"
+        android:layout_width="24dp"
+        android:layout_height="match_parent"/>
+</FrameLayout>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:state_selected="true"
+        android:drawable="@drawable/voice_match_call_end_comment_item_select"/>
+    <item android:drawable="@drawable/voice_match_call_end_comment_item_nomal"/>
+</selector>

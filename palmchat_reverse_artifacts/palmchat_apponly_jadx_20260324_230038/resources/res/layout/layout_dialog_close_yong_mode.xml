@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="#edffffff"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true">
+        <ImageView
+            android:id="@+id/popup_icon"
+            android:layout_width="83dp"
+            android:layout_height="112dp"
+            android:layout_marginTop="146dp"
+            android:src="@drawable/ic_protect_off"
+            android:scaleType="centerInside"/>
+        <TextView
+            android:textSize="17dp"
+            android:textColor="#ff222222"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="青少年模式下\10暂不支持使用"/>
+    </LinearLayout>
+    <TextView
+        android:textSize="17dp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:gravity="center"
+        android:id="@+id/close_btn"
+        android:background="@drawable/shape_close_yong_mode_button_bg"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginLeft="48dp"
+        android:layout_marginRight="48dp"
+        android:layout_marginBottom="60dp"
+        android:text="关闭青少年模式"
+        android:layout_alignParentBottom="true"/>
+</RelativeLayout>

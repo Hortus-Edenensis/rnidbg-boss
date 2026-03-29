@@ -3,3 +3,12 @@
 *.cpp linguist-language=rust;
 *.h linguist-language=rust
 palmchat_env/artifacts/palmchat_base_20260324_230038.apk filter=lfs diff=lfs merge=lfs -text
+
+palmchat_env/artifacts/*.apk filter=lfs diff=lfs merge=lfs -text
+palmchat_env/**/*.so filter=lfs diff=lfs merge=lfs -text
+palmchat_env/**/*.bin filter=lfs diff=lfs merge=lfs -text
+palmchat_env/**/*.mem filter=lfs diff=lfs merge=lfs -text
+palmchat_reverse_artifacts/**/*.so filter=lfs diff=lfs merge=lfs -text
+palmchat_reverse_artifacts/**/*.bin filter=lfs diff=lfs merge=lfs -text
+palmchat_reverse_artifacts/**/*.jar filter=lfs diff=lfs merge=lfs -text
+palmchat_reverse_artifacts/**/*.model filter=lfs diff=lfs merge=lfs -text

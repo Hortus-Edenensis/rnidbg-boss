@@ -1,0 +1,12 @@
+syntax = "proto3";
+package com.lantern.core.protobuf.event;
+import "Event.proto";
+
+//事件上报请求类
+message EventRequest {
+
+    int32 eventCount = 2;
+    //事件列表
+    repeated Event events = 1;
+
+}

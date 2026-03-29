@@ -1,0 +1,11 @@
+package com.cmic.sso.sdk.e;
+
+import android.content.Context;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public class g {
+    public static boolean a(Context context, String str) {
+        return context.getPackageManager().checkPermission(str, context.getPackageName()) == 0;
+    }
+}

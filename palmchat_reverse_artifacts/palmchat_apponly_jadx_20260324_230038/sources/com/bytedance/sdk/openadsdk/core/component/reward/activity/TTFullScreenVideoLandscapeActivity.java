@@ -1,0 +1,6 @@
+package com.bytedance.sdk.openadsdk.core.component.reward.activity;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public class TTFullScreenVideoLandscapeActivity extends TTFullScreenVideoActivity {
+}

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <RelativeLayout
+        android:id="@+id/image_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <com.zenmen.palmchat.widget.AutoResizeImageView
+            android:gravity="center_vertical"
+            android:id="@+id/image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:scaleType="centerCrop"
+            android:maxWidth="220dp"
+            android:maxHeight="220dp"
+            app:maxSize="220dp"
+            app:side="left"/>
+        <View
+            android:id="@+id/image_click_area"
+            android:background="@drawable/selector_message_mask_left_item_background"
+            android:clickable="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignLeft="@+id/image"
+            android:layout_alignTop="@+id/image"
+            android:layout_alignRight="@+id/image"
+            android:layout_alignBottom="@+id/image"/>
+    </RelativeLayout>
+</LinearLayout>

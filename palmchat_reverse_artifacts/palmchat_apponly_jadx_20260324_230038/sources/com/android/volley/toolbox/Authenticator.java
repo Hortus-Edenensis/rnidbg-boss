@@ -1,0 +1,11 @@
+package com.android.volley.toolbox;
+
+import com.android.volley.AuthFailureError;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes6.dex */
+public interface Authenticator {
+    String getAuthToken() throws AuthFailureError;
+
+    void invalidateAuthToken(String str);
+}

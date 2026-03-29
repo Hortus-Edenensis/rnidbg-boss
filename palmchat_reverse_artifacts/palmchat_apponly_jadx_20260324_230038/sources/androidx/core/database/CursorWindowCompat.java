@@ -1,0 +1,45 @@
+package androidx.core.database;
+
+import android.database.CursorWindow;
+import android.os.Build;
+import androidx.annotation.DoNotInline;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+public final class CursorWindowCompat {
+
+    /* JADX INFO: compiled from: SearchBox */
+    @RequiresApi(15)
+    public static class Api15Impl {
+        private Api15Impl() {
+        }
+
+        @DoNotInline
+        public static CursorWindow createCursorWindow(String str) {
+            return new CursorWindow(str);
+        }
+    }
+
+    /* JADX INFO: compiled from: SearchBox */
+    @RequiresApi(28)
+    public static class Api28Impl {
+        private Api28Impl() {
+        }
+
+        @DoNotInline
+        public static CursorWindow createCursorWindow(String str, long j) {
+            return new CursorWindow(str, j);
+        }
+    }
+
+    private CursorWindowCompat() {
+    }
+
+    @NonNull
+    public static CursorWindow create(@Nullable String str, long j) {
+        return Build.VERSION.SDK_INT >= 28 ? Api28Impl.createCursorWindow(str, j) : Api15Impl.createCursorWindow(str);
+    }
+}

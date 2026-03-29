@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="45dp">
+    <TextView
+        android:textSize="14dp"
+        android:textColor="@color/color_222222"
+        android:ellipsize="end"
+        android:id="@+id/clb_c_name"
+        android:background="@drawable/circle_label_bg_selector"
+        android:paddingLeft="16dp"
+        android:paddingTop="5dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="5dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="10dp"
+        android:maxLines="1"
+        android:maxLength="4"/>
+</RelativeLayout>

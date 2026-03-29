@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.zenmen.palmchat.widget.EffectiveShapeView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/count1_img"
+    android:layout_width="81dp"
+    android:layout_height="81dp"
+    android:scaleType="centerCrop"
+    app:esv_shape="round_rectangle"
+    app:radius_x_dp="4dp"
+    app:radius_y_dp="4dp"/>

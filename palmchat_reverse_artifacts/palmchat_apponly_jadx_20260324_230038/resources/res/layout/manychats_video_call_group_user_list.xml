@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="6dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.zenmen.media.common.NiceImageView
+            android:layout_gravity="center"
+            android:id="@+id/sel_user_icon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginLeft="10dp"
+            app:is_circle="true"/>
+        <TextView
+            android:ellipsize="end"
+            android:id="@+id/group_user_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dp"
+            android:layout_marginRight="35dp"
+            android:singleLine="true"
+            android:layout_weight="1"
+            style="@style/text_normal_content"/>
+        <CheckBox
+            android:layout_gravity="center"
+            android:id="@+id/ckb"
+            android:background="@drawable/selector_btn_green_checkbox"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:clickable="false"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginRight="16dp"
+            android:button="@null"/>
+    </LinearLayout>
+</LinearLayout>

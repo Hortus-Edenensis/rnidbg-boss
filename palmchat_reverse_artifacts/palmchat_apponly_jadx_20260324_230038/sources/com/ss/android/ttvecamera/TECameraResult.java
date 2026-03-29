@@ -1,0 +1,131 @@
+package com.ss.android.ttvecamera;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes10.dex */
+public class TECameraResult {
+    public static final int TER_AUDIO_ERROR = -202;
+    public static final int TER_BAD_FILE = -205;
+    public static final int TER_BAD_FRAME_BUFFER = -305;
+    public static final int TER_BAD_GLBUFFER = -306;
+    public static final int TER_BAD_TEXTURE = -304;
+    public static final int TER_BUFFER_EMPTY = -111;
+    public static final int TER_BUFFER_FULL = -110;
+    public static final int TER_CAMERA_AE_LOCK_FAILED = -427;
+    public static final int TER_CAMERA_AE_LOCK_NO_SUPPORT = -426;
+    public static final int TER_CAMERA_AF_LOCK_FAILED = -434;
+    public static final int TER_CAMERA_AF_LOCK_NO_SUPPORT = -433;
+    public static final int TER_CAMERA_APERTURE_FAILED = -432;
+    public static final int TER_CAMERA_DEVICE_ERROR = -410;
+    public static final int TER_CAMERA_DEVICE_NOT_READY = -440;
+    public static final int TER_CAMERA_DISABLED = -408;
+    public static final int TER_CAMERA_DISCONNECTED = -409;
+    public static final int TER_CAMERA_DUPLICATE_OPERATION = -423;
+    public static final int TER_CAMERA_EC_FAILED = -413;
+    public static final int TER_CAMERA_EC_NOT_SUPPORT = -414;
+    public static final int TER_CAMERA_EC_OUT_OF_RANGE = -415;
+    public static final int TER_CAMERA_FOCUS_CANCELLED = -438;
+    public static final int TER_CAMERA_FOCUS_FAILED = -411;
+    public static final int TER_CAMERA_FOCUS_NOT_SUPPORT = -412;
+    public static final int TER_CAMERA_HARDWARE_LEVEL_NOT_SUPPORT = -403;
+    public static final int TER_CAMERA_INTERNAL_ERROR = -439;
+    public static final int TER_CAMERA_INVALID_CAMERA_ID = -405;
+    public static final int TER_CAMERA_IN_USE = -406;
+    public static final int TER_CAMERA_ISO_FAILED = -430;
+    public static final int TER_CAMERA_MF_FAILED = -436;
+    public static final int TER_CAMERA_MF_NO_SUPPORT = -435;
+    public static final int TER_CAMERA_NO_PERMISSION = -501;
+    public static final int TER_CAMERA_OPEN_FAILED = -401;
+    public static final int TER_CAMERA_PREVIEWNG_FAILED = -437;
+    public static final int TER_CAMERA_PREVIEW_FAILED = -425;
+    public static final int TER_CAMERA_SERVER_ERROR = -407;
+    public static final int TER_CAMERA_SET_PARAMS_FAILED = -402;
+    public static final int TER_CAMERA_SHUTTER_TIME_FAILED = -431;
+    public static final int TER_CAMERA_SWITCH_FLASH_FAILED = -418;
+    public static final int TER_CAMERA_SWITCH_FLASH_NO_SUPPORT = -419;
+    public static final int TER_CAMERA_TAKE_PICTURE = -422;
+    public static final int TER_CAMERA_TORCH_FAILED = -417;
+    public static final int TER_CAMERA_TORCH_NO_SUPPORT = -416;
+    public static final int TER_CAMERA_TRY_OPEN_FAILED = -404;
+    public static final int TER_CAMERA_VENDOR_AUTH_FAILED = -428;
+    public static final int TER_CAMERA_VENDOR_AUTH_TIMEOUT = -429;
+    public static final int TER_CAMERA_WHILE_BALANCE_NO_SUPPORT = -424;
+    public static final int TER_CAMERA_ZOOM_FAILED = -420;
+    public static final int TER_CAMERA_ZOOM_NO_SUPPORT = -421;
+    public static final int TER_CLOSE_CALLED = -113;
+    public static final int TER_DECODER_ERROR = -206;
+    public static final int TER_EGL_BAD_ACCESS = -352;
+    public static final int TER_EGL_BAD_ALLOC = -353;
+    public static final int TER_EGL_BAD_ATTRIBUTE = -354;
+    public static final int TER_EGL_BAD_CONFIG = -356;
+    public static final int TER_EGL_BAD_CONTEXT = -355;
+    public static final int TER_EGL_BAD_CURRENT_SURFACE = -357;
+    public static final int TER_EGL_BAD_DISPLAY = -359;
+    public static final int TER_EGL_BAD_MATCH = -360;
+    public static final int TER_EGL_BAD_NATIVE_PIXMAP = -362;
+    public static final int TER_EGL_BAD_NATIVE_WINDOW = -363;
+    public static final int TER_EGL_BAD_PARAMETER = -361;
+    public static final int TER_EGL_BAD_SURFACE = -358;
+    public static final int TER_EGL_CONTEXT_LOST = -364;
+    public static final int TER_EGL_ERROR = -350;
+    public static final int TER_EGL_NOT_INITIALIZED = -351;
+    public static final int TER_ENCODER_ERROR = -207;
+    public static final int TER_END_STREAM = -204;
+    public static final int TER_FAIL = -1;
+    public static final int TER_GLINIT_ERROR = -301;
+    public static final int TER_GL_ERROR = -300;
+    public static final int TER_INVALID_CONTEXT = -101;
+    public static final int TER_INVALID_ENV = -108;
+    public static final int TER_INVALID_FRAME_FORMAT = -203;
+    public static final int TER_INVALID_HANDLER = -112;
+    public static final int TER_INVALID_PARAM = -100;
+    public static final int TER_INVALID_PROGRAM = -303;
+    public static final int TER_INVALID_SHADER = -302;
+    public static final int TER_INVALID_STAT = -105;
+    public static final int TER_IO_ERROR = -104;
+    public static final int TER_JNI_ERROR = -106;
+    public static final int TER_MEM_ERROR = -109;
+    public static final int TER_OK = 0;
+    public static final int TER_OUT_OF_MEMORY = -102;
+    public static final int TER_OVERFLOW = -103;
+    public static final int TER_SENSE_TIME_ERROR = -500;
+    public static final int TER_TIMEOUT = -107;
+    public static final int TER_UNKNOWN_ERROR = -1;
+    public static final int TER_UNSUPPORTED = -200;
+    public static final int TER_VIDEO_ERROR = -201;
+
+    /* JADX INFO: compiled from: SearchBox */
+    public class Info {
+        public static final int TEE_CAMERA_ARCORE = 117;
+        public static final int TEE_CAMERA_DEFAULT = 0;
+        public static final int TEE_CAMERA_EXPOSURE_COMPENSATION = 115;
+        public static final int TEE_CAMERA_FLASH_MODE = 116;
+        public static final int TEE_CAMERA_NIGHT_OPT = 118;
+        public static final int TEE_CAMERA_SLOW_MOTION_DISABLE = 100;
+        public static final int TEE_CAMERA_SLOW_MOTION_FINISH = 103;
+        public static final int TEE_CAMERA_SLOW_MOTION_READY = 101;
+        public static final int TEE_CAMERA_SLOW_MOTION_VIDEO_DONE = 102;
+        public static final int TEE_CAMERA_STABLIZATION = 113;
+        public static final int TEE_CAMERA_TAKE_PICTURE = 119;
+        public static final int TEE_CAMERA_WIDE_ANGLE = 112;
+        public static final int TEE_CAMERA_ZOOM = 114;
+        public static final int TET_CAMERA_DID_CHANGE_FLASH_MODE = 105;
+        public static final int TET_CAMERA_DID_OPEN_CAMERA = 120;
+        public static final int TET_CAMERA_DID_START_CAMERA = 107;
+        public static final int TET_CAMERA_DID_STOP_CAMERA = 109;
+        public static final int TET_CAMERA_FEATURE_NOTIFY = 1;
+        public static final int TET_CAMERA_FPS_RANGE = 121;
+        public static final int TET_CAMERA_PREVIEW = 0;
+        public static final int TET_CAMERA_PREVIEW_SIZE = 50;
+        public static final int TET_CAMERA_RECREATE_SURFACETEXTURE = 51;
+        public static final int TET_CAMERA_SLOW_MOTION = 100;
+        public static final int TET_CAMERA_STATUS = 3;
+        public static final int TET_CAMERA_STOP_PREVIEW = 4;
+        public static final int TET_CAMERA_WARNING = 2;
+        public static final int TET_CAMERA_WILL_CHANGE_FLASH_MODE = 104;
+        public static final int TET_CAMERA_WILL_START_CAMERA = 106;
+        public static final int TET_CAMERA_WILL_STOP_CAMERA = 108;
+
+        public Info() {
+        }
+    }
+}

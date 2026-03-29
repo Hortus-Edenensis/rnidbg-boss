@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@color/settings_background_gray"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar_custom_button"/>
+    <TextView
+        android:textSize="15dp"
+        android:textColor="@color/text_color_222222"
+        android:id="@+id/circle_apply_group_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="15dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginRight="15dp"
+        android:text="@string/circle_apply_group_default_question"
+        android:lineSpacingExtra="3dp"/>
+    <EditText
+        android:textSize="14dp"
+        android:textColor="@color/text_color_222222"
+        android:textColorHint="@color/text_color_999"
+        android:id="@+id/circle_apply_group_edit_content"
+        android:background="@color/white"
+        android:padding="14dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:hint="请输入理由"
+        android:singleLine="true"
+        android:maxLength="30"/>
+</LinearLayout>

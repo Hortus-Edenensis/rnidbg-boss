@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@drawable/selector_big_button_green"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ImageView
+        android:gravity="center"
+        android:id="@+id/progress"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/auth_login_progress"
+        android:layout_centerInParent="true"/>
+    <TextView
+        android:textSize="@dimen/B2"
+        android:textStyle="bold"
+        android:textColor="@color/text_color_button_green"
+        android:gravity="center"
+        android:id="@+id/text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/login_quick_text"
+        android:layout_centerInParent="true"/>
+</RelativeLayout>

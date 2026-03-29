@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:square="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.scwang.smartrefresh.layout.SmartRefreshLayout
+        android:id="@+id/refresh_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.zenmen.square.ui.widget.SquarePullHeader
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            square:finishText="完成刷新"/>
+        <com.zenmen.listui.list.BaseRecyclerView
+            android:id="@+id/recycler_view_feeds"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fastScrollEnabled="false"/>
+    </com.scwang.smartrefresh.layout.SmartRefreshLayout>
+    <com.zenmen.square.ui.widget.ListStateView
+        android:id="@+id/square_feeds_list_state"
+        android:background="@color/white"
+        android:visibility="invisible"
+        android:clickable="true"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</RelativeLayout>

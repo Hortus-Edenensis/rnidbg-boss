@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="56dp"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textSize="15dp"
+        android:textColor="@color/Gd"
+        android:id="@+id/tab_item_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="你好"
+        android:layout_centerHorizontal="true"/>
+    <View
+        android:id="@+id/tab_item_bottom"
+        android:background="@drawable/bg_gift_view_tab_light"
+        android:visibility="invisible"
+        android:layout_width="16dp"
+        android:layout_height="3dp"
+        android:layout_marginTop="2dp"
+        android:layout_below="@+id/tab_item_text"
+        android:layout_centerHorizontal="true"/>
+    <View
+        android:gravity="center"
+        android:id="@+id/red_dot"
+        android:background="@drawable/ic_gift_red_circle"
+        android:visibility="gone"
+        android:layout_width="6dp"
+        android:layout_height="6dp"
+        android:layout_toRightOf="@+id/tab_item_text"/>
+</RelativeLayout>

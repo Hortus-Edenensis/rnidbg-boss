@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    style="@style/wfSdkDfItemLayoutStyle">
+    <TextView
+        android:textSize="12sp"
+        android:id="@+id/wf_sdk_df_item_title"
+        android:layout_weight="3"
+        style="@style/wfSdkDfSubTextLeftStyle"/>
+    <TextView
+        android:textColor="@color/wf_shell_df_advice"
+        android:id="@+id/wf_sdk_df_item_txt"
+        android:layout_weight="2"
+        style="@style/wfSdkDfSubTextRightStyle"/>
+    <TextView
+        android:id="@+id/wf_sdk_df_item_extra"
+        android:layout_weight="1"
+        style="@style/wfSdkDfSubTextRightStyle"/>
+</LinearLayout>

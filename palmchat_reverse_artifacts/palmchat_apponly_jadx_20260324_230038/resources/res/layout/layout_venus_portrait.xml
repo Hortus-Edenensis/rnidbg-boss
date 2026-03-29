@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.zenmen.palmchat.widget.WaveView
+        android:id="@+id/wv"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:init_radius="30dp"
+        app:max_radius="40dp"
+        app:wave_color_begin="#ffff1f9a"
+        app:wave_color_end="#00ff1f9a"/>
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/image"
+        android:padding="5dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        app:esv_shape="circle"/>
+    <com.zenmen.palmchat.widget.DecorAvatarView
+        android:id="@+id/decor_avatar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"/>
+    <TextView
+        android:textSize="10dp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:gravity="center"
+        android:id="@+id/text"
+        android:layout_width="44dp"
+        android:layout_height="16dp"
+        android:layout_marginBottom="5dp"
+        android:text="语聊房"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"/>
+</merge>

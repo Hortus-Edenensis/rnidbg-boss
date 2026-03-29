@@ -1,0 +1,7 @@
+package defpackage;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes8.dex */
+public abstract class yt2 {
+    public abstract Throwable a();
+}

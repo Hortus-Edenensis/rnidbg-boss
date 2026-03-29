@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:orientation="vertical"
+        android:background="@drawable/shape_super_greetings_send_message_popup_bg"
+        android:paddingLeft="14dp"
+        android:paddingTop="12dp"
+        android:paddingRight="14dp"
+        android:paddingBottom="12dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <TextView
+            android:textSize="@dimen/B4"
+            android:textColor="@color/color_84440C"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/super_greetings"/>
+        <TextView
+            android:textSize="@dimen/B3"
+            android:textStyle="bold"
+            android:textColor="@color/color_84440C"
+            android:id="@+id/tv_super_greetings_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:text="@string/super_greetings_count"/>
+    </LinearLayout>
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.zenmen.palmchat.widget.TriangleView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="12dp"
+            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
+            app:triangle_color="@color/color_FFCC79"
+            app:triangle_direction="bottom"
+            app:triangle_resolution_height="12dp"
+            app:triangle_resolution_width="16dp"/>
+    </RelativeLayout>
+</LinearLayout>

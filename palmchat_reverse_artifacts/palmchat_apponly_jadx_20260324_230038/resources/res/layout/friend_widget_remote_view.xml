@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <ImageView
+            android:id="@+id/icon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/widget_provider_preview_friend"
+            android:layout_centerHorizontal="true"/>
+        <TextView
+            android:textSize="11sp"
+            android:textColor="#fff"
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="连信朋友"
+            android:maxLines="1"
+            android:shadowColor="#4d000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="1"
+            android:layout_below="@+id/icon"
+            android:layout_centerHorizontal="true"/>
+    </RelativeLayout>
+</FrameLayout>

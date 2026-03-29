@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mine_recommend_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <FrameLayout
+        android:id="@+id/trip_map_nearby_data_normal_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <FrameLayout
+            android:id="@+id/trip_map_nearby_data_normal_error_layout"
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <LinearLayout
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <ImageView
+                    android:layout_width="126dp"
+                    android:layout_height="100dp"
+                    android:layout_marginTop="113dp"
+                    android:src="@drawable/trip_map_nearby_data_error"
+                    android:scaleType="fitXY"/>
+                <TextView
+                    android:textSize="12dp"
+                    android:textColor="#999999"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="暂无已解锁行程"/>
+            </LinearLayout>
+        </FrameLayout>
+        <FrameLayout
+            android:id="@+id/trip_map_nearby_data_normal_success_layout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <com.zenmen.palmchat.activity.find.trip.FindTripNearbyRecycleView
+                android:id="@+id/trip_map_nearby_data_normal_recycle"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+        </FrameLayout>
+    </FrameLayout>
+</RelativeLayout>

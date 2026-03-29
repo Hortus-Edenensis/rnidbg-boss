@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:background="@drawable/selector_richmsg_subitem_background"
+    android:paddingLeft="14dp"
+    android:paddingTop="8dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="8dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="17dp"
+        android:layout_weight="1">
+        <TextView
+            android:textSize="@dimen/B2"
+            android:textColor="@color/Gb"
+            android:ellipsize="end"
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="contentcontentcontentcontentcontentcontentcontentcontentcontent"
+            android:maxLines="2"/>
+        <ImageView
+            android:id="@+id/tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/icon_ads"/>
+    </LinearLayout>
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/icon"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:src="@drawable/ic_default_link"
+        android:scaleType="centerCrop"
+        app:esv_shape="round_rectangle"
+        app:radius_x_dp="4dp"
+        app:radius_y_dp="4dp"/>
+</LinearLayout>

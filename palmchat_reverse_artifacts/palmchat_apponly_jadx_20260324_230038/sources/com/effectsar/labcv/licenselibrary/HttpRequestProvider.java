@@ -1,0 +1,31 @@
+package com.effectsar.labcv.licenselibrary;
+
+import java.util.HashMap;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public interface HttpRequestProvider {
+
+    /* JADX INFO: compiled from: SearchBox */
+    public static class RequestInfo {
+        public String url = "";
+        public HashMap<String, String> requestHead = new HashMap<>();
+        public String bodydata = "";
+        public int bodySize = 0;
+        public long userdata = 0;
+    }
+
+    /* JADX INFO: compiled from: SearchBox */
+    public static class ResponseInfo {
+        public boolean isSuc = false;
+        public int status_code = 0;
+        public HashMap<String, String> responseHead = new HashMap<>();
+        public String bodydata = "";
+        public int bodySize = 0;
+        public long userdata = 0;
+    }
+
+    ResponseInfo getRequest(RequestInfo requestInfo);
+
+    ResponseInfo postRequest(RequestInfo requestInfo);
+}

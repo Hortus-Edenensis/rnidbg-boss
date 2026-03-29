@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@drawable/selector_richmsg_subitem_background"
+    android:paddingLeft="14dp"
+    android:paddingTop="14dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="14dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:layout_gravity="center"
+        android:id="@+id/icon"
+        android:layout_width="match_parent"
+        android:layout_height="167dp"
+        android:src="@drawable/ic_default_link"
+        android:scaleType="centerCrop"
+        app:esv_shape="round_rectangle"
+        app:radius_x_dp="4dp"
+        app:radius_y_dp="4dp"/>
+    <TextView
+        android:textSize="@dimen/B2"
+        android:textColor="@color/Ab"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:layout_gravity="bottom"
+        android:id="@+id/title"
+        android:background="@drawable/shape_cover_bg_richmsg_img_desc"
+        android:paddingLeft="14dp"
+        android:paddingTop="10dp"
+        android:paddingRight="14dp"
+        android:paddingBottom="10dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="面朝大海，春暖花开"
+        android:maxLines="2"/>
+</FrameLayout>

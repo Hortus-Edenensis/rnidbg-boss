@@ -1,0 +1,79 @@
+package com.scwang.smartrefresh.layout;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes10.dex */
+public final class R$attr {
+    public static final int layout_srlBackgroundColor = 2130969528;
+    public static final int layout_srlSpinnerStyle = 2130969529;
+    public static final int srlAccentColor = 2130969984;
+    public static final int srlAnimatingColor = 2130969985;
+    public static final int srlClassicsSpinnerStyle = 2130969986;
+    public static final int srlDisableContentWhenLoading = 2130969987;
+    public static final int srlDisableContentWhenRefresh = 2130969988;
+    public static final int srlDragRate = 2130969989;
+    public static final int srlDrawableArrow = 2130969990;
+    public static final int srlDrawableArrowSize = 2130969991;
+    public static final int srlDrawableMarginRight = 2130969992;
+    public static final int srlDrawableProgress = 2130969993;
+    public static final int srlDrawableProgressSize = 2130969994;
+    public static final int srlDrawableSize = 2130969995;
+    public static final int srlEnableAutoLoadMore = 2130969996;
+    public static final int srlEnableClipFooterWhenFixedBehind = 2130969997;
+    public static final int srlEnableClipHeaderWhenFixedBehind = 2130969998;
+    public static final int srlEnableFooterFollowWhenLoadFinished = 2130969999;
+    public static final int srlEnableFooterFollowWhenNoMoreData = 2130970000;
+    public static final int srlEnableFooterTranslationContent = 2130970001;
+    public static final int srlEnableHeaderTranslationContent = 2130970002;
+    public static final int srlEnableHorizontalDrag = 2130970003;
+    public static final int srlEnableLastTime = 2130970004;
+    public static final int srlEnableLoadMore = 2130970005;
+    public static final int srlEnableLoadMoreWhenContentNotFull = 2130970006;
+    public static final int srlEnableNestedScrolling = 2130970007;
+    public static final int srlEnableOverScrollBounce = 2130970008;
+    public static final int srlEnableOverScrollDrag = 2130970009;
+    public static final int srlEnablePreviewInEditMode = 2130970010;
+    public static final int srlEnablePullToCloseTwoLevel = 2130970011;
+    public static final int srlEnablePureScrollMode = 2130970012;
+    public static final int srlEnableRefresh = 2130970013;
+    public static final int srlEnableScrollContentWhenLoaded = 2130970014;
+    public static final int srlEnableScrollContentWhenRefreshed = 2130970015;
+    public static final int srlEnableTwoLevel = 2130970016;
+    public static final int srlFinishDuration = 2130970017;
+    public static final int srlFixedFooterViewId = 2130970018;
+    public static final int srlFixedHeaderViewId = 2130970019;
+    public static final int srlFloorDuration = 2130970020;
+    public static final int srlFloorRage = 2130970021;
+    public static final int srlFloorRate = 2130970022;
+    public static final int srlFooterHeight = 2130970023;
+    public static final int srlFooterInsetStart = 2130970024;
+    public static final int srlFooterMaxDragRate = 2130970025;
+    public static final int srlFooterTranslationViewId = 2130970026;
+    public static final int srlFooterTriggerRate = 2130970027;
+    public static final int srlHeaderHeight = 2130970028;
+    public static final int srlHeaderInsetStart = 2130970029;
+    public static final int srlHeaderMaxDragRate = 2130970030;
+    public static final int srlHeaderTranslationViewId = 2130970031;
+    public static final int srlHeaderTriggerRate = 2130970032;
+    public static final int srlMaxRage = 2130970033;
+    public static final int srlMaxRate = 2130970034;
+    public static final int srlNormalColor = 2130970035;
+    public static final int srlPrimaryColor = 2130970036;
+    public static final int srlReboundDuration = 2130970037;
+    public static final int srlRefreshRage = 2130970038;
+    public static final int srlRefreshRate = 2130970039;
+    public static final int srlTextFailed = 2130970040;
+    public static final int srlTextFinish = 2130970041;
+    public static final int srlTextLoading = 2130970042;
+    public static final int srlTextNothing = 2130970043;
+    public static final int srlTextPulling = 2130970044;
+    public static final int srlTextRefreshing = 2130970045;
+    public static final int srlTextRelease = 2130970046;
+    public static final int srlTextSecondary = 2130970047;
+    public static final int srlTextSizeTime = 2130970048;
+    public static final int srlTextSizeTitle = 2130970049;
+    public static final int srlTextTimeMarginTop = 2130970050;
+    public static final int srlTextUpdate = 2130970051;
+
+    private R$attr() {
+    }
+}

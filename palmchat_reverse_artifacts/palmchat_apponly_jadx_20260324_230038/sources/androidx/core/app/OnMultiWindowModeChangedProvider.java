@@ -1,0 +1,12 @@
+package androidx.core.app;
+
+import androidx.annotation.NonNull;
+import androidx.core.util.Consumer;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+public interface OnMultiWindowModeChangedProvider {
+    void addOnMultiWindowModeChangedListener(@NonNull Consumer<MultiWindowModeChangedInfo> consumer);
+
+    void removeOnMultiWindowModeChangedListener(@NonNull Consumer<MultiWindowModeChangedInfo> consumer);
+}

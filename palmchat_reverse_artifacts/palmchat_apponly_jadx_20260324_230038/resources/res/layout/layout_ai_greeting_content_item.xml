@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:id="@+id/contentLayout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textSize="14dp"
+        android:textColor="#222"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:id="@+id/tv"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="环球港周边有什么特色美食？"
+        android:maxLines="2"/>
+    <TextView
+        android:textSize="10dp"
+        android:textColor="#999"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:id="@+id/des"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="本内容分两条发送"/>
+</LinearLayout>

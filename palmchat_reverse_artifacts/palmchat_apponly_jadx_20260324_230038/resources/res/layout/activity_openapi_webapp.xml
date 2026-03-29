@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <RelativeLayout
+        android:id="@+id/rl_webview_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.zenmen.openapi.webapp.widget.FloatMenu
+        android:layout_gravity="right"
+        android:id="@+id/rl_webapp_toolbar"
+        android:layout_width="90dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginRight="8dp"/>
+    <com.zenmen.openapi.webapp.floatview.AppFloatIcon
+        android:layout_gravity="right"
+        android:id="@+id/lx_webapp_float_menu_icon"
+        android:visibility="gone"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="50dp"
+        android:src="@drawable/lx_webapp_float_icon"/>
+    <com.zenmen.openapi.webapp.floatview.AppFloatMenuBox
+        android:id="@+id/lx_webapp_float_menu_box"
+        android:visibility="gone"
+        android:clickable="true"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</FrameLayout>

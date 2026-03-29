@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8"/>
+    <title>钱包测试页</title>
+    <meta name="viewport" content="width=device-width,initial-scale=0.5,user-scalable=no"/>
+</head>
+<style>
+    .app {
+        font-size: 30px;
+        margin-bottom: 50px;
+    }
+
+    .btn {
+        text-align: center;
+        background: #d8d8d8;
+        color: #222;
+        padding: 10px;
+        margin: 50px;
+        font-size: 30px;
+        border-radius: 4px;
+        box-shadow: 4px 2px 10px #999;
+    }
+
+    .input {
+        font-size: 30px;
+    }
+
+    .btn:active {
+        opacity: 0.7;
+        box-shadow: 4px 2px 10px #555;
+    }
+
+</style>
+<body background="#FFFFFF;opacity:1.0">
+<script type="text/javascript">
+    function globalMethod(fn, autoDestroy) {
+        var rid = +new Date() + '_' + Math.ceil(Math.random() * 100)
+        var name = '__globalMethod__' + rid
+        window[name] = function(o) {
+            fn.apply(null, arguments)
+            if (autoDestroy !== false) delete window[name]
+        }
+        return name
+    }
+    const jsbridge = {
+        call: (method, params, callback) => {
+            const cmd = '__jsapi__:' + JSON.stringify({
+                method,
+                params,
+                callback: globalMethod(callback)
+            })
+            window.prompt(cmd)
+        }
+    }
+
+    function closeWindow(){
+        jsbridge.call('closeWindow')
+    }
+
+    function track(){
+        jsbridge.call('track', {"name":"onDoSomething", "extra":{"key1":"value1", "key2":"value2"}})
+    }
+    
+    function jump1(){
+        jsbridge.call('openItem', {
+            "needLogin": true,
+            "nativeUrl": "com.wifipay.action.WP_WALLETBILL"
+        })
+    }
+
+    function jump2(){
+        jsbridge.call('openItem', {
+            "needLogin": true,
+            "nativeUrl": "com.wifipay.action.WP_REMAIN"
+        })
+    }
+
+    function jump3(){
+        jsbridge.call('openItem', {
+            "needLogin": true,
+            "nativeUrl": "com.wifipay.action.WP_BANKMANAGE"
+        })
+    }
+
+    function jump4(){
+        jsbridge.call('openItem', {
+            "needLogin": true,
+            "h5Url": "http://wap.wifimall.zhuisu100.cn/phonegoods/lxPhoneCharge.html"
+        })
+    }
+
+    function jump5(){
+        jsbridge.call('openItem', {
+            "needLogin": true,
+            "h5Url": "https://anntest.shengpay.com/cc-repay"
+        })
+    }
+
+    function jump6(){
+        jsbridge.call('openItem', {
+            "needLogin": true,
+            "nativeUrl": "im.youni.vas.sdk.wallet.WP_SETTING"
+        })
+    }
+
+    function pay(){
+        jsbridge.call('pay', {
+            "channelId": 1,
+            "channelSubId": 268435457,
+            "packageId": 1,
+            "payMethodId": 3
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+    function config(){
+        jsbridge.call('getConfig', {
+        }, (res) => {
+            alert(res)
+            console.log(res)
+        })
+    }
+
+</script>
+<div class="app">
+    <div class="btn" onclick="closeWindow()">关闭窗口</div>
+    <div class="btn" onclick="track()">打点</div>
+    <div class="btn" onclick="pay()">支付</div>
+
+    <div class="btn" onclick="config()">配置信息</div>
+
+    <div class="btn" onclick="jump1()">账单</div>
+    <div class="btn" onclick="jump2()">零钱</div>
+    <div class="btn" onclick="jump3()">银行卡</div>
+    <div class="btn" onclick="jump4()">话费充值</div>
+    <div class="btn" onclick="jump5()">信用卡还款</div>
+    <div class="btn" onclick="jump6()">跳设置页</div>
+    <input class="input" name="data" type="number"/>
+    
+    <div class="value"></div>
+</div>
+</body>
+</html>

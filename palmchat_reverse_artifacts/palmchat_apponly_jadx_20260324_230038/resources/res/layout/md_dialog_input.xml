@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.afollestad.materialdialogs.internal.MDRootLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:md_reduce_padding_no_title_no_buttons="false">
+    <include layout="@layout/md_stub_titleframe"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/md_dialog_frame_margin"
+        android:paddingTop="@dimen/md_content_padding_top"
+        android:paddingRight="@dimen/md_dialog_frame_margin"
+        android:paddingBottom="@dimen/md_content_padding_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <TextView
+            android:textSize="@dimen/md_content_textsize"
+            android:textColor="@color/color_999999"
+            android:layout_gravity="center_horizontal"
+            android:id="@+id/content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="@dimen/md_content_padding_bottom"
+            android:fontFamily="sans-serif"/>
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <EditText
+                android:textSize="@dimen/md_content_textsize"
+                android:textColor="@color/color_00C85A"
+                android:textColorHint="@color/color_CCCCCC"
+                android:id="@android:id/input"
+                android:background="@drawable/md_shape_light_green_underline"
+                android:padding="3dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="0dp"
+                android:layout_marginRight="0dp"
+                android:layout_marginBottom="1dp"/>
+            <TextView
+                android:textSize="@dimen/md_content_textsize_tiny"
+                android:textColor="@color/color_CCCCCC"
+                android:gravity="end"
+                android:id="@+id/minMax"
+                android:paddingRight="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="48dp"
+                android:layout_below="@android:id/input"
+                android:layout_alignRight="@android:id/input"
+                android:fontFamily="sans-serif"
+                android:textAlignment="viewEnd"
+                android:paddingEnd="4dp"
+                android:layout_alignEnd="@android:id/input"/>
+        </RelativeLayout>
+    </LinearLayout>
+    <include layout="@layout/md_stub_actionbuttons"/>
+</com.afollestad.materialdialogs.internal.MDRootLayout>

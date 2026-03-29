@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ImageView
+        android:id="@+id/fold_bg"
+        android:background="@drawable/shape_people_match_entry_fold_bg"
+        android:layout_width="23dp"
+        android:layout_height="28dp"
+        android:layout_marginBottom="3dp"
+        app:layout_constraintBottom_toBottomOf="@+id/fold_image"
+        app:layout_constraintRight_toRightOf="@+id/fold_image"/>
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/fold_image"
+        android:layout_width="28dp"
+        android:layout_height="34dp"
+        android:layout_marginRight="2dp"
+        android:layout_marginBottom="4dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"/>
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/fold_image_transition"
+        android:visibility="gone"
+        android:layout_width="28dp"
+        android:layout_height="34dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="@+id/fold_image"
+        app:layout_constraintLeft_toLeftOf="@+id/fold_image"
+        app:layout_constraintRight_toRightOf="@+id/fold_image"
+        app:layout_constraintTop_toTopOf="@+id/fold_image"/>
+    <ImageView
+        android:id="@+id/fold_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/people_match_entry_fold_icon"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintRight_toRightOf="parent"/>
+</merge>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.wifi.ad.core.feedbanner.ClearLogoNativeAdContainer xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/native_ad_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <RelativeLayout
+        android:id="@+id/custom_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true">
+        <FrameLayout
+            android:id="@+id/gdt_media_view_parent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+            <com.qq.e.ads.nativ.MediaView
+                android:id="@+id/gdt_media_view"
+                android:background="#000"
+                android:visibility="gone"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_centerInParent="true"/>
+        </FrameLayout>
+        <ImageView
+            android:id="@+id/img_poster"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scaleType="fitXY"
+            android:layout_centerVertical="true"/>
+    </RelativeLayout>
+</com.wifi.ad.core.feedbanner.ClearLogoNativeAdContainer>

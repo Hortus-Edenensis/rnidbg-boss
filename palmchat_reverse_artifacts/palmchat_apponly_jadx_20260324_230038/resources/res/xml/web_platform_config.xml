@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:hdfogh="http://www.w3.org/ns/widgets"
+    id="com.zenme.palmchat"
+    version="1.0.0">
+    <name>cordovapalmchat
+    </name>
+    <description> A sample Apache Cordova application that responds to the deviceready event. 
+    </description>
+    <author
+        email="dev@cordova.apache.org"
+        href="http://cordova.io"> Apache Cordova Team 
+    </author>
+    <content src="index.html"/>
+    <access origin="*"/>
+    <allow-intent href="http://*/*"/>
+    <allow-intent href="https://*/*"/>
+    <allow-intent href="tel:*"/>
+    <allow-intent href="sms:*"/>
+    <allow-intent href="mailto:*"/>
+    <allow-intent href="geo:*"/>
+    <allow-intent href="market:*"/>
+    <preference
+        name="loglevel"
+        value="DEBUG"/>
+    <allow-navigation href="cdvfile:*"/>
+    <preference
+        name="AndroidPersistentFileLocation"
+        value="Internal"/>
+    <preference
+        name="AndroidPersistentFileLocation"
+        value="Compatibility"/>
+    <preference
+        name="iosExtraFilesystems"
+        value="library,library-nosync,documents,documents-nosync,cache,bundle,root"/>
+    <preference
+        name="AndroidExtraFilesystems"
+        value="files,files-external,documents,sdcard,cache,cache-external,assets,root"/>
+    <preference
+        name="loadUrlTimeoutValue"
+        value="30000"/>
+    <feature name="webPlatform">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.WebPlatformPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="WhiteList">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.WhiteListPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="NetworkStatus">˙ 
+        <param
+            name="android-package"
+            value="org.apache.webplatform.networkinformation.NetworkManager"/>
+    </feature>
+    <feature name="LocalApi">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.LocalApiPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="Expression">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.FacePlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="UserInfo">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.UserInfoPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="Log">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.LogPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="Location">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.LocationPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="Contact">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.ContactPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="RedPacket">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.RedPacketPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="MiniProgram">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.MiniProgramPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="LxVip">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.LxVipPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="General">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.LxPluginManager"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <feature name="LxPrivateChat">
+        <param
+            name="android-package"
+            value="org.apache.webplatform.jssdk.LxChatPlugin"/>
+        <param
+            name="onload"
+            value="true"/>
+    </feature>
+    <engine
+        name="android"
+        spec="~7.0.0"/>
+</widget>

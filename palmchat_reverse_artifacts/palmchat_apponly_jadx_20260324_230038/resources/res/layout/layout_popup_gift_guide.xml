@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:id="@+id/root_view"
+    android:background="@drawable/gift_guide_pop_bg"
+    android:layout_width="110dp"
+    android:layout_height="48dp">
+    <TextView
+        android:textSize="@dimen/C2"
+        android:textColor="@color/white"
+        android:ellipsize="end"
+        android:id="@+id/tv_tip"
+        android:paddingBottom="8dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:text="礼物在这里哦～"
+        android:lines="1"
+        android:layout_centerInParent="true"/>
+</RelativeLayout>

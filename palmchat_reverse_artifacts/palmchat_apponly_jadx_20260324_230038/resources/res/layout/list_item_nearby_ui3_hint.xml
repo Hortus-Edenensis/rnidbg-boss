@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="34dp">
+    <LinearLayout
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:background="@drawable/selector_settings_item_background"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="34dp">
+        <TextView
+            android:textSize="@dimen/B3"
+            android:textColor="@color/Ga"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:id="@+id/distance"
+            android:paddingTop="6dp"
+            android:paddingBottom="0dp"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:text="100米以内 · 在线的人"
+            android:singleLine="true"
+            android:includeFontPadding="false"/>
+    </LinearLayout>
+</LinearLayout>

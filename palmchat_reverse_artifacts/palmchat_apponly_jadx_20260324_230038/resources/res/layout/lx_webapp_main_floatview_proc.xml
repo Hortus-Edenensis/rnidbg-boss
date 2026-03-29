@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/lx_webapp_main_floatview_proc"
+    android:background="@drawable/lx_webapp_main_floatview_bg"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/lx_webapp_main_floatview_icon"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:scaleType="centerCrop"
+        android:layout_centerVertical="true"
+        app:esv_shape="circle"/>
+    <TextView
+        android:textSize="16dp"
+        android:textColor="#202020"
+        android:id="@+id/lx_webapp_main_floatview_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="8dp"
+        android:text="小应用Demo"
+        android:layout_toRightOf="@+id/lx_webapp_main_floatview_icon"
+        android:layout_centerVertical="true"/>
+    <ImageView
+        android:id="@+id/lx_webapp_main_floatview_close"
+        android:padding="7dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="7dp"
+        android:src="@drawable/lx_webapp_btn_close"
+        android:layout_toRightOf="@+id/lx_webapp_main_floatview_name"
+        android:layout_centerVertical="true"/>
+</RelativeLayout>

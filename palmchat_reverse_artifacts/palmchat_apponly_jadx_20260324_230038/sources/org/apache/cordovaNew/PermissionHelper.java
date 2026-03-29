@@ -1,0 +1,32 @@
+package org.apache.cordovaNew;
+
+import java.util.Arrays;
+import org.json.JSONException;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes5.dex */
+public class PermissionHelper {
+    private static final String LOG_TAG = "CordovaPermissionHelper";
+
+    private static void deliverPermissionResult(CordovaPlugin cordovaPlugin, int i, String[] strArr) {
+        int[] iArr = new int[strArr.length];
+        Arrays.fill(iArr, 0);
+        try {
+            cordovaPlugin.onRequestPermissionResult(i, strArr, iArr);
+        } catch (JSONException e) {
+            LOG.e(LOG_TAG, "JSONException when delivering permissions results", e);
+        }
+    }
+
+    public static boolean hasPermission(CordovaPlugin cordovaPlugin, String str) {
+        return cordovaPlugin.cordova.hasPermission(str);
+    }
+
+    public static void requestPermission(CordovaPlugin cordovaPlugin, int i, String str) {
+        requestPermissions(cordovaPlugin, i, new String[]{str});
+    }
+
+    public static void requestPermissions(CordovaPlugin cordovaPlugin, int i, String[] strArr) {
+        cordovaPlugin.cordova.requestPermissions(cordovaPlugin, i, strArr);
+    }
+}

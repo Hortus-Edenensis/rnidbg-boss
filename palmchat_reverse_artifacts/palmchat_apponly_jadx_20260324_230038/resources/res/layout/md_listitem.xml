@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="start|center_vertical"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textSize="17dp"
+        android:textColor="#222222"
+        android:gravity="center_vertical"
+        android:layout_gravity="start"
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/md_listitem_margin_left"
+        android:layout_marginRight="@dimen/md_dialog_frame_margin"
+        android:minHeight="@dimen/md_listitem_height"
+        android:layout_marginStart="@dimen/md_listitem_margin_left"
+        android:layout_marginEnd="@dimen/md_dialog_frame_margin"/>
+</LinearLayout>

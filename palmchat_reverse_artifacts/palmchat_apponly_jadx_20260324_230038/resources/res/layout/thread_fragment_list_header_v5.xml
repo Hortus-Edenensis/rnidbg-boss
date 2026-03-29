@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:id="@+id/tlh_view_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <include layout="@layout/layout_thread_net_status"/>
+    <com.zenmen.palmchat.conversations.threadsnew.headerview.ThreadCardNoticeView
+        android:id="@+id/notice_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.zenmen.palmchat.conversations.threadsnew.headerview.CardViewV5
+        android:id="@+id/card_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <include layout="@layout/layout_thread_upload_contact_v5"/>
+    <include layout="@layout/layout_thread_guide_power_v5"/>
+    <include layout="@layout/layout_thread_guide_notification_v5"/>
+    <include layout="@layout/layout_thread_new_guide_notification_v5"/>
+    <com.zenmen.palmchat.maintab.msgTopEntrance.MsgTopEntranceView
+        android:id="@+id/msgTopEntranceView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <include layout="@layout/layout_thread_ai_voice_guide"/>
+    <LinearLayout
+        android:orientation="horizontal"
+        android:id="@+id/filter_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="6dp"/>
+    <FrameLayout
+        android:id="@+id/super_expose_msg_tab_root"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</LinearLayout>

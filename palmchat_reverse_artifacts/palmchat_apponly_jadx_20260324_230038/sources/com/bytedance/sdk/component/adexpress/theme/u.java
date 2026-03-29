@@ -1,0 +1,7 @@
+package com.bytedance.sdk.component.adexpress.theme;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public interface u {
+    void b_(int i);
+}

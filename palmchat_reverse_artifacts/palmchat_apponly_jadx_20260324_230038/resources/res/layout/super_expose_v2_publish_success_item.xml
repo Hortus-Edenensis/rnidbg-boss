@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <ImageView
+        android:id="@+id/shandian"
+        android:layout_width="12dp"
+        android:layout_height="16dp"
+        android:layout_marginLeft="11dp"
+        android:layout_marginTop="17dp"
+        android:src="@drawable/super_expose_v2_publish_shandian"/>
+    <TextView
+        android:textSize="14dp"
+        android:textColor="#ff3d3c46"
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="7dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginRight="25dp"
+        android:layout_marginBottom="14dp"
+        android:text=""
+        android:layout_toRightOf="@+id/shandian"/>
+    <ImageView
+        android:id="@+id/driver"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginLeft="21dp"
+        android:layout_marginRight="21dp"
+        android:src="@drawable/super_expose_v2_publish_line"
+        android:layout_below="@+id/content"/>
+</RelativeLayout>

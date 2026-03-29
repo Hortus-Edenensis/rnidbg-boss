@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layout_nearby_unlock_ad"
+    android:visibility="visible"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <RelativeLayout
+        android:id="@+id/blurring_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <Button
+        android:textSize="14dp"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:layout_gravity="center"
+        android:id="@+id/nearby_unlock_ad"
+        android:background="@drawable/shape_nearby_unlock_bt_bg"
+        android:visibility="visible"
+        android:layout_width="62dp"
+        android:layout_height="28dp"
+        android:layout_marginLeft="12dp"
+        android:layout_marginRight="12dp"
+        android:text="解锁"
+        android:includeFontPadding="false"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        style="?android:attr/borderlessButtonStyle"/>
+</FrameLayout>

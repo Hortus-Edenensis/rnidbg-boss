@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@android:id/background"
+        android:drawable="@drawable/audio_seek_bg_right"/>
+    <item android:id="@android:id/secondaryProgress">
+        <scale android:scaleWidth="100%">
+            <selector>
+                <item>
+                    <color android:color="@android:color/transparent"/>
+                </item>
+            </selector>
+        </scale>
+    </item>
+    <item android:id="@android:id/progress">
+        <scale android:scaleWidth="100%">
+            <selector>
+                <item android:drawable="@drawable/audio_seek_bg_right_select"/>
+            </selector>
+        </scale>
+    </item>
+</layer-list>

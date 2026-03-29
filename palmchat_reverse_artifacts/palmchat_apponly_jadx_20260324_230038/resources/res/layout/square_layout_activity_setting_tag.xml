@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="#ffffff"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar"/>
+    <TextView
+        android:textSize="@dimen/dimen_14"
+        android:textColor="@color/text_color_999"
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/sub_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="30dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginRight="30dp"
+        android:text="选中的生活方式可在你的主页被他人看到，未选中的仅自己可见哦～"/>
+    <com.zenmen.square.tag.widget.SquareTagSelectHelper
+        android:id="@+id/tag"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="22dp"
+        android:layout_weight="1"/>
+    <TextView
+        android:textSize="18dp"
+        android:textColor="#ffffff"
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/confirm"
+        android:background="@drawable/square_btn_bg_24dp"
+        android:paddingLeft="100dp"
+        android:paddingTop="12dp"
+        android:paddingRight="100dp"
+        android:paddingBottom="12dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="60dp"
+        android:layout_marginBottom="67dp"
+        android:text="选好了"/>
+</LinearLayout>

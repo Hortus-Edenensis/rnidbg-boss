@@ -1,0 +1,9 @@
+package kotlin.reflect.jvm.internal;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes4.dex */
+class Util {
+    public static Object getEnumConstantByName(Class<? extends Enum<?>> cls, String str) {
+        return Enum.valueOf(cls, str);
+    }
+}

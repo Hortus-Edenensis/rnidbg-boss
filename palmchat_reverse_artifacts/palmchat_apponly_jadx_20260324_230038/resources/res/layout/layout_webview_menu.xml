@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:layout_width="85dp"
+    android:layout_height="32dp">
+    <ImageView
+        android:id="@+id/mini_program_more"
+        android:layout_width="42dp"
+        android:layout_height="32dp"
+        android:src="@drawable/miniprogress_more_normal"/>
+    <ImageView
+        android:id="@+id/mini_program_exit"
+        android:layout_width="42.6dp"
+        android:layout_height="32dp"
+        android:src="@drawable/miniprogress_exit_normal"/>
+</LinearLayout>

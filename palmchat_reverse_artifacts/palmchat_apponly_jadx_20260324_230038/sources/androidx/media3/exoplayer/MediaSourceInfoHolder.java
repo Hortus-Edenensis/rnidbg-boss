@@ -1,0 +1,11 @@
+package androidx.media3.exoplayer;
+
+import androidx.media3.common.Timeline;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+interface MediaSourceInfoHolder {
+    Timeline getTimeline();
+
+    Object getUid();
+}

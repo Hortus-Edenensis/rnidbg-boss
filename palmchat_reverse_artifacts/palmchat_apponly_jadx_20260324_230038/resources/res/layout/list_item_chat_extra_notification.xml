@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_gravity="center"
+    android:orientation="vertical"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    style="@style/text_chat_notification">
+    <TextView
+        android:textSize="@dimen/C2"
+        android:textColor="@color/Gd"
+        android:textColorHighlight="@color/link_url_highlight"
+        android:gravity="left"
+        android:layout_gravity="left"
+        android:id="@+id/sys_notify_textview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="test"/>
+    <TextView
+        android:textSize="@dimen/C2"
+        android:textColor="@color/Gd"
+        android:textColorHighlight="@color/link_url_highlight"
+        android:gravity="left"
+        android:layout_gravity="left"
+        android:id="@+id/sys_notify_action"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</LinearLayout>

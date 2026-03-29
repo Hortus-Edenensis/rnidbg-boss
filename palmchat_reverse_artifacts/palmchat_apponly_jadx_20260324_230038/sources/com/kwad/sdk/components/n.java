@@ -1,0 +1,25 @@
+package com.kwad.sdk.components;
+
+import android.content.Intent;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes9.dex */
+public interface n {
+    void a(q qVar);
+
+    void callTKBridge(String str);
+
+    void callbackDismiss();
+
+    void callbackPageStatus(boolean z, String str);
+
+    String getClassName();
+
+    Intent getIntent();
+
+    String getTemplateString();
+
+    String getUrl();
+
+    String getViewKey();
+}

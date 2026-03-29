@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.zenmen.palmchat.widget.ColorFilterFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootView"
+    android:background="@color/Ab"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ImageView
+        android:id="@+id/topBgView"
+        android:background="@color/Ab"
+        android:layout_width="match_parent"
+        android:layout_height="113dp"
+        android:scaleType="fitXY"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/mainTabPlaceHolder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <include
+            android:id="@+id/toolbar"
+            layout="@layout/layout_toolbar_custom_main"/>
+        <com.zenmen.palmchat.chat.MainTabsViewPager
+            android:id="@+id/view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+        <com.zenmen.palmchat.widget.TabsBarLayout
+            android:id="@+id/tabBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"/>
+    </LinearLayout>
+    <FrameLayout
+        android:id="@+id/popupLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</com.zenmen.palmchat.widget.ColorFilterFrameLayout>

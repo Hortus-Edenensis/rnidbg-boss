@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="233dp"
+    android:layout_height="71dp">
+    <ImageView
+        android:id="@+id/progress_img"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:src="@drawable/custom_progress_icon"
+        android:layout_centerInParent="true"/>
+</RelativeLayout>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>统一JSAPI测试页面</title>
+    <style>
+
+        .buttontest{
+            width: 100%;
+            height: 80px;
+            font-size: xx-large;
+            margin-top: 30px;
+        }
+        body{
+        background-color:transparent;
+            background: rgba(0,0,0,0.5);
+         }
+    </style>
+</head>
+
+<body style="background-color:transparent;background: rgba(0,0,0,0.2);">
+    <script type="text/javascript" src="/zx_local_res/jssdk/cordova.js"></script>
+    <script type="text/javascript" src="/zx_local_res/jssdk/zx.js"></script>
+    <script type="text/javascript">
+        var app = {
+            // Application Constructor
+            initialize: function() {
+                this.bindEvents();
+            },
+
+            // Bind Event Listeners
+            //
+            // Bind any events that are required on startup. Common events are:
+            // 'load', 'deviceready', 'offline', and 'online'.
+            bindEvents: function() {
+                document.addEventListener('deviceready', this.onDeviceReady, false);
+            },
+
+            // deviceready Event Handler
+            //
+            // The scope of 'this' is the event. In order to call the 'receivedEvent'
+            // function, we must explicitly call 'app.receivedEvent(...);'
+            onDeviceReady: function() {
+                alert("onDeviceReady ua="+navigator.userAgent);
+            }
+        };
+
+        app.initialize();
+        function showToast() {
+            zx.execAction("showToast", {'content':'这个是一个toast', 'duration':1}, null);
+        };
+
+        function saveUrlImage() {
+            zx.execAction("saveUrlImage", {'imgUrl':'https://www.baidu.com/img/bd_logo1.png'}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        };
+        function getLocation() {
+            zx.execAction("getLocation", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        };
+        function getLastLocation() {
+            zx.execAction("getLastLocation", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        };
+
+        function getUserInfo() {
+            zx.execAction("getUserInfo", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function getPlatformInfo() {
+            zx.execAction("getPlatformInfo", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function getPaySupportPlatform() {
+            zx.execAction("getPaySupportPlatform", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function getNetworkInfo() {
+            zx.execAction("getNetworkInfo", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function closeWindow() {
+            zx.execAction("closeWindow", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function saveLocalValue() {
+            zx.execAction("saveLocalValue", {"key":"key_test_jsapi", "value":"测试值test"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function getLocalValue() {
+            zx.execAction("getLocalValue", {"key":"key_test_jsapi"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function goAppSettings() {
+            zx.execAction("goAppSettings", {}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function requestLocalApiWithLxServer() {
+            zx.execAction("requestLocalApiWithLxServer", {"url":"/user/v4/profile.json","method":0}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function checkPermission() {
+            zx.execAction("checkPermission", {"permission":"android.permission.ACCESS_FINE_LOCATION"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function trace() {
+            zx.execAction("trace", {"eventId":"test_event_id","reportType":"click","ext":{"extraKey":"extraValue"}}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function getTaichi() {
+            zx.execAction("getTaichi", {"taichiKey":"LX-33345"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function chargeLxBean() {
+            window.location.href='zenxin://activity?page=a0045&bgColor=0x00000000&url=https%3A%2F%2Fshort0.lx-qa.com%2Fzyl%2Fzz-wallet%2Fgifts.html%3Ffrom%3D0%26scene%3D201%26roomid%3D80008085';
+        }
+        function getDhidConfig(key) {
+            zx.execAction("getDhidConfig", {"key":key}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+        function getDynamicConfig(key) {
+            zx.execAction("getDynamicConfig", {"key":key}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+        function checkActionState(key) {
+            zx.execAction("checkActionState", {"checkActionName":key}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+        function openFeedImg() {
+            zx.execAction("jumpToFeedDetailPage", {"feedId":269183,"uid":"5898018112800768","feedType":2,"from":28}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+        function openFeedVideo() {
+            zx.execAction("jumpToFeedDetailPage", {"feedId":242366,"uid":"5898018112800768","feedType":3,"from":28}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+        function openFeedText() {
+            zx.execAction("jumpToFeedDetailPage", {"feedId":269154,"uid":"5898018112800768","feedType":1,"from":28}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+        function isAppInstalled() {
+            zx.execAction("isAppInstalled", {"packages":["com.tencent.mm","com.eg.android.AlipayGphone"]}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function openWxMiniPro() {
+            zx.execAction("openWxMiniProgram", {"wx_ID":"gh_dafe41741284","path":"pages/autopay/index"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function checkVipStatus() {
+            zx.execAction("checkVipStatus", {"scene":"test_jsapi"}, function (data) {
+                alert(JSON.stringify(data));
+            });
+        }
+
+        function openSettings() {
+           window.location.href="zenxin://activity?page=a100&scheme=intent%3Acom.zenmen.palmchat%23Intent%3Bscheme%3Dpackage%3Baction%3Dandroid.settings.APPLICATION_DETAILS_SETTINGS%3BlaunchFlags%3D0x10000000%3Bend"
+        }
+
+    </script>
+    <button class="buttontest"  type="button" onclick="showToast()">展示Toast</button>
+    <button class="buttontest"  type="button" onclick="saveUrlImage()">保存网络图片</button>
+    <button class="buttontest"  type="button" onclick="getLocation()">获取位置</button>
+    <button class="buttontest"  type="button" onclick="getLastLocation()">获取缓存位置</button>
+    <button class="buttontest"  type="button" onclick="getUserInfo()">获取用户信息</button>
+    <button class="buttontest"  type="button" onclick="getPlatformInfo()">获取设备和平台信息</button>
+    <button class="buttontest"  type="button" onclick="getLocalValue()">获取本地数据</button>
+    <button class="buttontest"  type="button" onclick="saveLocalValue()">保存数据到本地</button>
+    <button class="buttontest"  type="button" onclick="pay()">支付</button>
+    <button class="buttontest"  type="button" onclick="getPaySupportPlatform()">获取支持的支付通道</button>
+    <button class="buttontest"  type="button" onclick="getTaichi()">获取太极值</button>
+    <button class="buttontest"  type="button" onclick="getNetworkInfo()">获取网络信息</button>
+    <button class="buttontest"  type="button" onclick="trace()">打点(MDA)</button>
+    <button class="buttontest"  type="button" onclick="closeWindow()">关闭当前浏览器</button>
+    <button class="buttontest"  type="button" onclick="requestLocalApiWithLxServer()">api请求</button>
+    <button class="buttontest"  type="button" onclick="closeWindow()">关闭当前浏览器</button>
+    <button class="buttontest"  type="button" onclick="checkPermission()">判断是否有权限(位置权限)</button>
+    <button class="buttontest"  type="button" onclick="goAppSettings()">打开应用系统设置界面</button>
+    <button class="buttontest"  type="button" onclick="chargeLxBean()">充值连信豆</button>
+    <button class="buttontest"  type="button" onclick="getDhidConfig('msg_label_group_switch')">获取dhid配置(boolean)</button>
+    <button class="buttontest"  type="button" onclick="getDhidConfig('chatGiftConfig')">获取dhid配置(JsonObject)</button>
+    <button class="buttontest"  type="button" onclick="getDynamicConfig('risk_user')">获取dynamic配置(risk_user)</button>
+    <button class="buttontest"  type="button" onclick="getDhidConfig('auto_install')">获取dhid配置(int)</button>
+    <button class="buttontest"  type="button" onclick="getDhidConfig('officialUids')">获取dhid配置(array)</button>
+    <button class="buttontest"  type="button" onclick="checkActionState('getUserInfo')">checkActionState(存在)</button>
+    <button class="buttontest"  type="button" onclick="checkActionState('getUserInfo2')">checkActionState(不存在)</button>
+    <button class="buttontest"  type="button" onclick="openFeedImg()">打开动态详情图片</button>
+    <button class="buttontest"  type="button" onclick="openFeedVideo()">打开动态详情视频</button>
+    <button class="buttontest"  type="button" onclick="openFeedText()">打开动态详情文本</button>
+    <button class="buttontest"  type="button" onclick="isAppInstalled()">应用程序是否安装</button>
+    <button class="buttontest"  type="button" onclick="openWxMiniPro()">打开微信小程序</button>
+    <button class="buttontest"  type="button" onclick="checkVipStatus()">检查vip状态</button>
+</body>
+</html>

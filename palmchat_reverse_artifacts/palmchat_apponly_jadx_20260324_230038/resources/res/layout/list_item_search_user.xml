@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="horizontal"
+    android:background="@drawable/selector_settings_item_background"
+    android:paddingLeft="14dp"
+    android:paddingTop="7dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="7dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.zenmen.palmchat.widget.SocialPortraitView
+        android:layout_gravity="center_vertical"
+        android:id="@+id/portrait"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/default_portrait"
+        android:scaleType="centerCrop"
+        app:esv_shape="round_rectangle"
+        app:radius_x="12"
+        app:radius_y="12"/>
+    <LinearLayout
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="12dp"
+        android:layout_weight="1">
+        <TextView
+            android:textSize="15dp"
+            android:textColor="#202020"
+            android:ellipsize="end"
+            android:id="@+id/nick_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:singleLine="true"/>
+        <TextView
+            android:textSize="13dp"
+            android:textColor="#8d8d8d"
+            android:ellipsize="end"
+            android:id="@+id/recommend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="TA存有你的手机号码"
+            android:singleLine="true"/>
+    </LinearLayout>
+</LinearLayout>

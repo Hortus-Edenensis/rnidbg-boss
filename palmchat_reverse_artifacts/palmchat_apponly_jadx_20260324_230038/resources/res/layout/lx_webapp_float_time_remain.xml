@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@drawable/lx_webapp_float_time_remain_bg"
+    android:paddingLeft="5dp"
+    android:paddingRight="5dp"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textSize="10dp"
+        android:textColor="#ffffff"
+        android:id="@+id/lx_webapp_time_remain_text1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="@string/lx_webapp_time_remain_text1"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"/>
+    <TextView
+        android:textSize="8dp"
+        android:textColor="#ffffff"
+        android:id="@+id/lx_webapp_time_remain_text2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="@string/lx_webapp_time_remain_text2"
+        android:layout_below="@+id/lx_webapp_time_remain_text1"
+        android:layout_centerHorizontal="true"/>
+    <TextView
+        android:textSize="15dp"
+        android:textColor="#ff3535"
+        android:id="@+id/lx_webapp_time_remain"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/lx_webapp_time_remain_text2"
+        android:layout_centerHorizontal="true"/>
+</RelativeLayout>

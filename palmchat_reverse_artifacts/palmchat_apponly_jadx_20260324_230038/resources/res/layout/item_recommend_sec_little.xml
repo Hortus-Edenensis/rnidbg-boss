@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <View
+        android:id="@+id/view_line_header"
+        android:background="#d9d9d9"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="1px"/>
+    <TextView
+        android:textSize="15dp"
+        android:textColor="@color/text_color_222222"
+        android:gravity="center_vertical"
+        android:id="@+id/tv_title"
+        android:paddingLeft="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="31dp"
+        android:text="title"/>
+    <com.zenmen.palmchat.activity.onekeyfriend.NoScrollListView
+        android:id="@+id/lv_recommend_friends"
+        android:scrollbars="none"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:listSelector="@android:color/transparent"
+        android:cacheColorHint="#00000000"
+        android:divider="@null"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/lyt_space"
+        android:background="#f6f6f6"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="17dp"/>
+</LinearLayout>

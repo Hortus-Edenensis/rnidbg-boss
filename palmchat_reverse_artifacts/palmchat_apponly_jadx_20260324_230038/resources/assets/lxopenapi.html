@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>测试cordova plugins</title>
+    <style>
+
+        .buttontest{
+            width: 100%;
+            height: 80px;
+            font-size: xx-large;
+            margin-top: 30px;
+        }
+        body{
+        background-color:transparent;
+            background: rgba(0,0,0,0.5);
+         }
+    </style>
+</head>
+
+<body style="background-color:transparent;background: rgba(0,0,0,0.2);">
+    <script type="text/javascript" src="/zx_local_res/jssdk/cordova.js"></script>
+    <script type="text/javascript" src="/zx_local_res/jssdk/jssdk.js"></script>
+    <script type="text/javascript">
+        var app = {
+            // Application Constructor
+            initialize: function() {
+                this.bindEvents();
+            },
+
+            // Bind Event Listeners
+            //
+            // Bind any events that are required on startup. Common events are:
+            // 'load', 'deviceready', 'offline', and 'online'.
+            bindEvents: function() {
+                document.addEventListener('deviceready', this.onDeviceReady, false);
+            },
+
+            // deviceready Event Handler
+            //
+            // The scope of 'this' is the event. In order to call the 'receivedEvent'
+            // function, we must explicitly call 'app.receivedEvent(...);'
+            onDeviceReady: function() {
+                alert("onDeviceReady ua="+navigator.userAgent);
+            }
+        };
+
+        app.initialize();
+
+        function onShareAppMessage() {
+            console.log('onShareAppMessage----------------------------');
+            return {
+                        shareType:0,
+                        authorIcon:'https://wine-avatar.cdn.lianxinapp.com/avatar/2021/3/22/d/z/2412587877318656-8-2-c446f56c083c4259afcce6ed86046e8a-qqd6qy.png',
+                        authorName:'有信念的Miles',
+                        linkUrl:'http://118.24.72.19/demo/index.html',
+                        subject:'百度小程序',
+                        desc:'百度一下，你就知道',
+                        iconUrl:'https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache'
+                       };
+        }
+        //app鉴权
+        function grantApp(){
+            var req = {thirdAppId:'lxed7e31ca58cc4def', timestamp:'1619677735510', nonceStr:'1619677735510', signature:'867eca3ed2d3294bd9e13bea5639f21b',jsApiList: ['config','getLocation']};
+             lx.config(req, function (data) {
+                        alert(JSON.stringify(data));
+                 });
+        }
+        //授权登录
+        function oauth() {
+               window.location.href="https://open.y5kfpt.com/connect/oauth2/authorize?appid=O0001&key=7ffa40fadfb340439fb5deb92f131939&scope=USERINFO&scene=h5test&redirect_uri=https%3A%2F%2Fim.lianxinapp.com";
+        }
+
+        function login() {
+                lx.login({"appId":"O0001", "key":"7ffa40fadfb340439fb5deb92f131939", "scope":"USERINFO", "scene":"html"}, function (data) {
+                        alert(JSON.stringify(data));
+                 });
+        }
+
+        //判断传入的api是否支持
+        function getSupportApi() {
+            lx.checkJsApi(['config','checkJsApi', 'lx_notSupport'], function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        //获取位置
+        function getLocation() {
+            lx.getLocation({"requestTarget":"位置信息将用于展示为你提供服务的商家"}, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+        //选择位置
+        function selectLocation() {
+            lx.selectLocation({"requestTarget":"位置信息将用于展示为你提供服务的商家"}, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+        //展示位置
+        function showLocation() {
+            lx.showLocation({"latitude":42.51233, "longitude":87.12345, "name":"好地方", "address":"真的是好地方"}, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+        //获取UserAget
+        function getUserAgent() {
+            lx.getUserAgent(function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+        //获取普通设备信息
+        function getDeviceInfo() {
+            lx.getDeviceInfo(function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+         //获取敏感设备信息
+        function getPrivDeviceInfo() {
+            lx.getPrivDeviceInfo({"requestTarget":"设备信息用于xxxxxx！"}, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+         //获取连信DeviceId
+        function getDeviceId() {
+            lx.getDeviceId(function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        //获取浏览器宽高
+        function getWebViewSize() {
+            lx.getWebViewSize(function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        //关闭网页
+        function closeWebView() {
+            lx.closeWebView();
+        }
+
+        function checkNativeApp() {
+            lx.checkNativeApp({'originUrl':'zenxin://innerapp/lx52540057e2ac2138/welcome?lxreader.intent.extra.URLS=lxreader%3A%2F%2Fapp%2Fgo%2Fread%3Fbookid%3D28492%26extsourceid%3Dwkr270101'},function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+        function openNativeApp() {
+            lx.openNativeApp({'originUrl':'zenxin://innerapp/lx52540057e2ac2138/welcome?lxreader.intent.extra.URLS=lxreader%3A%2F%2Fapp%2Fgo%2Fread%3Fbookid%3D28492%26extsourceid%3Dwkr270101'},function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        //支付
+        function pay() {
+            orderInfo = {"mchId":"88010055","unionId":"165313082A529B3DC536013C155BF60F","payTime":"20210419144127","resultCode":"SUCCESS","sign":"KogRoy0dzv3ajI4USsFOwWjqOVzDT6DdeoyK7SqUEET3lHM1EG4mY33ttaKw8DApgmCFQgN7v0Mlt/xcWNFuFXZ6ZaXVVbjVAuPiSxUxx/0mE6wXoCtPkimZnjJRANO6HqJxVmrZAq/WmtdxRbjvvd+yXRMtokYnhLQXo5slfBI=","subMchId":"","retMsg":"成功","transactionId":"M20210419415545254872260608","nonceStr":"oGPofQhcoiBnjTQewsqtyCmCihWXdgVD","returnCode":"SUCCESS","retCd":"0","totalFee":1,"outTradeNo":"20210419141618814486758","signType":"RSA","attach":"备注","paidAmount":0,"payInfo":"{\"orderString\":\"alipay_sdk=alipay-sdk-java-dynamicVersionNo&app_id=2021001186622091&biz_content=%7B%22out_trade_no%22%3A%22ZLZFB20210419144127012645%22%2C%22product_code%22%3A%22QUICK_MSECURITY_PAY%22%2C%22subject%22%3A%22%E5%95%86%E5%93%81%22%2C%22timeout_express%22%3A%221439m%22%2C%22total_amount%22%3A%220.01%22%7D&charset=utf-8&format=JSON&method=alipay.trade.app.pay&notify_url=http%3A%2F%2Fpaychanneltest.shengpay.com%2Fapi%2Falipay%2FpayNotify&sign=fEJFF3Fi7DeQHkISWvQw2DzSNmxY4J6extpawdo2UaTDT%2Ft3F%2FCABQWvTLN%2FTuD0Ha1qXbfGoSMjkr4eV1flIoMVSf7NFyzESEtIEVhnzaSXEDKgz0swXL9lZEU6ci5ozwjqBd0drZxg1%2BDUV0aXzprZ4dHvpXPoFo164YqHYgb6HWZGAS48hdgeaRj7En7DzvDNSLfD2Wm9PqderqGTwFkFMbLVRyGko6mwGFMj8I5CrGY5RdTmdvdgOrmwv32QPZ3iM4goS8yRJ34GuXTcRiAqOfeCo36AkzC%2F%2F5wouq2JpPeYhiqqA9chR14QsSMxlO7VR94MeJh5FQXA1QLA8w%3D%3D&sign_type=RSA2&timestamp=2021-04-19+14%3A41%3A27&version=1.0\"}","status":"PAY_ING","merchantNo":"88010055"}
+            lx.pay('test', 'alipay_app', JSON.stringify(orderInfo), function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        //获取支持的支付方式
+
+        function getPaySupportPlatform() {
+            lx.getPaySupportPlatform(function (data){
+                alert(JSON.stringify(data))
+            });
+        }
+
+         //分享文本
+        function shareText(shareType) {
+            var args = {"shareType":shareType, "contentText":"分享文本测试"}
+            lx.shareText(args, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+         //分享网页
+        function shareWeb(shareType) {
+            var args = {"shareType":shareType, "linkUrl":"https://www.baidu.com", "subject":"百度一下，你就知道", "desc":"https://www.baidu.com", "iconUrl":"https://www.baidu.com/img/flexible/logo/pc/result@2.png"}
+            lx.shareWeb(args, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        function shareNameCard(shareType) {
+            var args = {"shareType":shareType, "linkUrl":"https://www.baidu.com", "subject":"百度官网", "desc":"https://www.baidu.com", "iconUrl":"https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache"}
+            lx.shareNameCard(args, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        function shareSVideo(shareTypet) {
+            var args = {
+                        shareType:shareTypet,
+                        authorIcon:'https://wine-avatar.cdn.lianxinapp.com/avatar/2021/3/22/d/z/2412587877318656-8-2-c446f56c083c4259afcce6ed86046e8a-qqd6qy.png',
+                        authorName:'有信念的Miles',
+                        linkUrl:'https://pre-vgw.ilxshow.com/alps/vbs/view.do?contentId=33~oXgZ8LtSQzZErW79_6PxW6nX-Ts%2E&ucode=&appId=ZX0001&lang=CN&ts=2021042114&scene=videotab&env=wx',
+                        subject:'老婆，我扶你起来，干嘛打我',
+                        cover:'https://pre-vgw.ilxshow.com/alps/vbs/parse.do?pd=AG/AhztZJbzpBpMk4n7lQYaAIHH7NILWqDCdaU1TlZrKe1YFd8huNy6+7PsraaZuPnTCxNi13k8SQ/b5LJJ6CU3eUkgdNKXO4n0iKKJp97E7r0FRzYZ82qK8FrWshVRHNy7oZZHnJ75E47v4Iv4c2xQwPfB5sX2dDeHfT4+IVaQ=',
+                        iconUrl:'https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache',
+                        videoType: 'lxVideo',
+                        wid:'zx162412587877318656',
+                        wineFeedId:'33~oXgZ8LtSQzZErW79_6PxW6nX-Ts.',
+                        videoUrl:'https://pre-vgw.ilxshow.com/alps/vbs/parse.do?pd=AG/AhztZJbzpBpMk4n7lQV7+xMi8muCdke0xNJZ+fNJccOQjP3qWOzIFBvZxKb5rPnTCxNi13k8SQ/b5LJJ6CWA5rsfLchof8vMCXU0fDIAxcaIYThQsiVEezfmniyzI7kyfGHz9Zb4+xoZcfLmJZRQwPfB5sX2dDeHfT4+IVaQ='
+                       };
+            lx.shareSVideo(args, function (data) {
+                 alert(JSON.stringify(data))
+            });
+        }
+
+        function shareMiniApp(shareTypet) {
+            var args = {
+                        shareType:shareTypet,
+                        authorIcon:'https://wine-avatar.cdn.lianxinapp.com/avatar/2021/3/22/d/z/2412587877318656-8-2-c446f56c083c4259afcce6ed86046e8a-qqd6qy.png',
+                        authorName:'有信念的Miles',
+                        linkUrl:'http://118.24.72.19/demo/index.html',
+                        subject:'百度小程序',
+                        desc:'百度一下，你就知道',
+                        iconUrl:'https://uimg01.51y5.net/wk003/M00/07/AA/CgIagVzrJI2AR67dAAAWqMQl-x81.cache'
+                       };
+            lx.shareMiniApp(args, function (data) {
+                 alert(JSON.stringify(data))
+            });
+
+        }
+
+           function forwardTo() {
+                window.location.href="https://www.baidu.com";
+            }
+    </script>
+
+    <button class="buttontest"  type="button" onclick="grantApp()">App鉴权</button>
+    <button class="buttontest"  type="button" onclick="getSupportApi()">支持的jsApi</button>
+    <button class="buttontest"  type="button" onclick="login()">授权登录</button>
+    <button class="buttontest"  type="button" onclick="getLocation()">获取位置</button>
+    <button class="buttontest"  type="button" onclick="selectLocation()">选择位置</button>
+    <button class="buttontest"  type="button" onclick="showLocation()">展示位置</button>
+    <button class="buttontest"  type="button" onclick="getUserAgent()">获取UserAgent</button>
+    <button class="buttontest"  type="button" onclick="getDeviceInfo()">获取常规设备信息</button>
+    <button class="buttontest"  type="button" onclick="getPrivDeviceInfo()">获取敏感设备信息</button>
+    <button class="buttontest"  type="button" onclick="getDeviceId()">获取连信deviceId</button>
+    <button class="buttontest"  type="button" onclick="getWebViewSize()">获取浏览器宽高</button>
+    <button class="buttontest"  type="button" onclick="closeWebView()">关闭浏览器</button>
+    <button class="buttontest"  type="button" onclick="pay()">支付</button>
+    <button class="buttontest"  type="button" onclick="getPaySupportPlatform()">支持的支付方式</button>
+    <button class="buttontest"  type="button" onclick="shareText(1)">分享文本到朋友圈</button>
+    <button class="buttontest"  type="button" onclick="shareText(0)">分享文本到消息</button>
+    <button class="buttontest"  type="button" onclick="shareWeb(1)">分享网页到朋友圈</button>
+    <button class="buttontest"  type="button" onclick="shareWeb(0)">分享网页到消息</button>
+    <button class="buttontest"  type="button" onclick="shareNameCard(1)">分享名片到朋友圈</button>
+    <button class="buttontest"  type="button" onclick="shareNameCard(0)">分享名片到消息</button>
+    <button class="buttontest"  type="button" onclick="shareSVideo(1)">分享小视频到朋友圈</button>
+    <button class="buttontest"  type="button" onclick="shareSVideo(0)">分享小视频到消息</button>
+    <button class="buttontest"  type="button" onclick="shareMiniApp(1)">分享小程序到朋友圈</button>
+    <button class="buttontest"  type="button" onclick="shareMiniApp(0)">分享小程序到消息</button>
+    <button class="buttontest"  type="button" onclick="forwardTo()">测试跳转</button>
+    <button class="buttontest"  type="button" onclick="checkNativeApp()">checkNativeApp</button>
+    <button class="buttontest"  type="button" onclick="openNativeApp()">openNativeApp</button>
+    <p><a href="https://www.baidu.com" target="_blank">新Fragment测试跳转</a></p>
+    <input type="text" name="firstname" value="Mickey">
+    ​
+</body>
+</html>

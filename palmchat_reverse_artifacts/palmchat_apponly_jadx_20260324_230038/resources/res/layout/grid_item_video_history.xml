@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.zenmen.palmchat.widget.FixedAspectRatioFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/video_history_item_container"
+    android:padding="1dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:aspectRatioHeight="3"
+    app:aspectRatioWidth="4">
+    <com.zenmen.media.player.MagicVideoView
+        android:id="@+id/video_history_player"
+        android:visibility="invisible"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:lxradius="12"
+        app:side="center"/>
+    <TextView
+        android:textSize="@dimen/text_size_small"
+        android:textColor="@android:color/white"
+        android:gravity="bottom|center_horizontal"
+        android:id="@+id/video_history_send"
+        android:visibility="invisible"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="4dp"
+        android:text="@string/tap_to_send"/>
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:layout_gravity="center"
+        android:id="@+id/video_history_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"/>
+    <ImageView
+        android:id="@+id/img_delete"
+        android:padding="3dp"
+        android:visibility="gone"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/sight_delete"/>
+</com.zenmen.palmchat.widget.FixedAspectRatioFrameLayout>

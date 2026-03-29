@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <FrameLayout
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/chat_mate_activity_guide_layout"
+        android:background="@drawable/chat_mate_activity_guide_bg"
+        android:layout_width="323dp"
+        android:layout_height="72dp">
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <TextView
+                android:textSize="14dp"
+                android:textColor="#999999"
+                android:layout_gravity="center_vertical"
+                android:id="@+id/mate_guide_title"
+                android:layout_width="224dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="12dp"
+                android:text="礼物不够多？试试最佳聊友，高价值礼物聊天就可抢！"
+                android:maxLines="2"
+                android:lineSpacingExtra="2dp"/>
+            <ImageView
+                android:layout_gravity="center_vertical"
+                android:layout_width="55dp"
+                android:layout_height="50dp"
+                android:layout_marginLeft="3dp"
+                android:src="@drawable/chat_mate_activity_guide_toast_bg"/>
+        </LinearLayout>
+        <ImageView
+            android:layout_gravity="right"
+            android:id="@+id/guide_close"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginRight="6dp"
+            android:src="@drawable/chat_mate_activity_guide_close"/>
+    </FrameLayout>
+</FrameLayout>

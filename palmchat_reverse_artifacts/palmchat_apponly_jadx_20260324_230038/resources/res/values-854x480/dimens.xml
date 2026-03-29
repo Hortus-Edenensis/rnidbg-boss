@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="list_item_common_width">197dp</dimen>
+    <dimen name="list_item_text_width">189dp</dimen>
+    <dimen name="richmsg_width">197dp</dimen>
+</resources>

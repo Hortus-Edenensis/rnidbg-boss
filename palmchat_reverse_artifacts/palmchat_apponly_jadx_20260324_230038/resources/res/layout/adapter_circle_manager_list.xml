@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:background="@color/white"
+    android:layout_width="match_parent"
+    android:layout_height="60dp"
+    android:minHeight="60dp">
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/avatarIv"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginLeft="15dp"
+        app:esv_shape="round_rectangle"
+        app:radius_x="13"
+        app:radius_y="13"/>
+    <TextView
+        android:textSize="16dp"
+        android:textColor="#ff202020"
+        android:id="@+id/nameTv"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:text="管理员名字"
+        android:singleLine="true"
+        android:layout_weight="1"/>
+    <ImageView
+        android:layout_gravity="center_vertical"
+        android:id="@+id/checkIv"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:src="@drawable/ic_checkbox_uncheck"/>
+</LinearLayout>

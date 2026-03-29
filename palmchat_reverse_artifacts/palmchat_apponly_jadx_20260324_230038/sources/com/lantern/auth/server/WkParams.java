@@ -1,0 +1,59 @@
+package com.lantern.auth.server;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes9.dex */
+public class WkParams {
+    public static final String ACCESSTOKEN = "accessToken";
+    public static final String ANDROID = "android";
+    public static final String APPID = "appId";
+    public static final String CAPBSSID = "capBssid";
+    public static final String CAPSSID = "capSsid";
+    public static final String CHANID = "chanId";
+    public static final String COUNTCODE = "86";
+    public static final String COUNTRYCODE = "countryCode";
+    public static final String DCTYPE = "dcType";
+    public static final String DELIVERED_SMS_ACTION = "DELIVERED_SMS_ACTION";
+    public static final String DHID = "dhid";
+    public static final String ED = "ed";
+    public static final String EMPTY = "";
+    public static final String ENCRYPT_TYPE_AES = "a";
+    public static final String ENCRYPT_TYPE_MD5 = "m";
+    public static final String ET = "et";
+    public static final String IMEI = "imei";
+    public static final String LANG = "lang";
+    public static final String LATI = "lati";
+    public static final String LONGI = "longi";
+    public static final String MAC = "mac";
+    public static final String MANUF = "manuf";
+    public static final String MAPSP = "mapSP";
+    public static final String MISC = "misc";
+    public static final String MODEL = "model";
+    public static final String MSG = "msg";
+    public static final String MSMSCONTENT = "smscontent";
+    public static final String NETMODEL = "netModel";
+    public static final String NETOPER = "netOp";
+    public static final String OPENID = "oid";
+    public static final String ORIGCHANID = "origChanId";
+    public static final String OS = "os";
+    public static final String OSVER = "osVer";
+    public static final String OSVERCODE = "osVerCode";
+    public static final String PID = "pid";
+    public static final String RESULT_OK = "0";
+    public static final String RETCD = "retCd";
+    public static final String RETMSG = "retMsg";
+    public static final String SCRL = "scrl";
+    public static final String SCRS = "scrs";
+    public static final String SERVICENO = "serviceno";
+    public static final String SESSIONID = "sessionId";
+    public static final String SIGN = "sign";
+    public static final String SIM = "sim";
+    public static final String SIMSERIALNUMBER = "simserialnumber";
+    public static final String SMSCONTENT = "smsContent";
+    public static final String ST = "st";
+    public static final String TS = "ts";
+    public static final String UHID = "uhid";
+    public static final String USERTOKEN = "userToken";
+    public static final String VERCODE = "verCode";
+    public static final String VERNAME = "verName";
+    public static final String WKVER = "wkVer";
+}

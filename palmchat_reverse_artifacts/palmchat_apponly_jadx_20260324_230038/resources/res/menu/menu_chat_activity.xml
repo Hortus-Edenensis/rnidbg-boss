@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/menu_ranking"
+        android:orderInCategory="0"
+        android:title="榜单"
+        android:actionLayout="@layout/layout_menu_chat_ranking"
+        app:showAsAction="always"/>
+    <item
+        android:icon="@drawable/icon_chat_single_info_more"
+        android:id="@+id/menu_contact_information"
+        android:orderInCategory="0"
+        android:title="@string/chat_info"
+        app:showAsAction="always"/>
+    <item
+        android:icon="@drawable/icon_chat_group_info_more"
+        android:id="@+id/menu_group_information"
+        android:orderInCategory="0"
+        android:title="@string/chat_info"
+        app:showAsAction="always"/>
+</menu>

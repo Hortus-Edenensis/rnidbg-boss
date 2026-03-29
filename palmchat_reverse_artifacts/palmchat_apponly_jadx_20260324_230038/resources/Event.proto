@@ -1,0 +1,31 @@
+syntax = "proto3";
+package com.lantern.core.protobuf.event;
+import "ProtobufRequestBean.proto";
+//事件
+message Event {
+    string eventId = 1;
+    //事件发生时的公共参数
+    ProtobufRequestBean commonParameters = 2;
+    //扩展参数
+    string msg = 3;
+    //分组测试参数
+    Taichi taichi = 4;
+    message Taichi {
+        //实验Id
+        int64 expId = 1;
+        //实验分组id
+        int64 groupId = 2;
+        //生效配置版本号
+        int64 versionNum = 3;
+        //用户流量桶Id
+        int64 bucketId = 4;
+        //进程id
+        string processId = 5;
+        //会话id
+        string sessionId = 6;
+    }
+    //事件来源
+    string source = 5;
+    //前台或者后台
+    int32 foreOrBack = 6;
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        android:textSize="20dp"
+        android:textColor="@color/black"
+        android:gravity="center"
+        android:id="@+id/slide_over"
+        android:clickable="true"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:text="滑动结束训练"
+        android:drawableRight="@drawable/keep_motion_slide_arrow"
+        android:drawablePadding="12.4dp"/>
+</LinearLayout>

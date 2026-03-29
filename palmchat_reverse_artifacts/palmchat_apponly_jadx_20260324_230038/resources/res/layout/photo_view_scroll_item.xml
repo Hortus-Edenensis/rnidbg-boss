@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:padding="4dp"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:gravity="center"
+        android:layout_gravity="center"
+        android:id="@+id/root"
+        android:layout_width="65dp"
+        android:layout_height="65dp">
+        <com.zenmen.palmchat.widget.EffectiveShapeView
+            android:layout_gravity="center"
+            android:id="@+id/image_item"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@drawable/image_nophoto"
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="true"
+            app:esv_shape="round_rectangle"/>
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/white"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/ic_topic"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:src="@color/color_F2F2F2"
+        app:esv_shape="circle"/>
+    <ImageView
+        android:id="@+id/ic_hash_jin"
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:layout_marginLeft="2dp"
+        android:layout_marginTop="2dp"
+        android:src="@drawable/ic_hash_jin"
+        android:layout_alignLeft="@+id/ic_topic"
+        android:layout_alignTop="@+id/ic_topic"/>
+    <ImageView
+        android:id="@+id/ic_redpacket"
+        android:layout_width="23dp"
+        android:layout_height="23dp"
+        android:layout_marginRight="-3dp"
+        android:layout_marginBottom="-3dp"
+        android:src="@drawable/icon_square_header_topic_redpacket"
+        android:layout_alignRight="@+id/ic_topic"
+        android:layout_alignBottom="@+id/ic_topic"/>
+    <TextView
+        android:textSize="@dimen/dimen_12"
+        android:textStyle="bold"
+        android:textColor="#222222"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:id="@+id/tv_topic"
+        android:layout_width="64dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="#一起过圣诞节"
+        android:maxLines="2"
+        android:layout_below="@+id/ic_topic"
+        android:layout_centerHorizontal="true"
+        android:lineSpacingExtra="@dimen/dimen_2"/>
+</RelativeLayout>

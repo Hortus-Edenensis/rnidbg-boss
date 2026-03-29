@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <include layout="@layout/include_moments_single_header"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="62dp"
+        android:layout_marginTop="-30dp"
+        android:layout_marginRight="@dimen/moment_item_padding">
+        <TextView
+            android:textSize="12dp"
+            android:textColor="#808080"
+            android:id="@+id/create_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"/>
+        <com.zenmen.palmchat.ui.widget.common.ClickShowMoreLayout
+            android:id="@+id/item_text_field"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="5dp"
+            app:show_line="5"
+            app:text_color="@color/normal_font_color"/>
+        <com.zenmen.palmchat.ui.widget.photo.newui.MultiImageLayout
+            android:id="@+id/circle_image_container_new"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:spacing="3dp"/>
+    </LinearLayout>
+    <include layout="@layout/include_album_single_bottom_right"/>
+</LinearLayout>

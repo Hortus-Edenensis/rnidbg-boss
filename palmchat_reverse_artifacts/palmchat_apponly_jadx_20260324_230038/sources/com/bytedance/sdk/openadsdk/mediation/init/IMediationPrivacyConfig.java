@@ -1,0 +1,20 @@
+package com.bytedance.sdk.openadsdk.mediation.init;
+
+import androidx.annotation.Nullable;
+import java.util.List;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public interface IMediationPrivacyConfig {
+    @Nullable
+    List<String> getCustomAppList();
+
+    @Nullable
+    List<String> getCustomDevImeis();
+
+    boolean isCanUseOaid();
+
+    boolean isLimitPersonalAds();
+
+    boolean isProgrammaticRecommend();
+}

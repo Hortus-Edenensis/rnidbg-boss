@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:id="@+id/container"
+    android:background="@color/settings_background_gray"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar"/>
+    <TextView
+        android:padding="20dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="网络状态上报会自动检测您当前的网络、系统情况，并向我们提交检测结果，以改善连信的服务质量。"
+        style="@style/settings_item_text"/>
+    <TextView
+        android:id="@+id/btnTv"
+        android:background="@drawable/shape_big_button_green_normal"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginLeft="40dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginRight="40dp"
+        android:text="检测并上报"
+        android:onClick="onDetect"
+        style="@style/big_button_green"/>
+</LinearLayout>

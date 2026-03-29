@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/white"
+    android:visibility="visible"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textSize="@dimen/dimen_16"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:id="@+id/topic_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="16dp"/>
+    <com.zenmen.square.ui.widget.BouncyHScrollView
+        android:id="@+id/hs_topic"
+        android:scrollbars="none"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="12dp"
+        android:layout_below="@+id/topic_title">
+        <LinearLayout
+            android:orientation="horizontal"
+            android:id="@+id/topic_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"/>
+    </com.zenmen.square.ui.widget.BouncyHScrollView>
+    <com.zenmen.palmchat.widget.EffectiveShapeView
+        android:id="@+id/topic_banner"
+        android:background="@drawable/shape_topic_banner_bg"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="86dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="9dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="12dp"
+        android:scaleType="fitXY"
+        android:layout_below="@+id/topic_title"
+        app:esv_shape="round_rectangle"
+        app:radius_x_dp="8dp"
+        app:radius_y_dp="8dp"/>
+</RelativeLayout>

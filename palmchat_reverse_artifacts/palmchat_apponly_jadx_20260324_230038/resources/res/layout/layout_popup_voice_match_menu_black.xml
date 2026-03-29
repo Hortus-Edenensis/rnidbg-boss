@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <View
+        android:id="@+id/v_icon_guide_float_up"
+        android:background="@drawable/ic_voice_match_pop_arrow_black"
+        android:layout_width="15dp"
+        android:layout_height="8dp"
+        android:layout_marginLeft="40dp"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:background="@drawable/shape_voice_match_pop_bg_black"
+        android:layout_width="68dp"
+        android:layout_height="76dp"
+        android:layout_below="@+id/v_icon_guide_float_up">
+        <TextView
+            android:textSize="14dp"
+            android:textColor="#fff"
+            android:gravity="center"
+            android:id="@+id/rule"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:text="规则"
+            android:layout_weight="1"/>
+        <TextView
+            android:textSize="14dp"
+            android:textColor="#fff"
+            android:gravity="center"
+            android:id="@+id/setting"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:text="设置"
+            android:layout_weight="1"/>
+    </LinearLayout>
+</RelativeLayout>

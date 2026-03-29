@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="@color/white"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <include
+            android:id="@+id/small_video_layout"
+            layout="@layout/include_moments_small_video"/>
+        <include
+            android:id="@+id/small_video_layot_new"
+            layout="@layout/include_moments_small_video_new"/>
+        <com.zenmen.palmchat.ui.widget.common.ClickShowMoreLayout
+            android:id="@+id/item_text_field"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:layout_marginBottom="14dp"
+            app:oneline_limit="false"
+            app:show_line="8"
+            app:text_color="#222222"
+            app:text_sync="false"/>
+    </LinearLayout>
+    <include layout="@layout/include_album_single_bottom_right"/>
+</LinearLayout>

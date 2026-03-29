@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.Toolbar xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/colorPrimary"
+    android:paddingTop="0dp"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:minHeight="48dp"
+    android:transitionName="actionBar">
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.zenmen.palmchat.webplatform.miniPrograms.widget.ClearEditText
+            android:textSize="15dp"
+            android:textColor="@color/gen_statusBarTitleTextColor"
+            android:textColorHint="@color/gen_statusBarTitleTextHintColor"
+            android:gravity="center_vertical"
+            android:id="@+id/search_miniprogram"
+            android:background="@drawable/selector_edit_text_underline_green2"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_marginLeft="@dimen/lx_title_margin_start"
+            android:layout_marginTop="2dp"
+            android:layout_marginRight="12dp"
+            android:layout_marginBottom="2dp"
+            android:hint="@string/string_search_miniprogram"
+            android:singleLine="true"
+            android:drawableLeft="@drawable/icon_search"
+            android:drawablePadding="0dp"
+            android:layout_centerVertical="true"
+            android:imeOptions="actionSearch"
+            android:textCursorDrawable="@null"
+            app:isGray="false"/>
+    </RelativeLayout>
+</androidx.appcompat.widget.Toolbar>

@@ -1,0 +1,1 @@
+{"parents":{},"classes":{"Ljava/util/zip/ZipEntry;":{"category":"security","methods":{"getName":{"swizzles":{"()Ljava/lang/String;":{"clazz":"Lcom/zenmen/palmchat/zx/security/swizzle/SwZipEntry;","method":"getName","descriptor":"(Ljava/util/zip/ZipEntry;)Ljava/lang/String;","params":[],"static":false}}}}}}}

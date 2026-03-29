@@ -1,0 +1,24 @@
+package com.squareup.okhttp.internal;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes10.dex */
+public abstract class NamedRunnable implements Runnable {
+    private final String name;
+
+    public NamedRunnable(String str, Object... objArr) {
+        this.name = String.format(str, objArr);
+    }
+
+    public abstract void execute();
+
+    @Override // java.lang.Runnable
+    public final void run() {
+        String name = Thread.currentThread().getName();
+        Thread.currentThread().setName(this.name);
+        try {
+            execute();
+        } finally {
+            Thread.currentThread().setName(name);
+        }
+    }
+}

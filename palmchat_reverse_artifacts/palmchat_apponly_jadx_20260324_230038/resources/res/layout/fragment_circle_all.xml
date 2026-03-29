@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.zenmen.palmchat.circle.ui.view.TabLayoutScroll
+        android:id="@+id/tablayout"
+        android:layout_width="match_parent"
+        android:layout_height="38dp">
+        <com.zenmen.palmchat.circle.ui.view.IndicatorLineView
+            android:id="@+id/indicator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cy_color_indicator="@color/Aa"
+            app:cy_height_indicator="4dp"
+            app:cy_radius_indicator="2dp"
+            app:cy_width_indicator_max="16dp"
+            app:cy_width_indicator_selected="45dp"/>
+    </com.zenmen.palmchat.circle.ui.view.TabLayoutScroll>
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/view_pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"/>
+</LinearLayout>

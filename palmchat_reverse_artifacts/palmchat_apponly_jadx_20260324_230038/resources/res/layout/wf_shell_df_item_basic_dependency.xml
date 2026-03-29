@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    style="@style/wfSdkDfItemLayoutStyle">
+    <LinearLayout
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:layout_weight="3"
+        style="@style/wfSdkDfSubTextLeftStyle">
+        <TextView
+            android:textSize="12sp"
+            android:textColor="@color/wf_shell_df_title_5"
+            android:id="@+id/wf_sdk_df_item_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+        <TextView
+            android:textSize="10sp"
+            android:textColor="@color/wf_shell_df_error_warn"
+            android:id="@+id/wf_sdk_df_item_extra"
+            android:visibility="gone"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+    <TextView
+        android:id="@+id/wf_sdk_df_item_txt"
+        android:layout_weight="1"
+        style="@style/wfSdkDfSubTextRightStyle"/>
+    <ImageView
+        android:id="@+id/wf_sdk_df_item_image_dependency"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="10dp"/>
+</LinearLayout>

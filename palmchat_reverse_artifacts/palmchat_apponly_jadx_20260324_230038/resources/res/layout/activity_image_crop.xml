@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar_custom_button"/>
+    <RelativeLayout
+        android:background="#29303f"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <io.togoto.imagezoomcrop.photoview.PhotoView
+            android:id="@+id/iv_photo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="center"/>
+        <io.togoto.imagezoomcrop.cropoverlay.CropOverlayView
+            android:id="@+id/crop_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:guideLines="false"
+            app:marginSide="20dp"/>
+    </RelativeLayout>
+</LinearLayout>

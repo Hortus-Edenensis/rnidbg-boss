@@ -1,0 +1,6 @@
+syntax = "proto3";
+package com.lantern.core.protobuf.config;
+
+message RequestBean {
+    string version = 1; //服务端配置版本号
+}

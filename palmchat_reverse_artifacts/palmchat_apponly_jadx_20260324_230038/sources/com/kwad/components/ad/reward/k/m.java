@@ -1,0 +1,26 @@
+package com.kwad.components.ad.reward.k;
+
+import androidx.annotation.NonNull;
+import com.ksad.json.annotation.KsJson;
+import com.kwad.components.core.webview.tachikoma.b.w;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes8.dex */
+public final class m extends w {
+
+    /* JADX INFO: compiled from: SearchBox */
+    @KsJson
+    public static class a extends com.kwad.sdk.core.response.a.a {
+        public String name = "backPressed";
+    }
+
+    @Override // com.kwad.sdk.core.webview.c.a
+    @NonNull
+    public final String getKey() {
+        return "registerBackPressedListener";
+    }
+
+    public final void kB() {
+        b(new a());
+    }
+}

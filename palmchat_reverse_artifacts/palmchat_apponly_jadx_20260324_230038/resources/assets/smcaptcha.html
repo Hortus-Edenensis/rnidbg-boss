@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+            <title>滑动验证码</title>
+    <style>
+        html, body, div, span, applet, object, iframe,
+        h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+        a, abbr, acronym, address, big, cite, code,
+        del, dfn, em, img, ins, kbd, q, s, samp,
+        small, strike, strong, sub, sup, tt, var,
+        b, u, i, center,
+        dl, dt, dd, ol, ul, li,
+        fieldset, form, label, legend,
+        table, caption, tbody, tfoot, thead, tr, th, td,
+        article, aside, canvas, details, embed,
+        figure, figcaption, footer, header, hgroup,
+        menu, nav, output, ruby, section, summary,
+        time, mark, audio, video {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            font-size: 100%;
+            font: inherit;
+            vertical-align: baseline;
+        }
+        /* HTML5 display-role reset for older browsers */
+        article, aside, details, figcaption, figure,
+        footer, header, hgroup, menu, nav, section {
+            display: block;
+        }
+        body {
+            line-height: 1;
+        }
+        ol, ul {
+            list-style: none;
+        }
+        blockquote, q {
+            quotes: none;
+        }
+        blockquote:before, blockquote:after,
+        q:before, q:after {
+            content: '';
+            content: none;
+        }
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+        .shumei_captcha_demo_form {
+            width:300px;
+            font-size: 16px;
+            margin: 0px 0;
+        }
+        .shumei_captcha_demo_form .shumei_form_item {
+            margin:0px 0;
+        }
+        .shumei_captcha_demo_form .shumei_form_item #shumei_form_captcha_wrapper,
+        .shumei_captcha_demo_form .shumei_form_item #shumei_form_captcha_wrapper2,
+        .shumei_captcha_demo_form .shumei_form_item #shumei_form_captcha_wrapper3,
+        .shumei_captcha_demo_form .shumei_form_item #shumei_form_captcha_wrapper4 {
+            display: inline-block;
+            width: 300px;
+            height: auto;
+            padding: 0px 0;
+            outline: 0;
+            color: #222222;
+        }
+    </style>
+</head>
+<body>
+<form class="shumei_captcha_demo_form" id="shumei_captcha_form">
+    <div class="shumei_form_item">
+        <span id="shumei_form_captcha_wrapper">加载中...</span>
+    </div>
+</form>
+</body>
+<!-- demo 操作方便使用，验证码 SDK 不依赖任何第三方库 -->
+<script src="http://apps.bdimg.com/libs/jquery/1.9.0/jquery.js"></script>
+<!-- 验证码核心入口js，web验证码只需要引入下面一个js，当前最新版本是1.0.4 -->
+<script src="https://castatic.fengkongcloud.cn/pr/v1.0.4/smcp.min.js"></script>
+<script>
+    $(function () {
+        var $body = $('body');
+        var $form = $body.find('#shumei_captcha_form');
+        var captchaId = 'shumei_form_captcha_wrapper';
+
+        /**
+         *      数美验证码回调
+         *      @param SMCaptcha
+         */
+        function smCaptchaCallback(SMCaptcha) {
+            // 当前生命周期的uuid，业务端埋点的话建议加上这个字段，到时可以根据这个字段通过日志查询定位问题
+            var captchaUuid = SMCaptcha.captchaUuid;
+            
+            // 将验证结果插入到页面form表单内
+            SMCaptcha.bindForm($form[0]);
+
+            // 全部资源加载成功后
+            SMCaptcha.onReady(function (dom, params) {
+                // params中有type字段，'init'-启动后 | 'refresh'-手动刷新图片后 | 'afterFail'-验证失败后
+                if(window.jsBridge){
+                   window.jsBridge.onReady();
+                }
+            });
+
+            // 验证码校验情况回调
+            SMCaptcha.onSuccess(function (data) {
+                // data格式：{rid: "2017080810405655b3377d25de478233", pass: false}
+                 if(window.jsBridge){
+                   window.jsBridge.onData(JSON.stringify(data));
+                 }
+
+                console.log(data);
+                if (data.pass) {
+                    // 验证通过后
+                } else {
+                    // 验证失败后
+                }
+            });
+            
+            // 资源加载异常,建议开发时进行监听,便于查询错误
+            SMCaptcha.onError(function (errType, errMsg) {
+                // errType格式: 'SERVER_ERROR'
+                // errMsg格式: {code: 2002, message: " 服 务 器 异 常 : 无 权 限 操 作 (invalid organization)"}
+                 if(window.jsBridge){
+                   window.jsBridge.onError(JSON.stringify(errMsg));
+                 }
+            });
+        }
+
+        // 启动验证码 3li97Iz8MWYgTGzD1z6H ，fe1iHzsMKi3vHLmqtHyl
+        initSMCaptcha({
+            organization: '3li97Iz8MWYgTGzD1z6H',
+            mode:'xxxxxxxxxxxxxxxxxxxx',
+            appendTo: captchaId
+        }, smCaptchaCallback);
+    });
+</script>
+</html>

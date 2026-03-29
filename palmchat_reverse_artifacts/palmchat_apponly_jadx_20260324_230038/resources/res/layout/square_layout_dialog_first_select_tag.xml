@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        android:textSize="25dp"
+        android:textColor="@color/big_text_color"
+        android:id="@+id/tv_text_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="24dp"
+        android:layout_marginTop="10dp"
+        android:text="请选择你的生活方式"
+        android:maxLines="1"/>
+    <TextView
+        android:textSize="@dimen/text_size_normal"
+        android:textColor="#999999"
+        android:id="@+id/sub_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="24dp"
+        android:layout_marginTop="6dp"
+        android:text="@string/square_first_select_tag_sub_tilte"
+        android:maxLines="1"
+        android:layout_below="@+id/tv_text_title"/>
+    <com.zenmen.square.tag.widget.SquareTagSelectHelper
+        android:id="@+id/tag"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="22dp"
+        android:layout_weight="1"/>
+    <com.zenmen.square.ui.widget.TagSubmitButton
+        android:id="@+id/confirm"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginLeft="57dp"
+        android:layout_marginTop="30dp"
+        android:layout_marginRight="57dp"
+        android:layout_marginBottom="30dp"
+        android:layout_below="@+id/birthday_view"/>
+</LinearLayout>

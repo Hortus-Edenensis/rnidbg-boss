@@ -1,0 +1,11 @@
+package org.conscrypt;
+
+import javax.net.ssl.SSLSession;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes5.dex */
+interface SSLServerSessionCache {
+    byte[] getSessionData(byte[] bArr);
+
+    void putSessionData(SSLSession sSLSession, byte[] bArr);
+}

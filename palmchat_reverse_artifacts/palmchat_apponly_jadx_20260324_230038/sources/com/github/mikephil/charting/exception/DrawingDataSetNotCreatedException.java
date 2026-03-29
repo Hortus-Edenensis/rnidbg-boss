@@ -1,0 +1,11 @@
+package com.github.mikephil.charting.exception;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes7.dex */
+public class DrawingDataSetNotCreatedException extends RuntimeException {
+    private static final long serialVersionUID = 1;
+
+    public DrawingDataSetNotCreatedException() {
+        super("Have to create a new drawing set first. Call ChartData's createNewDrawingDataSet() method");
+    }
+}

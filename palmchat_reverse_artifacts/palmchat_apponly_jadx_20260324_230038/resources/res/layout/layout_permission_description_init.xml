@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="top"
+    android:orientation="vertical"
+    android:paddingLeft="28dp"
+    android:paddingTop="52dp"
+    android:paddingRight="28dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        android:textSize="@dimen/text_size_normal"
+        android:textColor="#ddd"
+        android:gravity="center"
+        android:layout_gravity="center"
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:text="为了向您提供照片、文件正常发送服务，或保障您的账号安全，需要您分别授权连信获取存储权限和访问设备信息"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/permission_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</LinearLayout>

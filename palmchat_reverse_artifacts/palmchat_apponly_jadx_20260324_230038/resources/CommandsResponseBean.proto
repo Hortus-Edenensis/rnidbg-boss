@@ -1,0 +1,20 @@
+syntax = "proto3";
+package com.lantern.core.protobuf.config;
+
+message Commands {
+    string version = 1; //最大版本号
+    repeated Command command = 2; //操作类别
+    string all = 3; //是否全量同步配置 1 全量 0 增量
+}
+
+message Command {
+
+    string op = 1; //操作类型 1 PUT 2 DELETE
+
+    string eventId = 2; //配置id
+    string level = 3; // 日志级别
+    string availableTime = 4; //有效时间
+    string version = 5; //版本号
+    string limit = 6; //上报限制次数
+
+}

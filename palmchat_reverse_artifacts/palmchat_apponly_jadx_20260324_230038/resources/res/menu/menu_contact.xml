@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:icon="@drawable/icon_search_main"
+        android:id="@+id/menu_search"
+        android:visible="false"
+        android:orderInCategory="0"
+        android:title="@string/main_menu_search"
+        app:showAsAction="always"/>
+    <item
+        android:icon="@drawable/icon_more_main"
+        android:id="@+id/menu_more"
+        android:orderInCategory="0"
+        android:title="@string/string_more"
+        app:showAsAction="always"/>
+</menu>

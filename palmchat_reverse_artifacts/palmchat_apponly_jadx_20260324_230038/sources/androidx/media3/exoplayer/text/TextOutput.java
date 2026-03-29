@@ -1,0 +1,16 @@
+package androidx.media3.exoplayer.text;
+
+import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.UnstableApi;
+import java.util.List;
+
+/* JADX INFO: compiled from: SearchBox */
+/* JADX INFO: loaded from: classes.dex */
+@UnstableApi
+public interface TextOutput {
+    void onCues(CueGroup cueGroup);
+
+    @Deprecated
+    void onCues(List<Cue> list);
+}

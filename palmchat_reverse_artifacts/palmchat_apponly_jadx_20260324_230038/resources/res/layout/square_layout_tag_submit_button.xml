@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="48dp">
+    <TextView
+        android:textSize="@dimen/dimen_16"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:id="@+id/button_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="已选(0/3)"/>
+    <TextView
+        android:textSize="@dimen/feed_dp_11"
+        android:textColor="#ffffff"
+        android:id="@+id/button_des"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="至少选择3个生活方式"/>
+</LinearLayout>

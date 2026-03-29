@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="50dp">
+    <LinearLayout
+        android:orientation="horizontal"
+        android:id="@+id/ll_dislike"
+        android:background="@drawable/shape_chapter_ad_main_bg"
+        android:paddingLeft="@dimen/dimen_15"
+        android:paddingRight="@dimen/dimen_15"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <ImageView
+            android:layout_gravity="center_vertical"
+            android:layout_width="21dp"
+            android:layout_height="21dp"
+            android:src="@drawable/icon_ad_dislike"/>
+        <TextView
+            android:textSize="15sp"
+            android:textColor="#161824"
+            android:gravity="center_vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="13dp"
+            android:layout_marginRight="13dp"
+            android:text="不感兴趣"/>
+    </LinearLayout>
+</RelativeLayout>

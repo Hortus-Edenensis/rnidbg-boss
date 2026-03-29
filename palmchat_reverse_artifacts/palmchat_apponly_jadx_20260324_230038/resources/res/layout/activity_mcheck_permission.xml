@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <include
+        android:id="@+id/toolbar"
+        layout="@layout/layout_toolbar"/>
+    <TextView
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:id="@+id/btn_next"
+        android:visibility="visible"
+        android:clickable="true"
+        android:layout_width="280dp"
+        android:layout_height="48dp"
+        android:layout_marginLeft="24dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginRight="24dp"
+        android:layout_marginBottom="50dp"
+        android:text="请授权位置信息"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        style="@style/big_button_green"/>
+</RelativeLayout>

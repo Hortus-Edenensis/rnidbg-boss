@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android" android:oneshot="false">
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot0"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot1"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot2"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot3"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot4"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot3"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot2"/>
+    <item
+        android:duration="300"
+        android:drawable="@drawable/manychats_ic_video_call_dot1"/>
+</animation-list>
