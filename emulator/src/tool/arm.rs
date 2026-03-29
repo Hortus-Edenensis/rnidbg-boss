@@ -83,7 +83,8 @@ pub fn init_args<T: Clone>(
         }
     }
 
-    for i in 0..args_list.len() {
+    let reg_arg_count = args_list.len().min(ARM64_REG_ARGS.len());
+    for i in 0..reg_arg_count {
         let reg = ARM64_REG_ARGS[i];
         emulator
             .backend
@@ -91,14 +92,13 @@ pub fn init_args<T: Clone>(
             .expect("failed to reg_write: args_list");
     }
 
-    let reversed = args_list.iter().rev().collect::<Vec<_>>();
+    let stack_args = args_list[reg_arg_count..].iter().rev().collect::<Vec<_>>();
 
-    if reversed.len() % 2 != 0 {
+    if stack_args.len() % 2 != 0 {
         emulator.inner_mut().memory.allocate_stack(8);
     }
 
-    for i in 0..reversed.len() {
-        let p = reversed[i];
+    for p in stack_args {
         let pointer = emulator.inner_mut().memory.allocate_stack(8);
         if pointer.addr % 8 != 0 {
             warn!("initArgs pointer={}", pointer.addr);

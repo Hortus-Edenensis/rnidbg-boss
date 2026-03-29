@@ -6,6 +6,7 @@ use anyhow::{anyhow, Result};
 
 mod boss;
 mod jni;
+mod palmchat;
 mod utils;
 mod vm;
 
@@ -30,6 +31,7 @@ fn run() -> Result<()> {
 
     match args.remove(0).as_str() {
         "boss-yzwg" => boss::run(args),
+        "palmchat" => palmchat::run(args),
         "http-bridge" => boss::serve_http_bridge(args),
         "help" | "--help" | "-h" => {
             print_usage();
@@ -63,5 +65,6 @@ fn parse_options(args: &[String]) -> HashMap<String, String> {
 fn print_usage() {
     eprintln!("Usage:");
     eprintln!("  rnidbg boss-yzwg <subcommand> [options]");
+    eprintln!("  rnidbg palmchat <subcommand> [options]");
     eprintln!("  rnidbg http-bridge [--config <path>] [--port <port>]");
 }

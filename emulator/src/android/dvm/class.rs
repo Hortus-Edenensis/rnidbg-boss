@@ -1,11 +1,8 @@
 use crate::android::dvm::member::DvmMember;
 use crate::android::dvm::object::DvmObject;
 use crate::android::dvm::DalvikVM64;
-use crate::android::jni;
-use crate::android::jni::{JniValue, JNI_FLAG_OBJECT, JNI_FLAG_REF};
-use crate::dalvik;
+use crate::android::jni::JniValue;
 use crate::emulator::AndroidEmulator;
-use crate::tool::UnicornArg;
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -65,74 +62,16 @@ impl DvmClass {
             })
             .expect("member not found");
         if let DvmMember::Method(method) = method {
-            if !method.is_jni_method() {
-                panic!("method is not a jni method");
-            }
-            let mut native_args = vec![];
-            native_args.push(UnicornArg::Ptr(vm.java_env));
-            native_args.push(UnicornArg::I64(self.id));
-            for arg in args {
-                match arg {
-                    JniValue::Void => unreachable!(),
-                    JniValue::Boolean(z) => {
-                        native_args.push(UnicornArg::I32(if z { 1 } else { 0 }));
-                    }
-                    JniValue::Byte(b) => {
-                        native_args.push(UnicornArg::I32(b as i32));
-                    }
-                    JniValue::Char(c) => {
-                        native_args.push(UnicornArg::I32(c as i32));
-                    }
-                    JniValue::Short(s) => {
-                        native_args.push(UnicornArg::I32(s as i32));
-                    }
-                    JniValue::Int(i) => {
-                        native_args.push(UnicornArg::I32(i));
-                    }
-                    JniValue::Long(l) => {
-                        native_args.push(UnicornArg::I64(l));
-                    }
-                    JniValue::Float(f) => {
-                        native_args.push(UnicornArg::F32(f));
-                    }
-                    JniValue::Double(d) => {
-                        native_args.push(UnicornArg::F64(d));
-                    }
-                    JniValue::Object(obj) => {
-                        let obj_id = dalvik!(emulator).add_local_ref(obj);
-                        native_args.push(UnicornArg::I64(obj_id));
-                    }
-                    JniValue::Null => {
-                        native_args.push(UnicornArg::I64(0));
-                    }
-                }
-            }
-            let ret = emulator.e_func(method.fn_ptr, native_args);
-            let ret_value = if let Some(obj_id) = ret {
-                let value = i64::from_le_bytes(obj_id.to_le_bytes());
-                let flag = jni::get_flag_id(value);
-                if flag == JNI_FLAG_REF {
-                    let obj = dalvik!(emulator).get_global_ref(value);
-                    if obj.is_some() {
-                        JniValue::Object(obj.unwrap().clone())
-                    } else {
-                        JniValue::Long(value)
-                    }
-                } else if flag == JNI_FLAG_OBJECT {
-                    let obj = dalvik!(emulator).get_local_ref(value);
-                    if obj.is_some() {
-                        JniValue::Object(obj.unwrap().clone())
-                    } else {
-                        JniValue::Long(value)
-                    }
-                } else {
-                    JniValue::Long(value)
-                }
-            } else {
-                JniValue::Null
-            };
-            dalvik!(emulator).local_ref_pool.clear();
-            ret_value
+            let method = method.clone();
+            vm.call_method_with_jni_dispatch(
+                emulator,
+                &Rc::new(self.clone()),
+                &method,
+                None,
+                self.id,
+                true,
+                args,
+            )
         } else {
             unreachable!()
         }

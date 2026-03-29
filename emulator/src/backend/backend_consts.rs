@@ -5,7 +5,6 @@ use dynarmic::DynarmicContext;
 #[cfg(feature = "unicorn_backend")]
 use unicorn_engine::Context as UnicornContext;
 
-#[derive(Clone)]
 pub enum Context {
     #[cfg(feature = "unicorn_backend")]
     Unicorn(UnicornContext),

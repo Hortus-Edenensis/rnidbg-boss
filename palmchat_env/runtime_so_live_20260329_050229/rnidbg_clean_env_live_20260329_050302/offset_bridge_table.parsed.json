@@ -1,0 +1,380 @@
+{
+  "offset_table": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_20260329_042036/analysis_rebuilt/binwalk/offset_bridge_table.txt",
+  "module_bases": {
+    "libzhangxin.2.so": "0x7a81830000",
+    "libdu.so": "0x7a0c600000"
+  },
+  "zhangxin_anchors": {
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_setLxData": {
+      "offset": "0x1a169",
+      "va": "0x7a8184a169",
+      "kind": "off"
+    },
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_createCKey": {
+      "offset": "0x1a0f5",
+      "va": "0x7a8184a0f5",
+      "kind": "off"
+    },
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_getEncryptedCKey": {
+      "offset": "0x1a12c",
+      "va": "0x7a8184a12c",
+      "kind": "off"
+    },
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_getCkVersion": {
+      "offset": "0x19936",
+      "va": "0x7a81849936",
+      "kind": "off"
+    },
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_cipherWithHashKey": {
+      "offset": "0x1a07c",
+      "va": "0x7a8184a07c",
+      "kind": "off"
+    },
+    "get_EncryptUtils": {
+      "offset": "0x1997e",
+      "va": "0x7a8184997e",
+      "kind": "off"
+    }
+  },
+  "wksec_symbols": {
+    "Java_com_wifi_open_sec_WKSec_a": {
+      "offset": "0x10070",
+      "va": "0x7af9850070",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_b": {
+      "offset": "0x10e80",
+      "va": "0x7af9850e80",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_c": {
+      "offset": "0xfdd0",
+      "va": "0x7af984fdd0",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_d": {
+      "offset": "0x103b0",
+      "va": "0x7af98503b0",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_e": {
+      "offset": "0x10460",
+      "va": "0x7af9850460",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_f": {
+      "offset": "0x10534",
+      "va": "0x7af9850534",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_g": {
+      "offset": "0x108b4",
+      "va": "0x7af98508b4",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_h": {
+      "offset": "0x108c0",
+      "va": "0x7af98508c0",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_i": {
+      "offset": "0x108cc",
+      "va": "0x7af98508cc",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_j": {
+      "offset": "0x108d8",
+      "va": "0x7af98508d8",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_k": {
+      "offset": "0x108e4",
+      "va": "0x7af98508e4",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_l": {
+      "offset": "0x108f0",
+      "va": "0x7af98508f0",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_m": {
+      "offset": "0x108fc",
+      "va": "0x7af98508fc",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_o": {
+      "offset": "0x10908",
+      "va": "0x7af9850908",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_p": {
+      "offset": "0x10914",
+      "va": "0x7af9850914",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_q": {
+      "offset": "0x10920",
+      "va": "0x7af9850920",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_r": {
+      "offset": "0x10928",
+      "va": "0x7af9850928",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_s": {
+      "offset": "0x10934",
+      "va": "0x7af9850934",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_t": {
+      "offset": "0x1099c",
+      "va": "0x7af985099c",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_u": {
+      "offset": "0x109f0",
+      "va": "0x7af98509f0",
+      "kind": "sym"
+    },
+    "Java_com_wifi_open_sec_WKSec_v": {
+      "offset": "0x10a44",
+      "va": "0x7af9850a44",
+      "kind": "sym"
+    }
+  },
+  "du_symbols": {
+    "JNI_OnLoad": {
+      "offset": "0x1069a8",
+      "va": "0x7a0c7069a8",
+      "kind": "sym"
+    }
+  },
+  "sections": {
+    "binwalk offsets": [
+      {
+        "lib": "libzhangxin.2.so",
+        "off": 0,
+        "va": 526158856192,
+        "name": "elf",
+        "desc": "ELF binary, 64-bit shared object, ARM 64-bit for System-V (Unix), little endian"
+      },
+      {
+        "lib": "libzhangxin.2.so",
+        "off": 209776,
+        "va": 526159065968,
+        "name": "zlib",
+        "desc": "Zlib compressed file, total size: 9 bytes"
+      },
+      {
+        "lib": "libzhangxin.2.so",
+        "off": 209800,
+        "va": 526159065992,
+        "name": "zlib",
+        "desc": "Zlib compressed file, total size: 9 bytes"
+      },
+      {
+        "lib": "libzhangxin.2.so",
+        "off": 715372,
+        "va": 526159571564,
+        "name": "gpg_signed",
+        "desc": "GPG signed file, total size: 7 bytes"
+      },
+      {
+        "lib": "libdu.so",
+        "off": 0,
+        "va": 524193628160,
+        "name": "elf",
+        "desc": "ELF binary, 64-bit shared object, ARM 64-bit for System-V (Unix), little endian"
+      },
+      {
+        "lib": "libdu.so",
+        "off": 73612,
+        "va": 524193701772,
+        "name": "png",
+        "desc": "PNG image, total size: 278 bytes"
+      },
+      {
+        "lib": "libdu.so",
+        "off": 145896,
+        "va": 524193774056,
+        "name": "zlib",
+        "desc": "Zlib compressed file, total size: 9 bytes"
+      }
+    ],
+    "zhangxin EncryptUtils string anchors": [
+      {
+        "symbol": "Java_com_zenmen_palmchat_utils_EncryptUtils_setLxData",
+        "offset": 106857,
+        "va": 526158963049,
+        "kind": "off"
+      },
+      {
+        "symbol": "Java_com_zenmen_palmchat_utils_EncryptUtils_createCKey",
+        "offset": 106741,
+        "va": 526158962933,
+        "kind": "off"
+      },
+      {
+        "symbol": "Java_com_zenmen_palmchat_utils_EncryptUtils_getEncryptedCKey",
+        "offset": 106796,
+        "va": 526158962988,
+        "kind": "off"
+      },
+      {
+        "symbol": "Java_com_zenmen_palmchat_utils_EncryptUtils_getCkVersion",
+        "offset": 104758,
+        "va": 526158960950,
+        "kind": "off"
+      },
+      {
+        "symbol": "Java_com_zenmen_palmchat_utils_EncryptUtils_cipherWithHashKey",
+        "offset": 106620,
+        "va": 526158962812,
+        "kind": "off"
+      },
+      {
+        "symbol": "get_EncryptUtils",
+        "offset": 104830,
+        "va": 526158961022,
+        "kind": "off"
+      }
+    ],
+    "wksec exported JNI symbols": [
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_a",
+        "offset": 65648,
+        "va": 528172253296,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_b",
+        "offset": 69248,
+        "va": 528172256896,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_c",
+        "offset": 64976,
+        "va": 528172252624,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_d",
+        "offset": 66480,
+        "va": 528172254128,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_e",
+        "offset": 66656,
+        "va": 528172254304,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_f",
+        "offset": 66868,
+        "va": 528172254516,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_g",
+        "offset": 67764,
+        "va": 528172255412,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_h",
+        "offset": 67776,
+        "va": 528172255424,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_i",
+        "offset": 67788,
+        "va": 528172255436,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_j",
+        "offset": 67800,
+        "va": 528172255448,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_k",
+        "offset": 67812,
+        "va": 528172255460,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_l",
+        "offset": 67824,
+        "va": 528172255472,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_m",
+        "offset": 67836,
+        "va": 528172255484,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_o",
+        "offset": 67848,
+        "va": 528172255496,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_p",
+        "offset": 67860,
+        "va": 528172255508,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_q",
+        "offset": 67872,
+        "va": 528172255520,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_r",
+        "offset": 67880,
+        "va": 528172255528,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_s",
+        "offset": 67892,
+        "va": 528172255540,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_t",
+        "offset": 67996,
+        "va": 528172255644,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_u",
+        "offset": 68080,
+        "va": 528172255728,
+        "kind": "sym"
+      },
+      {
+        "symbol": "Java_com_wifi_open_sec_WKSec_v",
+        "offset": 68164,
+        "va": 528172255812,
+        "kind": "sym"
+      }
+    ],
+    "du JNI_OnLoad": [
+      {
+        "symbol": "JNI_OnLoad",
+        "offset": 1075624,
+        "va": 524194703784,
+        "kind": "sym"
+      }
+    ]
+  }
+}

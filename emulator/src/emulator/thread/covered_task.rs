@@ -41,6 +41,9 @@ impl SignalOps for CoveredTaskSignalOps {
     }
 
     fn set_sig_mask_set(&mut self, sig_mask_set: Box<dyn SigSet>) {
+        if let Some(old) = self.sig_mask_set.take() {
+            std::mem::forget(old);
+        }
         self.sig_mask_set = Some(sig_mask_set);
     }
 
@@ -49,6 +52,9 @@ impl SignalOps for CoveredTaskSignalOps {
     }
 
     fn set_sig_pending_set(&mut self, sig_pending_set: Box<dyn SigSet>) {
+        if let Some(old) = self.sig_pending_set.take() {
+            std::mem::forget(old);
+        }
         self.sig_pending_set = Some(sig_pending_set);
     }
 }

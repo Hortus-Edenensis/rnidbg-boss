@@ -41,7 +41,7 @@ impl<T: Clone> Arm64Svc<T> for AndroidBitmapUnlockPixels {
 }
 
 pub fn register_jni_graphics<'a, T: Clone>(
-    emu: &mut AndroidEmulator<'a, T>,
+    emu: &AndroidEmulator<'a, T>,
 ) -> RcUnsafeCell<LinuxModule<'a, T>> {
     let svc = &mut emu.inner_mut().svc_memory;
     let mut symbol = HashMap::new();

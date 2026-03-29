@@ -8,12 +8,13 @@ edition = "2021"
 # The default feature set includes the Dynarmic backend.
 default = ["dynarmic"]
 # The `unicorn` feature set includes the Unicorn backend.
-unicorn = ["emulator/unicorn_backend"]
+unicorn = ["emulator/unicorn_backend", "dep:unicorn-engine"]
 # The `dynarmic` feature set includes the Dynarmic backend.
 dynarmic = ["emulator/dynarmic_backend"]
 
 [dependencies]
 emulator = { path = "emulator", version = "0.1.0", features = [] }
+unicorn-engine = { path = "unicorn", version = "2.0.2", features = ["arch_aarch64"], optional = true, default-features = true }
 anyhow = "1.0.86"
 keystone-engine = { version = "0.1.0", features = ["build-from-src"] }
 hex = { version = "0.4.3", features = ["default"] }

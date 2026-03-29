@@ -17,6 +17,23 @@ pub const BINDING_WEAK: i32 = 2;
 pub const BINDING_LOPROC: i32 = 13;
 pub const BINDING_HIPROC: i32 = 15;
 
+fn resolve_ifunc_target<'a, T: Clone>(
+    emulator: &AndroidEmulator<'a, T>,
+    resolver_addr: u64,
+) -> anyhow::Result<u64> {
+    let hwcap = emulator.falloc(0x20, true)?;
+    emulator
+        .backend
+        .mem_write(hwcap.addr, &[0u8; 0x20])
+        .map_err(|err| anyhow!("failed to seed ifunc hwcap page: {err:?}"))?;
+    emulator
+        .e_func(
+            resolver_addr,
+            vec![UnicornArg::U64(0), UnicornArg::Ptr(hwcap.addr)],
+        )
+        .ok_or_else(|| anyhow!("failed to execute ifunc resolver: 0x{resolver_addr:x}"))
+}
+
 #[derive(Clone, Debug)]
 pub struct ModuleSymbol {
     pub so_name: String,
@@ -138,12 +155,23 @@ impl ModuleSymbol {
                             ));
                         }
 
+                        let resolved_ifunc = if elf_symbol.is_ifunc() {
+                            Some(resolve_ifunc_target(
+                                emulator,
+                                module.base + elf_symbol.value as u64 + self.offset,
+                            )?)
+                        } else {
+                            None
+                        };
+
                         for listener in listeners {
+                            let old = resolved_ifunc
+                                .unwrap_or(module.base + elf_symbol.value as u64 + self.offset);
                             let hook = listener.hook(
                                 emulator,
                                 module.name.clone(),
                                 symbol_name.to_string(),
-                                module.base + elf_symbol.value as u64 + self.offset,
+                                old,
                             );
                             if hook > 0 {
                                 cache_hook.insert(hash, hook);
@@ -157,6 +185,18 @@ impl ModuleSymbol {
                                     hook,
                                 ));
                             }
+                        }
+
+                        if let Some(resolved) = resolved_ifunc {
+                            cache_hook.insert(hash, resolved);
+                            return Ok(ModuleSymbol::new(
+                                self.so_name.clone(),
+                                WEAK_BASE,
+                                Some(elf_symbol.clone()),
+                                self.relocation_addr,
+                                module.name.clone(),
+                                resolved,
+                            ));
                         }
 
                         return Ok(ModuleSymbol::new(
@@ -185,6 +225,36 @@ impl ModuleSymbol {
                     ));
                 }
             }
+        }
+
+        if matches!(symbol_name.as_str(), "memfd_create" | "getentropy") {
+            return self.resolve_virtual_hook(
+                emulator,
+                listeners,
+                cache_hook,
+                "libc.so",
+                symbol_name.as_str(),
+            );
+        }
+
+        if symbol_name.starts_with("gl") {
+            return self.resolve_virtual_hook(
+                emulator,
+                listeners,
+                cache_hook,
+                "libGLESv2.so",
+                symbol_name.as_str(),
+            );
+        }
+
+        if symbol_name.starts_with("egl") {
+            return self.resolve_virtual_hook(
+                emulator,
+                listeners,
+                cache_hook,
+                "libEGL.so",
+                symbol_name.as_str(),
+            );
         }
 
         match symbol_name.as_str() {
@@ -221,6 +291,8 @@ impl ModuleSymbol {
             | "__cxa_atexit"
             | "__cxa_finalize"
             | "__register_atfork"
+            | "memfd_create"
+            | "getentropy"
             | "strcmp"
             | "strncmp"
             | "strcasecmp"
@@ -229,6 +301,13 @@ impl ModuleSymbol {
                 listeners,
                 cache_hook,
                 "libc.so",
+                symbol_name.as_str(),
+            ),
+            _ if symbol_name.starts_with("gl") => self.resolve_virtual_hook(
+                emulator,
+                listeners,
+                cache_hook,
+                "libGLESv2.so",
                 symbol_name.as_str(),
             ),
             &_ => Err(anyhow::Error::msg(format!(

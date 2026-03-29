@@ -22,7 +22,7 @@ use crate::emulator::thread::{
 use crate::linux::file_system::AndroidFileSystem;
 use crate::linux::symbol::ModuleSymbol;
 use crate::linux::{LinuxModule, PAGE_ALIGN};
-use crate::memory::svc_memory::SvcMemory;
+use crate::memory::svc_memory::{Arm64Svc, HookListener, SvcMemory};
 use crate::memory::AndroidElfLoader;
 pub use crate::pointer::VMPointer;
 use crate::tool::UnicornArg;
@@ -233,6 +233,14 @@ impl<'a, T: Clone> AndroidEmulator<'a, T> {
         &mut self.inner_mut().memory
     }
 
+    pub fn add_hook_listener(&self, listener: Box<dyn HookListener<'a, T>>) {
+        self.inner_mut().memory.add_hook_listeners(listener);
+    }
+
+    pub fn register_svc(&self, svc: Box<dyn Arm64Svc<T> + 'a>) -> u64 {
+        self.inner_mut().svc_memory.register_svc(svc)
+    }
+
     pub fn set_system_property_service(&self, service: SystemPropertyService) {
         self.inner_mut().libc.set_system_property_service(service);
     }
@@ -262,6 +270,68 @@ impl<'a, T: Clone> AndroidEmulator<'a, T> {
     pub fn find_caller(&self) -> Option<RcUnsafeCell<LinuxModule<'a, T>>> {
         let lr = self.get_lr().unwrap();
         self.inner_mut().memory.find_module_by_address(lr)
+    }
+
+    pub fn find_loaded_module_base(&self, module_name: &str) -> Option<u64> {
+        let base_name = module_name.rsplit('/').next().unwrap_or(module_name);
+        let memory = &mut self.inner_mut().memory;
+        if let Some(module_cell) = memory.modules.get(base_name) {
+            return Some(unsafe { &*module_cell.get() }.base);
+        }
+        for (name, module_cell) in &memory.modules {
+            if name == base_name || name.ends_with(base_name) {
+                return Some(unsafe { &*module_cell.get() }.base);
+            }
+        }
+        None
+    }
+
+    pub fn find_loaded_module_size(&self, module_name: &str) -> Option<usize> {
+        let base_name = module_name.rsplit('/').next().unwrap_or(module_name);
+        let memory = &mut self.inner_mut().memory;
+        if let Some(module_cell) = memory.modules.get(base_name) {
+            return Some(unsafe { &*module_cell.get() }.size);
+        }
+        for (name, module_cell) in &memory.modules {
+            if name == base_name || name.ends_with(base_name) {
+                return Some(unsafe { &*module_cell.get() }.size);
+            }
+        }
+        None
+    }
+
+    pub fn resolve_loaded_symbol(
+        &self,
+        module_name: Option<&str>,
+        symbol_name: &str,
+    ) -> Option<u64> {
+        let memory = &mut self.inner_mut().memory;
+        if let Some(module_name) = module_name {
+            let base_name = module_name.rsplit('/').next().unwrap_or(module_name);
+            if let Some(module_cell) = memory.modules.get(base_name) {
+                let module = unsafe { &*module_cell.get() };
+                if let Ok(symbol) = module.find_symbol_by_name(symbol_name, false) {
+                    return Some(symbol.address());
+                }
+            }
+            for (name, module_cell) in &memory.modules {
+                if name == base_name || name.ends_with(base_name) {
+                    let module = unsafe { &*module_cell.get() };
+                    if let Ok(symbol) = module.find_symbol_by_name(symbol_name, false) {
+                        return Some(symbol.address());
+                    }
+                }
+            }
+            return None;
+        }
+
+        for (_, module_cell) in &memory.modules {
+            let module = unsafe { &*module_cell.get() };
+            if let Ok(symbol) = module.find_symbol_by_name(symbol_name, true) {
+                return Some(symbol.address());
+            }
+        }
+        None
     }
 
     pub(crate) fn find_caller_name(&self) -> String {

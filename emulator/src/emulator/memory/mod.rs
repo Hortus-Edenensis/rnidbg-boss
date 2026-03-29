@@ -91,8 +91,12 @@ impl<'a, T: Clone> MemoryBlockTrait<'a, T> for MemoryBlock<'a, T> {
             }
         } else {
             if let Some(emu) = emu {
-                emu.munmap(self.pointer.addr, self.pointer.size as u64)
-                    .unwrap();
+                if let Err(err) = emu.munmap(self.pointer.addr, self.pointer.size as u64) {
+                    warn!(
+                        "free memory block ignored munmap failure addr=0x{:x} size=0x{:x}: {:?}",
+                        self.pointer.addr, self.pointer.size, err
+                    );
+                }
             } else {
                 warn!("free memory block failed: AndroidEmulator not found")
             }
@@ -140,7 +144,12 @@ impl<'a, T: Clone> AndroidEmulator<'a, T> {
 
     pub fn ffree(&self, addr: u64, size: usize) -> anyhow::Result<()> {
         let aligned = ((size - 1) / PAGE_ALIGN + 1) * PAGE_ALIGN;
-        self.munmap(addr, aligned as u64)?;
+        if let Err(err) = self.munmap(addr, aligned as u64) {
+            warn!(
+                "ffree ignored munmap failure addr=0x{:x} size=0x{:x}: {:?}",
+                addr, aligned, err
+            );
+        }
         Ok(())
     }
 
@@ -213,6 +222,9 @@ impl<'a, T: Clone> AndroidEmulator<'a, T> {
         fd: i32,
         offset: i64,
     ) -> anyhow::Result<(Errno, u64)> {
+        if length == 0 {
+            return Ok((Errno::EINVAL, 0));
+        }
         let aligned = ((length - 1) / PAGE_ALIGN + 1) * PAGE_ALIGN;
         let is_anonymous =
             (flags as i32 & MAP_ANONYMOUS) != 0 || (start == 0 && fd <= 0 && offset == 0);

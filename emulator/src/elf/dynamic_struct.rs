@@ -1,5 +1,6 @@
 use crate::elf::abi::*;
 use crate::elf::hash_tab::{ElfGnuHashTable, ElfHashTable, HashTable};
+use crate::elf::abi::SHT_STRTAB;
 use crate::elf::init_array::ElfInitArray;
 use crate::elf::memorized_object::MemoizedObject;
 use crate::elf::parser::{ElfFile, ElfParser};
@@ -12,6 +13,17 @@ use log::error;
 use std::cell::UnsafeCell;
 use std::ptr::read;
 use std::rc::Rc;
+use std::collections::HashSet;
+use std::sync::{Mutex, OnceLock};
+
+fn emit_unsupported_android_tag_once(tag: i64) {
+    static REPORTED: OnceLock<Mutex<HashSet<i64>>> = OnceLock::new();
+    let lock = REPORTED.get_or_init(|| Mutex::new(HashSet::new()));
+    let mut guard = lock.lock().expect("failed to lock android-tag set");
+    if guard.insert(tag) {
+        eprintln!("Unsupported android tag: 0x{:x}", tag);
+    }
+}
 
 #[derive(Clone)]
 pub struct ElfDynamicStructure {
@@ -22,6 +34,7 @@ pub struct ElfDynamicStructure {
     pub preinit_array_offset: i64,
     pub preinit_array_size: u32,
     symbol_entry_size: u32,
+    symbol_count: usize,
     symbol_offset: i64,
     hash_offset: i64,
     gnu_hash_offset: i64,
@@ -65,6 +78,7 @@ impl ElfDynamicStructure {
             preinit_array_offset: 0,
             preinit_array_size: 0,
             symbol_entry_size: 0,
+            symbol_count: 0,
             symbol_offset: 0,
             hash_offset: 0,
             gnu_hash_offset: 0,
@@ -98,6 +112,7 @@ impl ElfDynamicStructure {
             parse_dynamic_basic_info(&mut dynamic_structure, &parser, num_entries);
 
         let elf_file = unsafe { &*elf_file.get() };
+        apply_hidden_table_fallbacks(elf_file, &parser, &mut dynamic_structure);
         if dynamic_structure.dt_strtab_offset > 0 {
             let cloned_parser = parser.clone();
             let offset = elf_file
@@ -139,6 +154,7 @@ impl ElfDynamicStructure {
                 elf_file.virtual_memory_addr_to_file_offset(dynamic_structure.symbol_offset as u64);
             let cloned_parser = parser.clone();
             let entry_size = dynamic_structure.symbol_entry_size;
+            let symbol_count = dynamic_structure.symbol_count;
             let dt_string_table = dynamic_structure.dt_string_table.clone();
             dynamic_structure
                 .symbol_structure
@@ -147,6 +163,7 @@ impl ElfDynamicStructure {
                         cloned_parser.clone(),
                         offset as usize,
                         entry_size,
+                        symbol_count,
                         dt_string_table.clone(),
                         hash_tab.clone(),
                     ))
@@ -251,7 +268,10 @@ impl ElfDynamicStructure {
     }
 
     pub fn so_name(&self, file_name: String) -> anyhow::Result<String> {
-        let string_table = self.dt_string_table.get_value()?;
+        let string_table = match self.dt_string_table.get_value() {
+            Ok(value) => value,
+            Err(_) => return Ok(file_name),
+        };
         if self.so_name == -1 {
             return Ok(file_name);
         }
@@ -259,7 +279,10 @@ impl ElfDynamicStructure {
     }
 
     pub fn needed_libraries(&self) -> anyhow::Result<Vec<String>> {
-        let string_table = self.dt_string_table.get_value()?;
+        let string_table = match self.dt_string_table.get_value() {
+            Ok(value) => value,
+            Err(_) => return Ok(vec![]),
+        };
         let mut needed = Vec::with_capacity(self.dt_needed_list.len());
         for &index in self.dt_needed_list.iter() {
             needed.push(string_table.get(index as usize));
@@ -485,13 +508,103 @@ fn parse_dynamic_basic_info(
             _ => {
                 let android_tag = tag & 0x60000000;
                 if android_tag != 0 {
-                    eprintln!("Unsupported android tag: 0x{:x}", tag);
+                    emit_unsupported_android_tag_once(tag);
                 }
             }
         }
     }
 
     (dt_needed_list, so_name, init)
+}
+
+fn apply_hidden_table_fallbacks(
+    elf_file: &ElfFile,
+    parser: &ElfParser,
+    dynamic_structure: &mut ElfDynamicStructure,
+) {
+    if let Ok(strtab) = elf_file.find_section_by_type(SHT_STRTAB) {
+        if dynamic_structure.dt_strtab_offset == 0 {
+            dynamic_structure.dt_strtab_offset = strtab.addr;
+        }
+        if dynamic_structure.dt_strtab_size == 0 {
+            dynamic_structure.dt_strtab_size = strtab.size as u32;
+        }
+    }
+
+    if dynamic_structure.symbol_offset == 0
+        && dynamic_structure.symbol_entry_size == 0
+        && dynamic_structure.dt_strtab_offset > 0
+        && dynamic_structure.dt_strtab_size > 0
+    {
+        let strtab_offset = elf_file
+            .virtual_memory_addr_to_file_offset(dynamic_structure.dt_strtab_offset as u64)
+            as usize;
+        if let Some((symbol_offset, symbol_count)) = infer_hidden_symbol_table(
+            parser,
+            strtab_offset,
+            dynamic_structure.dt_strtab_size as usize,
+        ) {
+            dynamic_structure.symbol_offset = symbol_offset as i64;
+            dynamic_structure.symbol_entry_size = 24;
+            dynamic_structure.symbol_count = symbol_count;
+        }
+    }
+}
+
+fn infer_hidden_symbol_table(
+    parser: &ElfParser,
+    strtab_offset: usize,
+    strtab_size: usize,
+) -> Option<(usize, usize)> {
+    const ELF64_SYM_ENTRY_SIZE: usize = 24;
+
+    if strtab_offset < ELF64_SYM_ENTRY_SIZE {
+        return None;
+    }
+
+    let mut symbol_offset = strtab_offset - ELF64_SYM_ENTRY_SIZE;
+    if !looks_like_hidden_sym_entry(parser, symbol_offset, strtab_size) {
+        return None;
+    }
+
+    while symbol_offset >= ELF64_SYM_ENTRY_SIZE
+        && looks_like_hidden_sym_entry(parser, symbol_offset - ELF64_SYM_ENTRY_SIZE, strtab_size)
+    {
+        symbol_offset -= ELF64_SYM_ENTRY_SIZE;
+    }
+
+    Some((
+        symbol_offset,
+        (strtab_offset - symbol_offset) / ELF64_SYM_ENTRY_SIZE,
+    ))
+}
+
+fn looks_like_hidden_sym_entry(parser: &ElfParser, offset: usize, strtab_size: usize) -> bool {
+    let parser = parser.clone();
+    parser.seek(offset);
+
+    let st_name = parser.read_int() as u32;
+    let st_info = parser.read_ubyte();
+    let st_other = parser.read_ubyte();
+    let st_shndx = parser.read_short() as u16;
+    let st_value = parser.read_long() as u64;
+    let st_size = parser.read_long() as u64;
+
+    if st_name == 0
+        && st_info == 0
+        && st_other == 0
+        && st_shndx == 0
+        && st_value == 0
+        && st_size == 0
+    {
+        return true;
+    }
+
+    st_name < strtab_size as u32
+        && st_other == 0
+        && st_shndx < 0x1000
+        && st_value < 0x0400_0000
+        && st_size < 0x0010_0000
 }
 
 fn read_sleb128(buf: &mut BytesMut) -> anyhow::Result<i64> {

@@ -1,10 +1,12 @@
 #![allow(non_camel_case_types)]
 
 use crate::backend::{Backend, RegisterARM64};
+use crate::emulator::consts::LR as LR_TRAP;
 use crate::emulator::thread::TaskStatus;
 use crate::emulator::{AndroidEmulator, SvcMemory, VMPointer};
 use crate::keystone::assemble_no_check;
 use crate::linux::syscalls;
+use crate::linux::PAGE_ALIGN;
 use crate::memory::svc_memory::SvcCallResult;
 use log::{error, info, warn};
 use std::cell::UnsafeCell;
@@ -12,16 +14,62 @@ use std::collections::HashMap;
 use std::mem;
 use std::process::exit;
 use std::rc::Rc;
+use std::sync::{Mutex, OnceLock};
 use std::thread::sleep_ms;
 
 const EXCP_UDEF: u32 = 1;
 const EXCP_SWI: u32 = 2;
+const EXCP_PREFETCH_ABORT: u32 = 3;
+const EXCP_DATA_ABORT: u32 = 4;
 const EXCP_BKPT: u32 = 7;
 
 pub const POST_CALLBACK_SYSCALL_NUMBER: u64 = 0x8866 - 1;
 pub const PRE_CALLBACK_SYSCALL_NUMBER: u64 = 0x8888 - 1;
 
 const SWI_MAX: i32 = 0xffff;
+
+fn env_truthy(name: &str) -> bool {
+    std::env::var(name)
+        .ok()
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn env_u64(name: &str, default: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+#[cfg(feature = "unicorn_backend")]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct GuestUdefKey {
+    pc: u64,
+    next_pc: u64,
+    lr: u64,
+    swi: i32,
+    opcode: u32,
+}
+
+#[cfg(feature = "unicorn_backend")]
+fn note_guest_udef(key: GuestUdefKey) -> (u64, bool) {
+    static UDEF_COUNTS: OnceLock<Mutex<HashMap<GuestUdefKey, u64>>> = OnceLock::new();
+    let progress_floor = env_u64("RNIDBG_UDEF_PROGRESS_FLOOR", 1024);
+    let counts = UDEF_COUNTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = counts.lock().expect("failed to lock UDEF counts");
+    let count = guard
+        .entry(key)
+        .and_modify(|value| *value += 1)
+        .or_insert(1);
+    let should_log = *count == 1 || (*count >= progress_floor && count.is_power_of_two());
+    (*count, should_log)
+}
 
 #[inline]
 #[cfg(feature = "unicorn_backend")]
@@ -32,21 +80,123 @@ fn arm64_syscall_handler_unicorn<T: Clone>(
     emulator: &AndroidEmulator<T>,
 ) {
     if intno == EXCP_BKPT {
-        // brk
-        panic!("Not support brk!");
+        let pc = unicorn.reg_read(unicorn_engine::RegisterARM64::PC).unwrap();
+        let trap_end = LR_TRAP + PAGE_ALIGN as u64;
+        if pc >= LR_TRAP && pc <= trap_end {
+            emulator
+                .emu_stop(TaskStatus::X)
+                .expect("failed to stop emulator");
+            return;
+        }
+        if env_truthy("RNIDBG_PANIC_ON_GUEST_BRK") {
+            panic!("Not support brk! pc=0x{pc:x} swi={swi}");
+        }
+        let next_pc = pc.saturating_add(4);
+        warn!(
+            "guest BRK trap treated as NOP pc=0x{:x} next_pc=0x{:x} swi={}",
+            pc, next_pc, swi
+        );
+        unicorn
+            .reg_write(unicorn_engine::RegisterARM64::PC, next_pc)
+            .expect("failed to advance guest pc after brk");
+        return;
     }
 
     if intno == EXCP_UDEF {
-        // udef
-        unicorn.dump_context(0, 0);
-        panic!("Not support udef: swi={}", swi);
+        let pc = unicorn.reg_read(unicorn_engine::RegisterARM64::PC).unwrap();
+        if pc <= PAGE_ALIGN as u64 {
+            let lr = unicorn.reg_read(unicorn_engine::RegisterARM64::LR).unwrap();
+            unicorn
+                .reg_write(unicorn_engine::RegisterARM64::PC, lr)
+                .expect("failed to redirect null-page udef");
+            return;
+        }
+        if env_truthy("RNIDBG_PANIC_ON_GUEST_UDEF") {
+            unicorn.dump_context(0, 0);
+            panic!("Not support udef: pc=0x{pc:x} swi={}", swi);
+        }
+        let lr = unicorn.reg_read(unicorn_engine::RegisterARM64::LR).unwrap_or(0);
+        let next_pc = if lr != 0 { lr } else { pc.saturating_add(4) };
+        let opcode = {
+            let mut opcode_buf = [0u8; 4];
+            if unicorn.mem_read(pc, &mut opcode_buf).is_ok() {
+                u32::from_le_bytes(opcode_buf)
+            } else {
+                0
+            }
+        };
+        let (count, should_log) = note_guest_udef(GuestUdefKey {
+            pc,
+            next_pc,
+            lr,
+            swi,
+            opcode,
+        });
+        if should_log {
+            warn!(
+                "guest UDEF trap tolerated pc=0x{:x} next_pc=0x{:x} lr=0x{:x} swi={} opcode=0x{:08x} count={}",
+                pc, next_pc, lr, swi, opcode, count
+            );
+        }
+        unicorn
+            .reg_write(unicorn_engine::RegisterARM64::PC, next_pc)
+            .expect("failed to redirect guest udef");
+        return;
+    }
+
+    if intno == EXCP_PREFETCH_ABORT || intno == EXCP_DATA_ABORT {
+        let pc = unicorn.reg_read(unicorn_engine::RegisterARM64::PC).unwrap_or(0);
+        let lr = unicorn.reg_read(unicorn_engine::RegisterARM64::LR).unwrap_or(0);
+        let sp = unicorn.reg_read(unicorn_engine::RegisterARM64::SP).unwrap_or(0);
+        let x0 = unicorn.reg_read(unicorn_engine::RegisterARM64::X0).unwrap_or(0);
+        let x1 = unicorn.reg_read(unicorn_engine::RegisterARM64::X1).unwrap_or(0);
+        let x2 = unicorn.reg_read(unicorn_engine::RegisterARM64::X2).unwrap_or(0);
+        let x3 = unicorn.reg_read(unicorn_engine::RegisterARM64::X3).unwrap_or(0);
+        let x8 = unicorn.reg_read(unicorn_engine::RegisterARM64::X8).unwrap_or(0);
+        let opcode = {
+            let mut opcode_buf = [0u8; 4];
+            if unicorn.mem_read(pc, &mut opcode_buf).is_ok() {
+                Some(u32::from_le_bytes(opcode_buf))
+            } else {
+                None
+            }
+        };
+        error!(
+            "guest {} abort pc=0x{:x} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x2=0x{:x} x3=0x{:x} x8=0x{:x} opcode={}",
+            if intno == EXCP_DATA_ABORT { "data" } else { "prefetch" },
+            pc,
+            lr,
+            sp,
+            x0,
+            x1,
+            x2,
+            x3,
+            x8,
+            opcode
+                .map(|value| format!("0x{value:08x}"))
+                .unwrap_or_else(|| "unreadable".to_string())
+        );
+        if env_truthy("RNIDBG_TOLERATE_DATA_ABORT") {
+            let next_pc = pc.saturating_add(4);
+            warn!(
+                "guest {} abort tolerated as skip pc=0x{:x} next_pc=0x{:x}",
+                if intno == EXCP_DATA_ABORT { "data" } else { "prefetch" },
+                pc,
+                next_pc
+            );
+            unicorn
+                .reg_write(unicorn_engine::RegisterARM64::PC, next_pc)
+                .expect("failed to advance guest pc after abort");
+            return;
+        }
+        unicorn.emu_stop().expect("failed to stop emulator");
+        return;
     }
 
     if intno != EXCP_SWI {
         panic!("Unsupported INTNO: {}!", intno);
     }
 
-    let nr = get_syscall(&emulator.backend);
     let svc_memory = &mut emulator.inner_mut().svc_memory;
     if swi != 0 {
         if swi == SWI_MAX {
@@ -57,6 +207,7 @@ fn arm64_syscall_handler_unicorn<T: Clone>(
         }
         let svc = svc_memory.get_svc(swi as u32);
         if let Some(svc) = svc {
+            info!("svc call swi={} name={}", swi, svc.name());
             match svc.handle(&emulator) {
                 SvcCallResult::RET(ret) => {
                     unicorn
@@ -73,7 +224,10 @@ fn arm64_syscall_handler_unicorn<T: Clone>(
         }
         unicorn.emu_stop().expect("failed to stop emulator");
         panic!("swi number: {} not found", swi);
-    } else if nr == Syscalls::__NR_io_setup
+    }
+
+    let nr = get_syscall(&emulator.backend);
+    if nr == Syscalls::__NR_io_setup
         && swi == 0
         && unicorn
             .reg_read(unicorn_engine::RegisterARM64::X16)
@@ -123,7 +277,6 @@ fn arm64_syscall_handler_unicorn<T: Clone>(
 #[cfg(feature = "dynarmic_backend")]
 fn arm64_syscall_handler_dynarmic<T: Clone>(swi: i32, emulator: &AndroidEmulator<T>) {
     let backend = &emulator.backend;
-    let nr = get_syscall(backend);
     let svc_memory = &mut emulator.inner_mut().svc_memory;
     if swi != 0 {
         if swi == SWI_MAX {
@@ -134,6 +287,20 @@ fn arm64_syscall_handler_dynarmic<T: Clone>(swi: i32, emulator: &AndroidEmulator
         }
         let svc = svc_memory.get_svc(swi as u32);
         if let Some(svc) = svc {
+            info!("[dynarmic] svc call swi={} name={}", swi, svc.name());
+            if option_env!("PRINT_SYSCALL_LOG") == Some("1") {
+                let pc = backend.reg_read(RegisterARM64::PC).unwrap_or(0);
+                let lr = backend.reg_read(RegisterARM64::LR).unwrap_or(0);
+                let sp = backend.reg_read(RegisterARM64::SP).unwrap_or(0);
+                info!(
+                    "[dynarmic] svc pre swi={} name={} pc=0x{:x} lr=0x{:x} sp=0x{:x}",
+                    swi,
+                    svc.name(),
+                    pc,
+                    lr,
+                    sp
+                );
+            }
             match svc.handle(&emulator) {
                 SvcCallResult::VOID => {}
                 SvcCallResult::FUCK(e) => {
@@ -146,13 +313,57 @@ fn arm64_syscall_handler_dynarmic<T: Clone>(swi: i32, emulator: &AndroidEmulator
                     backend.reg_write_i64(RegisterARM64::X0, ret).unwrap();
                 }
             }
+            let lr = backend.reg_read(RegisterARM64::LR).unwrap_or(0);
+            if lr != 0 {
+                backend.reg_write_i64(RegisterARM64::PC, lr as i64).unwrap();
+            }
+            if option_env!("PRINT_SYSCALL_LOG") == Some("1") {
+                let pc = backend.reg_read(RegisterARM64::PC).unwrap_or(0);
+                let lr = backend.reg_read(RegisterARM64::LR).unwrap_or(0);
+                let sp = backend.reg_read(RegisterARM64::SP).unwrap_or(0);
+                let x0 = backend.reg_read(RegisterARM64::X0).unwrap_or(0);
+                info!(
+                    "[dynarmic] svc post swi={} name={} pc=0x{:x} lr=0x{:x} sp=0x{:x} x0=0x{:x}",
+                    swi,
+                    svc.name(),
+                    pc,
+                    lr,
+                    sp,
+                    x0
+                );
+                if swi == 767 {
+                    if let Ok(frame) = backend.mem_read_as_vec(sp, 0x40) {
+                        let saved_x29 = frame
+                            .get(0..8)
+                            .and_then(|slice| slice.try_into().ok())
+                            .map(u64::from_le_bytes)
+                            .unwrap_or(0);
+                        let saved_x30 = frame
+                            .get(8..16)
+                            .and_then(|slice| slice.try_into().ok())
+                            .map(u64::from_le_bytes)
+                            .unwrap_or(0);
+                        info!(
+                            "[dynarmic] svc post swi={} frame sp=0x{:x} saved_x29=0x{:x} saved_x30=0x{:x} raw={}",
+                            swi,
+                            sp,
+                            saved_x29,
+                            saved_x30,
+                            hex::encode(frame)
+                        );
+                    }
+                }
+            }
             return;
         }
         backend
             .emu_stop(TaskStatus::X, emulator)
             .expect("failed to stop emulator");
         panic!("swi number: {} not found", swi);
-    } else if nr == Syscalls::__NR_io_setup
+    }
+
+    let nr = get_syscall(backend);
+    if nr == Syscalls::__NR_io_setup
         && swi == 0
         && backend.reg_read(RegisterARM64::X16).unwrap() == POST_CALLBACK_SYSCALL_NUMBER
     {
@@ -198,9 +409,19 @@ fn syscall<'a, T: Clone>(
     backend: &Backend<'a, T>,
     emulator: &AndroidEmulator<'a, T>,
 ) {
-    if option_env!("EMU_LOG") == Some("1") {
-        info!("syscall: {:?}", nr);
+    if option_env!("PRINT_SYSCALL_LOG") == Some("1") && nr == Syscalls::__NR_gettimeofday {
+        let pc = backend.reg_read(RegisterARM64::PC).unwrap_or(0);
+        let lr = backend.reg_read(RegisterARM64::LR).unwrap_or(0);
+        let sp = backend.reg_read(RegisterARM64::SP).unwrap_or(0);
+        let x0 = backend.reg_read(RegisterARM64::X0).unwrap_or(0);
+        let x1 = backend.reg_read(RegisterARM64::X1).unwrap_or(0);
+        let x8 = backend.reg_read(RegisterARM64::X8).unwrap_or(0);
+        info!(
+            "syscall pre gettimeofday pc=0x{:x} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x8=0x{:x}",
+            pc, lr, sp, x0, x1, x8
+        );
     }
+    info!("syscall: {:?}", nr);
     let _ = match nr {
         Syscalls::__NR_openat => {
             syscalls::syscall_openat(backend, emulator);
@@ -210,6 +431,9 @@ fn syscall<'a, T: Clone>(
         }
         Syscalls::__NR_read => {
             syscalls::syscall_read(backend, emulator);
+        }
+        Syscalls::__NR3264_fcntl => {
+            syscalls::syscall_nr3264_fcntl(backend, emulator);
         }
         Syscalls::__NR3264_fstat => {
             syscalls::syscall_fstat(backend, emulator);
@@ -222,6 +446,9 @@ fn syscall<'a, T: Clone>(
         }
         Syscalls::__NR_prctl => {
             syscalls::syscall_prctl(backend, emulator);
+        }
+        Syscalls::__NR_ioctl => {
+            syscalls::syscall_ioctl(backend, emulator);
         }
         Syscalls::__NR_gettimeofday => {
             syscalls::syscall_gettimeofday(backend, emulator);
@@ -256,6 +483,9 @@ fn syscall<'a, T: Clone>(
         Syscalls::__NR_getpid => {
             syscalls::syscall_getpid(backend, emulator);
         }
+        Syscalls::__NR_gettid => {
+            syscalls::syscall_gettid(backend, emulator);
+        }
         Syscalls::__NR_getuid => {
             syscalls::syscall_getuid(backend, emulator);
         }
@@ -264,6 +494,9 @@ fn syscall<'a, T: Clone>(
         }
         Syscalls::__NR_sigaltstack => {
             syscalls::syscall_sigaltstack(backend, emulator);
+        }
+        Syscalls::__NR_rt_sigaction => {
+            syscalls::syscall_rt_sigaction(backend, emulator);
         }
         Syscalls::__NR3264_lseek => {
             syscalls::syscall_lseek(backend, emulator);
@@ -277,26 +510,128 @@ fn syscall<'a, T: Clone>(
         Syscalls::__NR_rt_sigprocmask => {
             syscalls::syscall_rt_sigprocmask(backend, emulator);
         }
-        Syscalls::__NR_exit => {
+        Syscalls::__NR_exit | Syscalls::__NR_exit_group => {
             syscalls::syscall_exit(backend, emulator);
         }
         Syscalls::__NR_faccessat => {
             syscalls::syscall_faccessat(backend, emulator);
         }
+        Syscalls::__NR_rt_sigaction => {
+            syscalls::syscall_rt_sigaction(backend, emulator);
+        }
+        Syscalls::__NR_sched_setparam => {
+            syscalls::syscall_sched_setparam(backend, emulator);
+        }
+        Syscalls::__NR_sched_setscheduler => {
+            syscalls::syscall_sched_setscheduler(backend, emulator);
+        }
+        Syscalls::__NR_sched_getscheduler => {
+            syscalls::syscall_sched_getscheduler(backend, emulator);
+        }
+        Syscalls::__NR_sched_getparam => {
+            syscalls::syscall_sched_getparam(backend, emulator);
+        }
+        Syscalls::__NR_sched_setaffinity => {
+            syscalls::syscall_sched_setaffinity(backend, emulator);
+        }
+        Syscalls::__NR_sched_getaffinity => {
+            syscalls::syscall_sched_getaffinity(backend, emulator);
+        }
+        Syscalls::__NR_sched_yield => {
+            syscalls::syscall_sched_yield(backend, emulator);
+        }
+        Syscalls::__NR_sched_get_priority_max => {
+            syscalls::syscall_sched_get_priority_max(backend, emulator);
+        }
+        Syscalls::__NR_sched_get_priority_min => {
+            syscalls::syscall_sched_get_priority_min(backend, emulator);
+        }
+        Syscalls::__NR_sched_rr_get_interval => {
+            syscalls::syscall_sched_rr_get_interval(backend, emulator);
+        }
         Syscalls::__NR_getdents64 => {
             syscalls::syscall_getdents64(backend, emulator);
+        }
+        Syscalls::__NR_nanosleep => {
+            syscalls::syscall_nanosleep(backend, emulator);
         }
         Syscalls::__NR_write => {
             syscalls::syscall_write(backend, emulator);
         }
+        Syscalls::__NR_epoll_create1 => {
+            syscalls::syscall_epoll_create1(backend, emulator);
+        }
+        Syscalls::__NR_epoll_ctl => {
+            syscalls::syscall_epoll_ctl(backend, emulator);
+        }
+        Syscalls::__NR_epoll_pwait => {
+            syscalls::syscall_epoll_pwait(backend, emulator);
+        }
+        Syscalls::__NR_uname => {
+            syscalls::syscall_uname(backend, emulator);
+        }
+        Syscalls::__NR_clock_nanosleep => {
+            syscalls::syscall_clock_nanosleep(backend, emulator);
+        }
         Syscalls::__NR_socket => {
             syscalls::syscall_socket(backend, emulator);
+        }
+        Syscalls::__NR_bind => {
+            syscalls::syscall_bind(backend, emulator);
         }
         Syscalls::__NR_connect => {
             syscalls::syscall_connect(backend, emulator);
         }
+        Syscalls::__NR_getsockname => {
+            syscalls::syscall_getsockname(backend, emulator);
+        }
+        Syscalls::__NR_getpeername => {
+            syscalls::syscall_getpeername(backend, emulator);
+        }
+        Syscalls::__NR_sendto => {
+            syscalls::syscall_sendto(backend, emulator);
+        }
+        Syscalls::__NR_recvfrom => {
+            syscalls::syscall_recvfrom(backend, emulator);
+        }
+        Syscalls::__NR_setsockopt => {
+            syscalls::syscall_setsockopt(backend, emulator);
+        }
+        Syscalls::__NR_getsockopt => {
+            syscalls::syscall_getsockopt(backend, emulator);
+        }
+        Syscalls::__NR_gettid => {
+            syscalls::syscall_gettid(backend, emulator);
+        }
+        Syscalls::__NR3264_fcntl => {
+            syscalls::syscall_nr3264_fcntl(backend, emulator);
+        }
         Syscalls::__NR_pipe2 => {
             syscalls::syscall_pipe2(backend, emulator);
+        }
+        Syscalls::__NR_sched_setattr => {
+            syscalls::syscall_sched_setattr(backend, emulator);
+        }
+        Syscalls::__NR_sched_getattr => {
+            syscalls::syscall_sched_getattr(backend, emulator);
+        }
+        Syscalls::__NR_epoll_create => {
+            syscalls::syscall_epoll_create(backend, emulator);
+        }
+        Syscalls::__NR_epoll_wait => {
+            syscalls::syscall_epoll_wait(backend, emulator);
+        }
+        Syscalls::__NR_pselect6 => {
+            syscalls::syscall_pselect6(backend, emulator);
+        }
+        Syscalls::__NR_tkill | Syscalls::__NR_tgkill => {
+            syscalls::syscall_tgkill(backend, emulator);
+        }
+        Syscalls::__NR_rt_sigqueueinfo | Syscalls::__NR_rt_tgsigqueueinfo => {
+            syscalls::syscall_rt_sigqueueinfo(backend, emulator);
+        }
+        Syscalls::__NR_writev => {
+            syscalls::syscall_writev(backend, emulator);
         }
         _ => {
             info!("Unsupported syscall: {:?}", nr);
@@ -306,6 +641,18 @@ fn syscall<'a, T: Clone>(
             panic!("Unsupported syscall: {:?}", nr);
         }
     };
+    if option_env!("PRINT_SYSCALL_LOG") == Some("1") && nr == Syscalls::__NR_gettimeofday {
+        let pc = backend.reg_read(RegisterARM64::PC).unwrap_or(0);
+        let lr = backend.reg_read(RegisterARM64::LR).unwrap_or(0);
+        let sp = backend.reg_read(RegisterARM64::SP).unwrap_or(0);
+        let x0 = backend.reg_read(RegisterARM64::X0).unwrap_or(0);
+        let x1 = backend.reg_read(RegisterARM64::X1).unwrap_or(0);
+        let x8 = backend.reg_read(RegisterARM64::X8).unwrap_or(0);
+        info!(
+            "syscall post gettimeofday pc=0x{:x} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x8=0x{:x}",
+            pc, lr, sp, x0, x1, x8
+        );
+    }
 }
 
 pub(crate) fn register_syscall_handler<T: Clone>(emu: &AndroidEmulator<T>) {
@@ -315,12 +662,22 @@ pub(crate) fn register_syscall_handler<T: Clone>(emu: &AndroidEmulator<T>) {
     if let Backend::Unicorn(unicorn) = &emu.backend {
         unicorn
             .add_intr_hook(move |backend, intno| {
-                if intno == 1 || intno == 2 || intno == 7 {
-                    let mut swi;
+                if intno == EXCP_UDEF
+                    || intno == EXCP_SWI
+                    || intno == EXCP_PREFETCH_ABORT
+                    || intno == EXCP_DATA_ABORT
+                    || intno == EXCP_BKPT
+                {
                     let pc = backend.reg_read(unicorn_engine::RegisterARM64::PC).unwrap();
-                    let mut swi_buf = [0u8; 4];
-                    backend.mem_read(pc - 4, &mut swi_buf).unwrap();
-                    swi = (i32::from_le_bytes(swi_buf) >> 5) & 0xffff;
+                    let swi = if intno == EXCP_SWI || intno == EXCP_BKPT {
+                        let mut swi_buf = [0u8; 4];
+                        backend
+                            .mem_read(pc.saturating_sub(4), &mut swi_buf)
+                            .unwrap();
+                        (i32::from_le_bytes(swi_buf) >> 5) & 0xffff
+                    } else {
+                        0
+                    };
                     arm64_syscall_handler_unicorn(backend, intno, swi, &emulator);
                 } else {
                     warn!("Unsupported INTNO: {}!", intno);
@@ -349,6 +706,9 @@ pub(crate) fn register_syscall_handler<T: Clone>(emu: &AndroidEmulator<T>) {
 
 pub fn get_syscall<T: Clone>(uc: &Backend<T>) -> Syscalls {
     let syscall = uc.reg_read(RegisterARM64::X8).unwrap();
+    if syscall > Syscalls::__NR_fork as u64 {
+        return Syscalls::None;
+    }
     unsafe { mem::transmute(syscall) }
 }
 

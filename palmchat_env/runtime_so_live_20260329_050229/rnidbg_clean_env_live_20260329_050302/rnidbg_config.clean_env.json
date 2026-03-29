@@ -1,0 +1,127 @@
+{
+  "package": "com.zenmen.palmchat",
+  "apk_path": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_base_20260324_230038.apk",
+  "so_path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rebuilt_so/libzhangxin.2.so",
+  "wksec_so_path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/disk_so/libwksec-lib.so",
+  "trace_out_dir": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/rnidbg_trace_clean_env",
+  "android_api": 23,
+  "backend": "dynarmic",
+  "runtime_page_patches": [
+    {
+      "offset": "0x0",
+      "path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/runtime_segments/libzhangxin.2.so_7a82260000_7a82344000_rwxp_00000000.mem",
+      "pointer_rebases": [
+        {
+          "module": "self",
+          "source_start": "0x7a82260000",
+          "source_end": "0x7a823ebfff"
+        },
+        {
+          "module": "libandroid.so",
+          "source_start": "0x7b09450000",
+          "source_end": "0x7b0947dfff"
+        },
+        {
+          "module": "libc.so",
+          "source_start": "0x7bc1810000",
+          "source_end": "0x7bc192ffff"
+        },
+        {
+          "module": "libdl.so",
+          "source_start": "0x7bc4110000",
+          "source_end": "0x7bc4112fff"
+        },
+        {
+          "module": "libm.so",
+          "source_start": "0x7ba3480000",
+          "source_end": "0x7ba34bafff"
+        }
+      ]
+    },
+    {
+      "offset": "0x170000",
+      "path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/runtime_segments/libzhangxin.2.so_7a823d0000_7a823e8000_rw-p_00170000.mem",
+      "pointer_rebases": [
+        {
+          "module": "self",
+          "source_start": "0x7a82260000",
+          "source_end": "0x7a823ebfff"
+        },
+        {
+          "module": "libandroid.so",
+          "source_start": "0x7b09450000",
+          "source_end": "0x7b0947dfff"
+        },
+        {
+          "module": "libc.so",
+          "source_start": "0x7bc1810000",
+          "source_end": "0x7bc192ffff"
+        },
+        {
+          "module": "libdl.so",
+          "source_start": "0x7bc4110000",
+          "source_end": "0x7bc4112fff"
+        },
+        {
+          "module": "libm.so",
+          "source_start": "0x7ba3480000",
+          "source_end": "0x7ba34bafff"
+        }
+      ]
+    },
+    {
+      "offset": "0x188000",
+      "path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/runtime_segments/libzhangxin.2.so_7a823eb000_7a823ec000_r-xp_00188000.mem",
+      "pointer_rebases": [
+        {
+          "module": "self",
+          "source_start": "0x7a82260000",
+          "source_end": "0x7a823ebfff"
+        },
+        {
+          "module": "libandroid.so",
+          "source_start": "0x7b09450000",
+          "source_end": "0x7b0947dfff"
+        },
+        {
+          "module": "libc.so",
+          "source_start": "0x7bc1810000",
+          "source_end": "0x7bc192ffff"
+        },
+        {
+          "module": "libdl.so",
+          "source_start": "0x7bc4110000",
+          "source_end": "0x7bc4112fff"
+        },
+        {
+          "module": "libm.so",
+          "source_start": "0x7ba3480000",
+          "source_end": "0x7ba34bafff"
+        }
+      ]
+    }
+  ],
+  "runtime_raw_maps": [
+    {
+      "address": "0x7bc1930000",
+      "path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/raw_007bc1930000_007bc1934000_libc_anon_bss_a.bin"
+    },
+    {
+      "address": "0x7bc1934000",
+      "path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/raw_007bc1934000_007bc1935000_libc_anon_bss_b.bin"
+    },
+    {
+      "address": "0x7bc1935000",
+      "path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/raw_007bc1935000_007bc193d000_libc_anon_bss_c.bin"
+    }
+  ],
+  "runtime_page_patches_after_create_ckey": [],
+  "hidden_symbol_offsets": {
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_setLxData": "0x1a169",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_createCKey": "0x1a0f5",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_getEncryptedCKey": "0x1a12c",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_getCkVersion": "0x19936",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_cipherWithHashKey": "0x1a07c",
+    "JNI_OnLoad": "0x1069a8"
+  }
+}

@@ -78,9 +78,7 @@ impl ElfSegment {
             PT_DYNAMIC => {
                 let clone_parser = parser.clone();
                 let elf_file_c = elf_file.clone();
-                let offset = unsafe { &*elf_file.get() }
-                    .virtual_memory_addr_to_file_offset(virtual_address)
-                    as usize;
+                let offset = segment_offset as usize;
                 /*                segment.dynamic_structure.set_compute_value(move || {
                     Ok(ElfDynamicStructure::new(elf_file_c.clone(), clone_parser.clone(), offset, mem_size as usize))
                 });*/
@@ -95,9 +93,7 @@ impl ElfSegment {
             }
             PT_GNU_EH_FRAME => {
                 let clone_parser = parser.clone();
-                let offset = unsafe { &*elf_file.get() }
-                    .virtual_memory_addr_to_file_offset(virtual_address)
-                    as usize;
+                let offset = segment_offset as usize;
                 /*                segment.eh_frame_header.set_compute_value(move || {
                     Ok(GnuEhFrameHeader::new(clone_parser.clone(), offset, mem_size as usize, virtual_address))
                 });*/

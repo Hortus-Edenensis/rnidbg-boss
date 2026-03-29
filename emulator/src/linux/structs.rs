@@ -265,6 +265,8 @@ pub mod prctl {
     bitflags!(
         #[derive(Debug, PartialEq, Clone)]
         pub struct PrctlOp: u32 {
+            const PR_SET_NAME = 15;
+            const PR_GET_NAME = 16;
             const BIONIC_PR_SET_VMA = 0x53564d41;
 
             const UNKNOWN = 0xffffffff;

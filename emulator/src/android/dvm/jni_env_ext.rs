@@ -5,13 +5,58 @@ use crate::android::jni::JniValue;
 use crate::dalvik;
 use crate::memory::svc_memory::SvcCallResult::{FUCK, VOID};
 use crate::memory::svc_memory::{SimpleArm64Svc, SvcCallResult, SvcMemory};
-use log::debug;
+use log::{debug, info, warn};
 use SvcCallResult::RET;
 
 macro_rules! env {
     ($emulator:expr) => {
         $emulator.backend.reg_read(RegisterARM64::X0).unwrap()
     };
+}
+
+const MAX_JNI_BYTE_ARRAY_SIZE: usize = 16 * 1024 * 1024;
+
+fn read_jsize_arg<T: Clone>(
+    emulator: &AndroidEmulator<T>,
+    reg: RegisterARM64,
+    op: &str,
+    field: &str,
+) -> Result<usize, ()> {
+    let raw = emulator.backend.reg_read(reg).unwrap();
+    let value = (raw as u32) as i32;
+    if value < 0 {
+        warn!(
+            "JNI {} invalid negative {}={} raw=0x{:X}; ignoring call",
+            op, field, value, raw
+        );
+        return Err(());
+    }
+    Ok(value as usize)
+}
+
+fn checked_byte_array_region(op: &str, start: usize, length: usize, total: usize) -> Result<(), ()> {
+    if length > MAX_JNI_BYTE_ARRAY_SIZE {
+        warn!(
+            "JNI {} oversized length={} > {}; ignoring call",
+            op, length, MAX_JNI_BYTE_ARRAY_SIZE
+        );
+        return Err(());
+    }
+    let Some(end) = start.checked_add(length) else {
+        warn!(
+            "JNI {} region overflow start={} length={} total={}; ignoring call",
+            op, start, length, total
+        );
+        return Err(());
+    };
+    if end > total {
+        warn!(
+            "JNI {} out-of-bounds start={} length={} total={}; ignoring call",
+            op, start, length, total
+        );
+        return Err(());
+    }
+    Ok(())
 }
 
 fn NoImplementedHandler<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
@@ -41,11 +86,17 @@ fn FindClass<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResu
     if let Some(vm) = emulator.inner_mut().dalvik.as_ref() {
         let result = vm.resolve_class(&class_name_str);
         if let Some((id, _)) = result {
+            info!("JNI FindClass name={} -> 0x{:X}", class_name_str, id);
             if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
                 debug!("JNI: FindClass(name = {}) => 0x{:x}", class_name_str, id);
             }
             return RET(id);
         } else {
+            info!(
+                "JNI FindClass miss name={} lr=0x{:X}",
+                class_name_str,
+                emulator.get_lr().unwrap_or(0)
+            );
             if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
                 debug!(
                     "JNI: FindClass(name = {}) => NoClassDefFoundError from 0x{:X}",
@@ -78,6 +129,7 @@ fn ExceptionClear<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCal
 
 fn NewGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
     let object = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as i64;
+    info!("JNI NewGlobalRef object=0x{:X} flag=0x{:X}", object, jni::get_flag_id(object));
 
     let flag = jni::get_flag_id(object);
     if flag != JNI_FLAG_CLASS && flag != JNI_FLAG_REF && flag != JNI_FLAG_OBJECT {
@@ -97,6 +149,7 @@ fn NewGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallR
         let class = dvm.find_class_by_id(&object).unwrap().1;
         let dvm_object = DvmObject::Class(class);
         let ref_object_id = dvm.add_global_ref(dvm_object);
+        info!("JNI NewGlobalRef class -> 0x{:X}", ref_object_id);
         if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
             debug!(
                 "{} {}(object = 0x{:X}) => 0x{:X}",
@@ -120,15 +173,18 @@ fn NewGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallR
         // 您的程序尝试将一个GlobalRef变成一个GlobalRef，如果这构成一个检测，请取消注释以上部分的代码
         // 需要注意的是本程序大部分逻辑都没有这种镶套的情况，所以这里直接返回原GlobalRef
         //eprintln!("NewGlobalRef: flag == JNI_FLAG_REF");
+        info!("JNI NewGlobalRef existing-ref passthrough -> 0x{:X}", object);
         return RET(object);
     }
 
     if flag == JNI_FLAG_OBJECT {
         let object_ = dvm.get_local_ref(object);
         if object_.is_none() {
+            info!("JNI NewGlobalRef local object missing -> JNI_ERR");
             return RET(JNI_ERR);
         }
         let ref_object_id = dvm.add_global_ref(object_.unwrap().clone());
+        info!("JNI NewGlobalRef local -> 0x{:X}", ref_object_id);
         if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
             debug!(
                 "{} {}(object = 0x{:X}) => 0x{:X}",
@@ -150,11 +206,28 @@ fn NewGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallR
         );
     }
 
+    info!("JNI NewGlobalRef fallback -> JNI_NULL");
     RET(JNI_NULL)
 }
 
 fn DeleteGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
     let object = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as i64;
+    info!(
+        "JNI DeleteGlobalRef object=0x{:X} flag=0x{:X}",
+        object,
+        jni::get_flag_id(object)
+    );
+    if object == 0 {
+        if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
+            debug!(
+                "{} {}(object = 0x{:X}) => JNI_OK",
+                Color::Yellow.paint("JNI:"),
+                Color::Blue.paint("DeleteGlobalRef"),
+                object
+            );
+        }
+        return RET(JNI_OK);
+    }
     if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
         debug!(
             "{} {}(object = 0x{:X}) => JNI_OK",
@@ -164,6 +237,17 @@ fn DeleteGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCa
         );
     }
 
+    if jni::get_flag_id(object) != JNI_FLAG_REF {
+        warn!(
+            "JNI DeleteGlobalRef ignoring non-global ref object=0x{:X} flag=0x{:X}",
+            object,
+            jni::get_flag_id(object)
+        );
+        return RET(JNI_OK);
+    }
+
+    // Some native libraries double-delete or pass stale refs through teardown paths.
+    // Keeping the global alive is safer than aborting the whole emulation run.
     let dvm = dalvik!(emulator);
     dvm.remove_global_ref(object);
 
@@ -172,6 +256,11 @@ fn DeleteGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCa
 
 fn DeleteLocalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
     let object = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as i64;
+    info!(
+        "JNI DeleteLocalRef object=0x{:X} flag=0x{:X}",
+        object,
+        jni::get_flag_id(object)
+    );
 
     if object == 0 {
         if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
@@ -193,9 +282,9 @@ fn DeleteLocalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCal
         );
     }
 
-    let dvm = dalvik!(emulator);
-    dvm.remove_local_ref(object);
-
+    // Some native libraries keep using a local ref after calling DeleteLocalRef.
+    // Leaking the ref inside the emulator is preferable to invalidating an object
+    // that guest code still expects to pass through JNI during this short-lived run.
     RET(JNI_OK)
 }
 
@@ -2129,7 +2218,10 @@ fn GetStringUTFChars<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> Svc
             return RET(JNI_NULL);
         }
     };
-    let dest = emulator.falloc(utf.len() + 1, false).unwrap();
+    // GetStringUTFChars returns a short-lived C string. Allocate it from
+    // temporary memory so repeated init-time JNI calls do not exhaust the
+    // sparse mapping space while native bootstrap is still running.
+    let dest = emulator.falloc(utf.len() + 1, true).unwrap();
     let mut buf = Vec::new();
     buf.extend_from_slice(utf.as_bytes());
     buf.push(0);
@@ -2436,10 +2528,28 @@ fn GetObjectArrayElement<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) ->
 
 fn NewByteArray<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
     let dvm = dalvik!(emulator);
-    let size = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as usize;
+    let raw_size = emulator.backend.reg_read(RegisterARM64::X1).unwrap();
+    // jsize is a signed 32-bit integer even on arm64 JNI ABI.
+    let size_i32 = (raw_size as u32) as i32;
+    if size_i32 < 0 {
+        warn!(
+            "JNI NewByteArray invalid negative size={} raw=0x{:X}; returning null",
+            size_i32, raw_size
+        );
+        return RET(JNI_NULL);
+    }
+    let size = size_i32 as usize;
+    if size > MAX_JNI_BYTE_ARRAY_SIZE {
+        warn!(
+            "JNI NewByteArray oversized size={} raw=0x{:X} > {}; returning null",
+            size, raw_size, MAX_JNI_BYTE_ARRAY_SIZE
+        );
+        return RET(JNI_NULL);
+    }
 
     let array = DvmObject::ByteArray(vec![0u8; size]);
     let id = dvm.add_local_ref(array);
+    info!("JNI NewByteArray size={} -> 0x{:X}", size, id);
     if option_env!("PRINT_JNI_CALLS") == Some("1") {
         debug!(
             "{} {}(env = 0x{:x}, size = {}) => 0x{:X}",
@@ -2598,8 +2708,12 @@ fn GetByteArrayRegion<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> Sv
     //void        (*GetByteArrayRegion)(JNIEnv*, jbyteArray, jsize, jsize, jbyte*);
     let dvm = dalvik!(emulator);
     let array = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as i64;
-    let start = emulator.backend.reg_read(RegisterARM64::X2).unwrap() as usize;
-    let length = emulator.backend.reg_read(RegisterARM64::X3).unwrap() as usize;
+    let Ok(start) = read_jsize_arg(emulator, RegisterARM64::X2, "GetByteArrayRegion", "start") else {
+        return VOID;
+    };
+    let Ok(length) = read_jsize_arg(emulator, RegisterARM64::X3, "GetByteArrayRegion", "length") else {
+        return VOID;
+    };
     let buf = emulator.backend.reg_read(RegisterARM64::X4).unwrap();
 
     let flag = jni::get_flag_id(array);
@@ -2646,8 +2760,19 @@ fn GetByteArrayRegion<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> Sv
         _ => unreachable!(),
     };
 
-    let data = data[start..start + length].to_vec();
-    emulator.backend.mem_write(buf, &data).unwrap();
+    if checked_byte_array_region("GetByteArrayRegion", start, length, data.len()).is_err() {
+        return VOID;
+    }
+
+    let end = start + length;
+    let data = data[start..end].to_vec();
+    if let Err(err) = emulator.backend.mem_write(buf, &data) {
+        warn!(
+            "JNI GetByteArrayRegion mem_write failed buf=0x{:X} len={} err={:?}; ignoring call",
+            buf, data.len(), err
+        );
+        return VOID;
+    }
 
     if option_env!("PRINT_JNI_CALLS_EX").unwrap_or("") == "1" {
         debug!(
@@ -2684,39 +2809,13 @@ fn GetByteArrayRegion<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> Sv
 fn SetByteArrayRegion<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
     let dvm = dalvik!(emulator);
     let array = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as i64;
-    let start = emulator.backend.reg_read(RegisterARM64::X2).unwrap() as usize;
-    let length = emulator.backend.reg_read(RegisterARM64::X3).unwrap() as usize;
+    let Ok(start) = read_jsize_arg(emulator, RegisterARM64::X2, "SetByteArrayRegion", "start") else {
+        return VOID;
+    };
+    let Ok(length) = read_jsize_arg(emulator, RegisterARM64::X3, "SetByteArrayRegion", "length") else {
+        return VOID;
+    };
     let buf = emulator.backend.reg_read(RegisterARM64::X4).unwrap();
-
-    let data = emulator.backend.mem_read_as_vec(buf, length).unwrap();
-    if option_env!("PRINT_JNI_CALLS_EX").unwrap_or("") == "1" {
-        debug!(
-            "{} {}(env = 0x{:x}, array = 0x{:x}, start = {}, length = {}, buf = 0x{:x})",
-            Color::Yellow.paint("JNI:"),
-            Color::Blue.paint("SetByteArrayRegion"),
-            env!(emulator),
-            array,
-            start,
-            length,
-            buf
-        );
-        debug!(
-            "  data = {} | {:?}",
-            String::from_utf8_lossy(data.as_slice()),
-            hex::encode(&data)
-        );
-    } else if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
-        println!(
-            "{} {}(env = 0x{:x}, array = 0x{:x}, start = {}, length = {}, buf = 0x{:x})",
-            Color::Yellow.paint("JNI:"),
-            Color::Blue.paint("SetByteArrayRegion"),
-            env!(emulator),
-            array,
-            start,
-            length,
-            buf
-        );
-    }
 
     let flag = jni::get_flag_id(array);
     if flag != JNI_FLAG_REF && flag != JNI_FLAG_OBJECT {
@@ -2740,6 +2839,44 @@ fn SetByteArrayRegion<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> Sv
         }
         match ref_data.unwrap() {
             DvmObject::ByteArray(bytes) => {
+                if checked_byte_array_region("SetByteArrayRegion", start, length, bytes.len()).is_err() {
+                    return VOID;
+                }
+                let Ok(data) = emulator.backend.mem_read_as_vec(buf, length) else {
+                    warn!(
+                        "JNI SetByteArrayRegion mem_read failed buf=0x{:X} len={}; ignoring call",
+                        buf, length
+                    );
+                    return VOID;
+                };
+                if option_env!("PRINT_JNI_CALLS_EX").unwrap_or("") == "1" {
+                    debug!(
+                        "{} {}(env = 0x{:x}, array = 0x{:x}, start = {}, length = {}, buf = 0x{:x})",
+                        Color::Yellow.paint("JNI:"),
+                        Color::Blue.paint("SetByteArrayRegion"),
+                        env!(emulator),
+                        array,
+                        start,
+                        length,
+                        buf
+                    );
+                    debug!(
+                        "  data = {} | {:?}",
+                        String::from_utf8_lossy(data.as_slice()),
+                        hex::encode(&data)
+                    );
+                } else if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
+                    println!(
+                        "{} {}(env = 0x{:x}, array = 0x{:x}, start = {}, length = {}, buf = 0x{:x})",
+                        Color::Yellow.paint("JNI:"),
+                        Color::Blue.paint("SetByteArrayRegion"),
+                        env!(emulator),
+                        array,
+                        start,
+                        length,
+                        buf
+                    );
+                }
                 bytes.splice(start..start + length, data.iter().cloned());
             }
             _ => unreachable!(),
@@ -2756,6 +2893,44 @@ fn SetByteArrayRegion<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> Sv
         }
         match ref_data.unwrap() {
             DvmObject::ByteArray(bytes) => {
+                if checked_byte_array_region("SetByteArrayRegion", start, length, bytes.len()).is_err() {
+                    return VOID;
+                }
+                let Ok(data) = emulator.backend.mem_read_as_vec(buf, length) else {
+                    warn!(
+                        "JNI SetByteArrayRegion mem_read failed buf=0x{:X} len={}; ignoring call",
+                        buf, length
+                    );
+                    return VOID;
+                };
+                if option_env!("PRINT_JNI_CALLS_EX").unwrap_or("") == "1" {
+                    debug!(
+                        "{} {}(env = 0x{:x}, array = 0x{:x}, start = {}, length = {}, buf = 0x{:x})",
+                        Color::Yellow.paint("JNI:"),
+                        Color::Blue.paint("SetByteArrayRegion"),
+                        env!(emulator),
+                        array,
+                        start,
+                        length,
+                        buf
+                    );
+                    debug!(
+                        "  data = {} | {:?}",
+                        String::from_utf8_lossy(data.as_slice()),
+                        hex::encode(&data)
+                    );
+                } else if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
+                    println!(
+                        "{} {}(env = 0x{:x}, array = 0x{:x}, start = {}, length = {}, buf = 0x{:x})",
+                        Color::Yellow.paint("JNI:"),
+                        Color::Blue.paint("SetByteArrayRegion"),
+                        env!(emulator),
+                        array,
+                        start,
+                        length,
+                        buf
+                    );
+                }
                 bytes.splice(start..start + length, data.iter().cloned());
             }
             _ => unreachable!(),
@@ -2806,6 +2981,10 @@ fn RegisterNatives<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCa
     }
 
     if dvm.find_class_by_id(&clz_id).is_none() {
+        info!(
+            "JNI RegisterNatives class not found clz_id=0x{:X} methods=0x{:X} n_methods={}",
+            clz_id, methods, n_methods
+        );
         if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
             debug!(
                 "{} {}(env = 0x{:x}, class = 0x{:x}) => ClassNotFOunt",
@@ -2816,6 +2995,12 @@ fn RegisterNatives<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCa
             );
         }
         return RET(JNI_ERR);
+    }
+    if let Some((_, class)) = dvm.find_class_by_id(&clz_id) {
+        info!(
+            "JNI RegisterNatives class={} clz_id=0x{:X} n_methods={}",
+            class.name, clz_id, n_methods
+        );
     }
 
     if !dvm.members.contains_key(&clz_id) {
@@ -2838,6 +3023,10 @@ fn RegisterNatives<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCa
             .mem_read_c_string(method.signature)
             .unwrap();
         let fn_ptr = method.fn_ptr;
+        info!(
+            "JNI RegisterNatives method class_id=0x{:X} name={} signature={} fn_ptr=0x{:X}",
+            clz_id, name, signature, fn_ptr
+        );
         if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
             debug!(
                 "{} {}(env = 0x{:x}, class = 0x{:x}, name = {}, signature = {}, fn_ptr = 0x{:X})",

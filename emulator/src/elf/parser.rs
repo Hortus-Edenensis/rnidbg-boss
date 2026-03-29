@@ -149,6 +149,8 @@ impl ElfFile {
     }
 
     pub fn virtual_memory_addr_to_file_offset(&self, address: u64) -> u64 {
+        let mut file_backed_matches = Vec::new();
+        let mut mem_only_matches = Vec::new();
         for i in 0..self.num_ph {
             let ph = self
                 .get_program_header(i as usize)
@@ -156,12 +158,28 @@ impl ElfFile {
             if address >= ph.virtual_address && address < (ph.virtual_address + ph.mem_size as u64)
             {
                 let relative_offset = address - ph.virtual_address;
-                if relative_offset >= ph.file_size as u64 {
-                    panic!("Can not convert virtual memory address {} to file offset - found segment {:?} but address maps to memory outside file range", address, ph);
+                if relative_offset < ph.file_size as u64 {
+                    file_backed_matches.push((ph, relative_offset));
+                } else {
+                    mem_only_matches.push((ph, relative_offset));
                 }
-                return ph.offset as u64 + relative_offset;
             }
         }
+
+        if let Some((ph, relative_offset)) = file_backed_matches
+            .into_iter()
+            .min_by_key(|(ph, relative_offset)| (ph.file_size, ph.mem_size, *relative_offset))
+        {
+            return ph.offset as u64 + relative_offset;
+        }
+
+        if !mem_only_matches.is_empty() {
+            panic!(
+                "Can not convert virtual memory address {} to file offset - matched only memory-backed segments {:?}",
+                address, mem_only_matches
+            );
+        }
+
         panic!("Cannot find segment for address 0x{:x}", address);
     }
 

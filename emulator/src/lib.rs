@@ -26,5 +26,8 @@ pub mod memory;
 pub mod pointer;
 pub(crate) mod tool;
 
-pub use backend::BackendKind;
+pub use backend::{Backend, BackendKind, Permission, RegisterARM64};
+#[cfg(feature = "unicorn_backend")]
+pub use unicorn_engine::RegisterARM64 as UnicornRegisterARM64;
 pub use emulator::AndroidEmulator;
+pub use tool::UnicornArg;

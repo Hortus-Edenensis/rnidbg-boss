@@ -107,7 +107,18 @@ impl<'a, T: Clone> RunnableTask<'a, T> for SignalTask<'a, T> {
     }
 
     fn set_waiter(&mut self, emulator: &AndroidEmulator<'a, T>, waiter: Waiter<'a, T>) {
-        self.base_task.set_waiter(waiter)
+        // Signal tasks are auxiliary runtime machinery. Under dynarmic, storing
+        // futex waiters here can later corrupt the backend handle during drop.
+        // Treat them as immediately satisfied so guest init can keep progressing.
+        match waiter {
+            Waiter::FutexIndefinite(_) | Waiter::FutexNanoSleep(_) => {
+                emulator
+                    .backend
+                    .reg_write(RegisterARM64::X0, 0)
+                    .expect("failed to write X0 for signal-task waiter bypass");
+            }
+            Waiter::Unknown(_) => self.base_task.set_waiter(waiter),
+        }
     }
 
     fn get_waiter(&mut self) -> Option<&mut Waiter<'a, T>> {

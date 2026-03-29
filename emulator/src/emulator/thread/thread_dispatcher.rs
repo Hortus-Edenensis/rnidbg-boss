@@ -93,6 +93,18 @@ impl<'a, T: Clone> UniThreadDispatcher<'a, T> {
     ) -> anyhow::Result<Option<u64>> {
         let start = std::time::Instant::now();
         loop {
+            if self.task_list_mut().is_empty() && !self.thread_task_mut().is_empty() {
+                let rev_thread_tasks = self
+                    .thread_task_mut()
+                    .iter()
+                    .map(|t| t.clone())
+                    .collect::<Vec<_>>();
+                self.thread_task_mut().clear();
+                for task_cell in rev_thread_tasks {
+                    self.task_list_mut().push_front(task_cell);
+                }
+            }
+
             if self.task_list_mut().is_empty() {
                 break Ok(None);
             }
@@ -382,7 +394,7 @@ impl<'a, T: Clone> ThreadDispatcher<'a, T> for UniThreadDispatcher<'a, T> {
     }
 
     fn alive_task_counts(&self) -> usize {
-        let mut size = 0;
+        let mut size = self.thread_task_mut().len();
         for task in self.task_list_mut() {
             match unsafe { &mut *task.get() } {
                 AbstractTask::Function64(task) => {

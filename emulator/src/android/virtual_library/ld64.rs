@@ -5,30 +5,51 @@ use crate::keystone;
 use crate::linux::errno::Errno;
 use crate::linux::structs::DlInfo;
 use crate::linux::PAGE_ALIGN;
+use crate::memory::library_file::{ElfLibraryFile, LibraryFile};
 use crate::memory::svc_memory::SvcCallResult::{FUCK, RET, VOID};
 use crate::memory::svc_memory::{assemble_svc, Arm64Svc, HookListener, SvcCallResult, SvcMemory};
 use anyhow::{anyhow, Error};
 use bytes::{Buf, BufMut, BytesMut};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
+use std::rc::Rc;
 
 struct DlIteratePhdr;
 struct DlClose<'a, T: Clone>(pub VMPointer<'a, T>);
 struct DlError<'a, T: Clone>(pub VMPointer<'a, T>);
 struct DlOpen<'a, T: Clone>(pub VMPointer<'a, T>);
+struct AndroidDlOpenExt<'a, T: Clone>(pub VMPointer<'a, T>);
+struct AndroidSetApplicationTargetSdkVersion(Rc<RefCell<i32>>);
+struct AndroidGetApplicationTargetSdkVersion(Rc<RefCell<i32>>);
 struct DlAddr;
 struct DlSym;
 struct DlUnwindFindExidx;
+struct CfiSlowPath;
+struct CfiSlowPathDiag;
+struct LoaderSharedGlobals(Rc<RefCell<Option<u64>>>);
+struct LoaderRetZero(&'static str);
+struct LoaderVoid(&'static str);
 
 pub struct ArmLD64<'a, T: Clone> {
     error: VMPointer<'a, T>,
+    target_sdk: Rc<RefCell<i32>>,
+    shared_globals: Rc<RefCell<Option<u64>>>,
 }
 
 impl<T: Clone> ArmLD64<'_, T> {
     pub fn new<'a>(svc_memory: &mut SvcMemory<'a, T>) -> anyhow::Result<ArmLD64<'a, T>> {
         let pointer = svc_memory.allocate(0x80, "Dlfcn.error");
-        Ok(ArmLD64 { error: pointer })
+        let target_sdk = std::env::var("ANDROID_APP_TARGET_SDK")
+            .ok()
+            .and_then(|value| value.parse::<i32>().ok())
+            .unwrap_or(23);
+        Ok(ArmLD64 {
+            error: pointer,
+            target_sdk: Rc::new(RefCell::new(target_sdk)),
+            shared_globals: Rc::new(RefCell::new(None)),
+        })
     }
 }
 
@@ -40,21 +61,141 @@ impl<'a, T: Clone> HookListener<'a, T> for ArmLD64<'a, T> {
         symbol_name: String,
         old: u64,
     ) -> u64 {
-        if lib_name != "libdl.so" {
+        if lib_name != "libdl.so" && lib_name != "ld-android.so" {
             return 0;
         }
-        info!("[libdl.so] link {}, old=0x{:X}", symbol_name, old);
+        info!("[{}] link {}, old=0x{:X}", lib_name, symbol_name, old);
         let svc = &mut emu.inner_mut().svc_memory;
         match symbol_name.as_str() {
             "dl_iterate_phdr" => svc.register_svc(Box::new(DlIteratePhdr)),
             "dlerror" => svc.register_svc(Box::new(DlError(self.error.clone()))),
             "dlclose" => svc.register_svc(Box::new(DlClose(self.error.clone()))),
             "dlopen" => svc.register_svc(Box::new(DlOpen(self.error.clone()))),
+            "android_dlopen_ext" => {
+                svc.register_svc(Box::new(AndroidDlOpenExt(self.error.clone())))
+            }
+            "android_set_application_target_sdk_version" => svc.register_svc(Box::new(
+                AndroidSetApplicationTargetSdkVersion(self.target_sdk.clone()),
+            )),
+            "android_get_application_target_sdk_version" => svc.register_svc(Box::new(
+                AndroidGetApplicationTargetSdkVersion(self.target_sdk.clone()),
+            )),
             "dladdr" => svc.register_svc(Box::new(DlAddr)),
             "dlsym" => svc.register_svc(Box::new(DlSym)),
             "dl_unwind_find_exidx" => svc.register_svc(Box::new(DlUnwindFindExidx)),
+            "__cfi_slowpath" => svc.register_svc(Box::new(CfiSlowPath)),
+            "__cfi_slowpath_diag" => svc.register_svc(Box::new(CfiSlowPathDiag)),
+            "__loader_dl_iterate_phdr" => svc.register_svc(Box::new(DlIteratePhdr)),
+            "__loader_dlerror" => svc.register_svc(Box::new(DlError(self.error.clone()))),
+            "__loader_dlclose" => svc.register_svc(Box::new(DlClose(self.error.clone()))),
+            "__loader_dlopen" => svc.register_svc(Box::new(DlOpen(self.error.clone()))),
+            "__loader_android_dlopen_ext" => {
+                svc.register_svc(Box::new(AndroidDlOpenExt(self.error.clone())))
+            }
+            "__loader_android_set_application_target_sdk_version" => svc.register_svc(Box::new(
+                AndroidSetApplicationTargetSdkVersion(self.target_sdk.clone()),
+            )),
+            "__loader_android_get_application_target_sdk_version" => svc.register_svc(Box::new(
+                AndroidGetApplicationTargetSdkVersion(self.target_sdk.clone()),
+            )),
+            "__loader_dladdr" => svc.register_svc(Box::new(DlAddr)),
+            "__loader_dlsym" => svc.register_svc(Box::new(DlSym)),
+            "__loader_shared_globals" => {
+                svc.register_svc(Box::new(LoaderSharedGlobals(self.shared_globals.clone())))
+            }
+            "__loader_cfi_fail" => svc.register_svc(Box::new(LoaderVoid("__loader_cfi_fail"))),
+            "__loader_android_dlwarning" => {
+                svc.register_svc(Box::new(LoaderRetZero("__loader_android_dlwarning")))
+            }
+            "__loader_android_get_LD_LIBRARY_PATH" => svc.register_svc(Box::new(LoaderRetZero(
+                "__loader_android_get_LD_LIBRARY_PATH",
+            ))),
+            "__loader_android_update_LD_LIBRARY_PATH" => svc.register_svc(Box::new(LoaderVoid(
+                "__loader_android_update_LD_LIBRARY_PATH",
+            ))),
+            "__loader_android_create_namespace"
+            | "__loader_android_get_exported_namespace"
+            | "__loader_android_init_anonymous_namespace"
+            | "__loader_android_link_namespaces"
+            | "__loader_android_link_namespaces_all_libs"
+            | "__loader_android_handle_signal"
+            | "__loader_add_thread_local_dtor"
+            | "__loader_remove_thread_local_dtor"
+            | "__loader_dlvsym" => {
+                svc.register_svc(Box::new(LoaderRetZero(Box::leak(
+                    symbol_name.into_boxed_str(),
+                ))))
+            }
             _ => panic!("[libdl] symbol not found: {}", symbol_name),
         }
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for CfiSlowPath {
+    fn name(&self) -> &str {
+        "__cfi_slowpath"
+    }
+
+    fn handle(&self, _emu: &AndroidEmulator<T>) -> SvcCallResult {
+        VOID
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for CfiSlowPathDiag {
+    fn name(&self) -> &str {
+        "__cfi_slowpath_diag"
+    }
+
+    fn handle(&self, _emu: &AndroidEmulator<T>) -> SvcCallResult {
+        VOID
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for LoaderSharedGlobals {
+    fn name(&self) -> &str {
+        "__loader_shared_globals"
+    }
+
+    fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
+        let existing = { *self.0.borrow() };
+        let addr = if let Some(addr) = existing {
+            addr
+        } else {
+            let block = match emu.falloc(PAGE_ALIGN, false) {
+                Ok(block) => block,
+                Err(err) => return FUCK(err),
+            };
+            // Minimal bionic shared globals backing:
+            // - inline fd table lives at base + 0x8 with 128 x u64 slots
+            // - overflow table atomic lives at base + 0x408
+            // - count/adjust field observed at base + 0x410
+            // Zero-initialized pages give us a clean fd owner table.
+            let addr = block.addr;
+            info!("allocated __loader_shared_globals at 0x{:X}", addr);
+            *self.0.borrow_mut() = Some(addr);
+            addr
+        };
+        RET(addr as i64)
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for LoaderRetZero {
+    fn name(&self) -> &str {
+        self.0
+    }
+
+    fn handle(&self, _emu: &AndroidEmulator<T>) -> SvcCallResult {
+        RET(0)
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for LoaderVoid {
+    fn name(&self) -> &str {
+        self.0
+    }
+
+    fn handle(&self, _emu: &AndroidEmulator<T>) -> SvcCallResult {
+        VOID
     }
 }
 
@@ -300,21 +441,92 @@ impl<T: Clone> Arm64Svc<T> for DlOpen<'_, T> {
         }
 
         if file_name == "libnetd_client.so" {
-            pointer.write_u64(0).unwrap(); // dlopen函数调用返回值
+            pointer.write_u64(0).unwrap();
             let pointer = pointer.share_with_size(-8, 0);
             pointer.write_u64(0).unwrap();
-            if pointer.addr <= 0 {
-                panic!("dlopen failed");
-            }
             emu.backend
                 .reg_write(RegisterARM64::SP, pointer.addr)
                 .unwrap();
             return RET(0);
-        } else {
-            panic!("dlopen not supported");
         }
 
-        FUCK(anyhow!("dlopen not supported"))
+        if let Some(module_base) = try_dlopen_module(emu, &file_name) {
+            info!("dlopen resolved {} => 0x{:X}", file_name, module_base);
+            pointer.write_u64(module_base).unwrap();
+            let pointer = pointer.share_with_size(-8, 0);
+            pointer.write_u64(0).unwrap();
+            emu.backend
+                .reg_write(RegisterARM64::SP, pointer.addr)
+                .unwrap();
+            return RET(module_base as i64);
+        }
+
+        warn!("dlopen unresolved file_name={} flags=0x{:X}", file_name, flags);
+        pointer.write_u64(0).unwrap();
+        let pointer = pointer.share_with_size(-8, 0);
+        pointer.write_u64(0).unwrap();
+        emu.set_errno(Errno::ENOENT.as_i32()).unwrap();
+        emu.backend
+            .reg_write(RegisterARM64::SP, pointer.addr)
+            .unwrap();
+        RET(0)
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for AndroidDlOpenExt<'_, T> {
+    fn name(&self) -> &str {
+        "AndroidDlOpenExt"
+    }
+
+    fn on_register(&self, svc: &mut SvcMemory<T>, number: u32) -> u64 {
+        DlOpen(self.0.clone()).on_register(svc, number)
+    }
+
+    fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
+        let file_name_ptr = VMPointer::new(
+            emu.backend.reg_read(RegisterARM64::X0).unwrap(),
+            0,
+            emu.backend.clone(),
+        );
+        let flags = emu.backend.reg_read(RegisterARM64::X1).unwrap();
+        let extinfo = emu.backend.reg_read(RegisterARM64::X2).unwrap();
+        let file_name = file_name_ptr.read_string().unwrap_or_default();
+        info!(
+            "android_dlopen_ext file_name={} flags=0x{:X} extinfo=0x{:X}",
+            file_name, flags, extinfo
+        );
+        DlOpen(self.0.clone()).handle(emu)
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for AndroidSetApplicationTargetSdkVersion {
+    fn name(&self) -> &str {
+        "AndroidSetApplicationTargetSdkVersion"
+    }
+
+    fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
+        let target_sdk = emu.backend.reg_read(RegisterARM64::X0).unwrap_or(0) as i32;
+        *self.0.borrow_mut() = target_sdk;
+        info!(
+            "android_set_application_target_sdk_version target_sdk={}",
+            target_sdk
+        );
+        RET(0)
+    }
+}
+
+impl<T: Clone> Arm64Svc<T> for AndroidGetApplicationTargetSdkVersion {
+    fn name(&self) -> &str {
+        "AndroidGetApplicationTargetSdkVersion"
+    }
+
+    fn handle(&self, _emu: &AndroidEmulator<T>) -> SvcCallResult {
+        let target_sdk = *self.0.borrow();
+        info!(
+            "android_get_application_target_sdk_version target_sdk={}",
+            target_sdk
+        );
+        RET(target_sdk as i64)
     }
 }
 
@@ -400,7 +612,31 @@ impl<T: Clone> Arm64Svc<T> for DlSym {
     }
 
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
-        panic!("dlsym not supported")
+        let handle = emu.backend.reg_read(RegisterARM64::X0).unwrap();
+        let symbol_ptr = VMPointer::new(
+            emu.backend.reg_read(RegisterARM64::X1).unwrap(),
+            0,
+            emu.backend.clone(),
+        );
+        let symbol_name = symbol_ptr.read_string().unwrap_or_default();
+        if symbol_name.is_empty() {
+            warn!("dlsym requested empty symbol name handle=0x{:X}", handle);
+            return RET(0);
+        }
+
+        if let Some(address) = try_dlsym(emu, handle, &symbol_name) {
+            info!(
+                "dlsym resolved handle=0x{:X} symbol={} => 0x{:X}",
+                handle, symbol_name, address
+            );
+            return RET(address as i64);
+        }
+
+        warn!(
+            "dlsym unresolved handle=0x{:X} symbol={}",
+            handle, symbol_name
+        );
+        RET(0)
     }
 }
 
@@ -412,4 +648,54 @@ impl<T: Clone> Arm64Svc<T> for DlUnwindFindExidx {
     fn handle(&self, emu: &AndroidEmulator<T>) -> SvcCallResult {
         panic!("DlUnwindFindExidx not supported")
     }
+}
+
+fn try_dlopen_module<T: Clone>(emu: &AndroidEmulator<T>, file_name: &str) -> Option<u64> {
+    let base_name = file_name.rsplit('/').next().unwrap_or(file_name);
+    if let Some(module) = emu.inner_mut().memory.modules.get(base_name) {
+        return Some(unsafe { &*module.get() }.base);
+    }
+
+    if let Ok(library_file) = resolve_dlopen_library(file_name) {
+        if let Ok(module) = emu
+            .inner_mut()
+            .memory
+            .load_internal(library_file, true, emu)
+        {
+            return Some(unsafe { &*module.get() }.base);
+        }
+    }
+
+    None
+}
+
+fn resolve_dlopen_library(file_name: &str) -> anyhow::Result<LibraryFile> {
+    if file_name.starts_with('/') {
+        let buffer = std::fs::read(file_name)?;
+        return Ok(LibraryFile::Elf(ElfLibraryFile::new(
+            buffer,
+            file_name.to_string(),
+        )));
+    }
+    Err(anyhow!("dlopen relative library resolution not available"))
+}
+
+fn try_dlsym<T: Clone>(emu: &AndroidEmulator<T>, handle: u64, symbol_name: &str) -> Option<u64> {
+    if handle != 0 {
+        if let Some(module_cell) = emu.inner_mut().memory.find_module_by_address(handle) {
+            let module = unsafe { &*module_cell.get() };
+            if let Ok(symbol) = module.find_symbol_by_name(symbol_name, true) {
+                return Some(symbol.address());
+            }
+        }
+    }
+
+    for (_, module_cell) in &emu.inner_mut().memory.modules {
+        let module = unsafe { &*module_cell.get() };
+        if let Ok(symbol) = module.find_symbol_by_name(symbol_name, true) {
+            return Some(symbol.address());
+        }
+    }
+
+    None
 }

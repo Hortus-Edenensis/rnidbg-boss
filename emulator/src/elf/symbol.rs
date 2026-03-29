@@ -67,6 +67,14 @@ impl ElfSymbol {
         (self.info >> 4) as i32
     }
 
+    pub fn symbol_type(&self) -> u8 {
+        (self.info & 0xf) as u8
+    }
+
+    pub fn is_ifunc(&self) -> bool {
+        self.symbol_type() == STT_GNU_IFUNC
+    }
+
     pub fn matches(&self, soaddr: u64) -> bool {
         let value = self.value & !1i64;
         return self.section_header_ndx != SHN_UNDEF

@@ -1,0 +1,10 @@
+[2026-03-29T13:18:36.574944000Z] resolve_method class=com/zenmen/palmchat/AppContext name=getContext sig=()Lcom/zenmen/palmchat/AppContext; static=true
+[2026-03-29T13:18:36.574999000Z] resolve_method class=com/zenmen/palmchat/AppContext name=getPackageResourcePath sig=()Ljava/lang/String; static=false
+[2026-03-29T13:18:36.578440000Z] call com/zenmen/palmchat/AppContext->getContext()Lcom/zenmen/palmchat/AppContext;
+[2026-03-29T13:18:36.581860000Z] call com/zenmen/palmchat/AppContext->getPackageResourcePath()Ljava/lang/String;
+[2026-03-29T13:18:36.584575000Z] resolve_method class=org/json/JSONObject name=put sig=(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject; static=false
+[2026-03-29T13:18:36.584602000Z] resolve_method class=org/json/JSONObject name=toString sig=()Ljava/lang/String; static=false
+[2026-03-29T13:18:36.584639000Z] resolve_method class=java/lang/String name=getBytes sig=()[B static=false
+[2026-03-29T13:18:36.588059000Z] call org/json/JSONObject->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+[2026-03-29T13:18:36.591503000Z] call org/json/JSONObject->toString()Ljava/lang/String;
+[2026-03-29T13:18:36.594999000Z] call java/lang/String->getBytes()[B

@@ -114,7 +114,7 @@ mod x86;
 #[cfg(feature = "arch_x86")]
 pub use crate::x86::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Context {
     context: ffi::uc_context,
 }

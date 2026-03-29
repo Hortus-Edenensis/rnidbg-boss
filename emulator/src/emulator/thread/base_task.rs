@@ -58,6 +58,15 @@ impl<'a, T: Clone> BaseTask<'a, T> {
         let pc = backend
             .reg_read(RegisterARM64::PC)
             .expect("[continue_run] failed to get pc");
+        if pc == until {
+            emulator
+                .set_task_status(TaskStatus::X)
+                .expect("[continue_run] failed to set task status");
+            let x0 = backend
+                .reg_read(RegisterARM64::X0)
+                .expect("[continue_run] failed to get x0");
+            return Some(x0);
+        }
         if let Some(waiter) = &self.waiter {
             match waiter {
                 Waiter::FutexIndefinite(futex_waiter) => {
@@ -110,12 +119,9 @@ impl<'a, T: Clone> RunnableTask<'a, T> for BaseTask<'a, T> {
 
     fn save_context(&mut self, emulator: &AndroidEmulator<'a, T>) {
         let backend = emulator.backend.clone();
-        let mut context = if let Some(context) = &self.context {
-            context.clone()
-        } else {
-            let context = backend.context_alloc().expect("failed to save context");
-            context
-        };
+        // Unicorn contexts own native uc_context pointers, so reusing them via Clone
+        // corrupts restore state. Always allocate a fresh snapshot when saving.
+        let mut context = backend.context_alloc().expect("failed to save context");
         backend
             .context_save(&mut context)
             .expect("failed to save context");
@@ -138,6 +144,17 @@ impl<'a, T: Clone> RunnableTask<'a, T> for BaseTask<'a, T> {
     }
 
     fn destroy(&self, emulator: &AndroidEmulator<'a, T>) {
+        if matches!(
+            std::env::var("RNIDBG_SKIP_TASK_DESTROY")
+                .ok()
+                .as_deref()
+                .map(|value| value.eq_ignore_ascii_case("1") || value.eq_ignore_ascii_case("true")),
+            Some(true)
+        ) {
+            warn!("skipping task destroy by RNIDBG_SKIP_TASK_DESTROY");
+            return;
+        }
+
         if let Some(memory_block) = &self.stack_block {
             memory_block.free(Some(emulator.clone()))
         }
@@ -146,8 +163,8 @@ impl<'a, T: Clone> RunnableTask<'a, T> for BaseTask<'a, T> {
             context.release();
         }
 
-        if let Some(listener) = &self.destroy_listener {
-            listener.on_destroy(emulator);
+        if self.destroy_listener.is_some() {
+            warn!("ignoring unexpected destroy listener during task teardown");
         }
     }
 

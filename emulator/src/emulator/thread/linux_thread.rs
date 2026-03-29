@@ -7,9 +7,40 @@ use crate::emulator::thread::{
 };
 use crate::emulator::{AndroidEmulator, VMPointer};
 use anyhow::anyhow;
+use log::warn;
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
+
+fn runtime_env_truthy(name: &str) -> bool {
+    match std::env::var(name) {
+        Ok(value) => matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => false,
+    }
+}
+
+fn runtime_env_csv_contains(name: &str, needle: &str) -> bool {
+    std::env::var(name)
+        .ok()
+        .map(|value| {
+            value
+                .split([',', ';', ' '])
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty())
+                .any(|entry| entry == "*" || entry.eq_ignore_ascii_case(needle))
+        })
+        .unwrap_or(false)
+}
+
+fn should_fake_funclib_worker(kind: &str) -> bool {
+    if runtime_env_csv_contains("RNIDBG_FAKE_FUNCLIB_WORKER_KINDS", kind) {
+        return true;
+    }
+    runtime_env_truthy("RNIDBG_FAKE_FUNCLIB_ASYNC_WORKER")
+}
 
 pub struct MarshmallowThread<'a, T: Clone> {
     base_thread_task: Rc<UnsafeCell<BaseThreadTask<'a, T>>>,
@@ -135,12 +166,53 @@ impl<'a, T: Clone> Task<'a, T> for MarshmallowThread<'a, T> {
     }
 
     fn dispatch(&mut self, emulator: &AndroidEmulator<'a, T>) -> anyhow::Result<Option<u64>> {
+        let trace_threads = matches!(
+            std::env::var("RNIDBG_TRACE_THREADS")
+                .ok()
+                .as_deref()
+                .map(|value| value.trim().to_ascii_lowercase()),
+            Some(value) if matches!(value.as_str(), "1" | "true" | "yes" | "on")
+        );
         let backend = emulator.backend.clone();
+        let actual_start = backend.mem_read_u64(self.thread.addr + 0x60).unwrap_or(0);
+        let fake_funclib_kind = emulator
+            .inner_mut()
+            .memory
+            .find_module_by_address(actual_start)
+            .and_then(|module_cell| {
+                let module = unsafe { &*module_cell.get() };
+                if module.name != "libFunclib.so" {
+                    return None;
+                }
+                match actual_start - module.base {
+                    0x3b54d8 => Some("single-buffer-data-thread"),
+                    0x3f4720 => Some("p2p-thread-proc"),
+                    0x4cb3c4 => Some("async-task-wrapper"),
+                    _ => None,
+                }
+            })
+            .filter(|kind| should_fake_funclib_worker(kind));
+        if let Some(kind) = fake_funclib_kind {
+            if trace_threads {
+                warn!(
+                    "thread dispatch fast-fake tid={} kind={} trampoline=0x{:x} actual_start=0x{:x} arg=0x{:x}",
+                    self.get_id(),
+                    kind,
+                    self.fn_.addr,
+                    actual_start,
+                    backend.mem_read_u64(self.thread.addr + 0x68).unwrap_or(0)
+                );
+            }
+            return Ok(Some(0));
+        }
         let main_task = self.thread_task_mut();
         let stack = main_task.allocate_stack(emulator);
 
-        let tls = self.thread.share(0xb0);
-        self.errno = Some(tls.share(16));
+        let (tls, errno) = emulator
+            .inner_mut()
+            .memory
+            .init_bionic_tls_block(self.thread.clone(), 0x1357_9bdf_2468_ace0, None)?;
+        self.errno = Some(errno);
         backend
             .reg_write(RegisterARM64::X0, self.thread.addr)
             .map_err(|e| anyhow!("[thread_addr] failed to write X0: {:?}", e))?;
@@ -154,7 +226,31 @@ impl<'a, T: Clone> Task<'a, T> for MarshmallowThread<'a, T> {
             .reg_write(RegisterARM64::LR, self.thread_task_mut().until)
             .map_err(|e| anyhow!("[base_thread_until] failed to write LR: {:?}", e))?;
 
-        self.thread_task_mut().dispatch_inner(emulator, self)
+        if trace_threads {
+            warn!(
+                "thread dispatch start tid={} fn=0x{:x} arg=0x{:x} sp=0x{:x} tls=0x{:x} until=0x{:x}",
+                self.get_id(),
+                self.fn_.addr,
+                self.thread.addr,
+                stack.addr,
+                tls.addr,
+                self.thread_task_mut().until
+            );
+        }
+
+        let ret = self.thread_task_mut().dispatch_inner(emulator, self);
+        if trace_threads {
+            match &ret {
+                Ok(Some(value)) => warn!(
+                    "thread dispatch finish tid={} ret=0x{:x}",
+                    self.get_id(),
+                    value
+                ),
+                Ok(None) => warn!("thread dispatch yield tid={}", self.get_id()),
+                Err(err) => warn!("thread dispatch error tid={} err={err:#}", self.get_id()),
+            }
+        }
+        ret
     }
 
     fn is_main_thread(&self) -> bool {

@@ -200,7 +200,7 @@ impl<'a, T: Clone> LinuxModule<'a, T> {
             first, last, base, size
         );
 
-        let module = LinuxModule::new(
+        let mut module = LinuxModule::new(
             base,
             base,
             size,
@@ -216,6 +216,7 @@ impl<'a, T: Clone> LinuxModule<'a, T> {
             None,
             None,
         );
+        module.hook_map = symbol;
 
         module
     }
@@ -266,6 +267,24 @@ impl<'a, T: Clone> LinuxModule<'a, T> {
         must_call_init: bool,
         emulator: &AndroidEmulator<'a, T>,
     ) -> anyhow::Result<()> {
+        if matches!(
+            self.name.as_str(),
+            "libc.so"
+                | "libFunclib.so"
+                | "libFunclibAgent.so"
+                | "libTPlayer.so"
+                | "libPlayCtrlAgent.so"
+                | "libOpenglesAgent.so"
+                | "libavcodec.so"
+                | "libavformat.so"
+                | "libavutil.so"
+                | "libijkffmpeg.so"
+                | "libijkplayer.so"
+                | "libijksdl.so"
+        ) {
+            self.init_function_list.clear();
+            return Ok(());
+        }
         if !must_call_init && !self.unresolved_symbol.is_empty() {
             return Ok(());
         }
@@ -295,10 +314,6 @@ impl<'a, T: Clone> LinuxModule<'a, T> {
                             println!("[{}] CallInitFunctionStart: address=0x{:X}, base=0x{:X}, offset=0x{:X}, start={:?}", self.name, address, absolute.load_base, address - absolute.load_base, start_time);
 
                             let offset = address - absolute.load_base;
-                            //if offset == 0x1aa74 && self.name == "libc.so"  {
-                            //    continue
-                            //}
-
                             let ret = absolute.call(emulator.clone())?;
                             let cost = start_time.elapsed().as_millis();
                             println!("[{}] CallInitFunctionEnd: address=0x{:X}, base=0x{:X}, offset=0x{:X}, ret={:X}, cost={}ms", self.name, address, absolute.load_base, offset, ret, cost);

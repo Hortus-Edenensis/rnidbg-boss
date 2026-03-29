@@ -11,7 +11,10 @@ use anyhow::anyhow;
 use bitflags::bitflags;
 use bytes::Bytes;
 use sparse_list::SparseList;
+use std::fs::OpenOptions;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::net::SocketAddr;
+use std::os::fd::RawFd;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const SEEK_SET: i32 = 0;
@@ -38,6 +41,8 @@ bitflags! {
         const S_IFDIR = 1 << 14;
         /// character device
         const S_IFCHR = 1 << 13;
+        /// socket
+        const S_IFSOCK = (1 << 15) | (1 << 14);
         /// 是否设置 uid/gid/sticky
         //const S_ISUID = 1 << 14;
         //const S_ISGID = 1 << 13;
@@ -104,8 +109,24 @@ pub struct AndroidFileSystem<T: Clone> {
 
 impl<T: Clone> AndroidFileSystem<T> {
     pub(crate) fn new() -> Self {
+        let mut fd_map = SparseList::new();
+        for fake_path in ["/dev/stdin", "/dev/stdout", "/dev/stderr"] {
+            let file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open("/dev/null")
+                .unwrap_or_else(|err| panic!("failed to open /dev/null for {fake_path}: {err}"));
+            fd_map.insert(FileIO::File(LinuxFileIO::new_with_file(
+                file,
+                fake_path,
+                0,
+                0,
+                StMode::SYSTEM_FILE,
+            )));
+        }
+
         AndroidFileSystem {
-            fd_map: SparseList::new(),
+            fd_map,
             file_resolver: None,
         }
     }
@@ -179,8 +200,41 @@ pub trait FileIOTrait<T: Clone> {
         panic!("connect not implemented");
     }
 
+    fn bind(
+        &mut self,
+        _addr: VMPointer<T>,
+        _addr_len: usize,
+        _emulator: &AndroidEmulator<T>,
+    ) -> i32 {
+        panic!("bind not implemented");
+    }
+
     fn getdents64(&mut self, _dirp: VMPointer<T>, _size: usize) -> i32 {
         panic!("getdents64 not implemented");
+    }
+
+    fn local_addr(&self) -> Option<SocketAddr> {
+        None
+    }
+
+    fn peer_addr(&self) -> Option<SocketAddr> {
+        None
+    }
+
+    fn host_raw_fd(&self) -> Option<RawFd> {
+        None
+    }
+
+    fn has_pending_read(&self) -> bool {
+        false
+    }
+
+    fn epoll_ctl(&mut self, _op: i32, _fd: i32, _events: u32, _data: u64) -> i32 {
+        panic!("epoll_ctl not implemented");
+    }
+
+    fn epoll_entries(&self) -> Vec<(i32, u32, u64)> {
+        Vec::new()
     }
 
     fn fstat(&self, stat_pointer: VMPointer<T>) {

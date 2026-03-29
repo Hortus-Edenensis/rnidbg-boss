@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "reason": "",
+  "offset_table": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_20260329_042036/analysis_rebuilt/binwalk/offset_bridge_table.txt",
+  "runtime_root": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229",
+  "maps_path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/maps/pid_4732.maps",
+  "template_config": "/Users/haojiejack/github/rnidbg-boss/config/palmchat-config.local.json",
+  "config_path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/rnidbg_config.clean_env.json",
+  "parsed_offsets_path": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/offset_bridge_table.parsed.json",
+  "module_name": "libzhangxin.2.so",
+  "runtime_page_patches_count": 3,
+  "runtime_segments_count": 3,
+  "hidden_symbol_offsets": {
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_setLxData": "0x1a169",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_createCKey": "0x1a0f5",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_getEncryptedCKey": "0x1a12c",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_getCkVersion": "0x19936",
+    "Java_com_zenmen_palmchat_utils_EncryptUtils_cipherWithHashKey": "0x1a07c",
+    "JNI_OnLoad": "0x1069a8"
+  },
+  "module_range": {
+    "start": "0x7a82260000",
+    "end": "0x7a823ebfff"
+  },
+  "external_rebases": {
+    "libandroid.so": {
+      "start": "0x7b09450000",
+      "end": "0x7b0947dfff"
+    },
+    "libc.so": {
+      "start": "0x7bc1810000",
+      "end": "0x7bc192ffff"
+    },
+    "libdl.so": {
+      "start": "0x7bc4110000",
+      "end": "0x7bc4112fff"
+    },
+    "libm.so": {
+      "start": "0x7ba3480000",
+      "end": "0x7ba34bafff"
+    }
+  }
+}
