@@ -8,6 +8,7 @@ use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use boa_engine::{Context as BoaContext, Source};
@@ -33,6 +34,8 @@ use serde_json::{json, Map, Value};
 use std::mem::size_of;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
+use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 #[cfg(feature = "unicorn")]
 use unicorn_engine::unicorn_const::HookType;
 
@@ -2099,6 +2102,11 @@ impl PalmchatLab {
             .native("flow step=createCKey start");
         let _ = self.call_static("createCKey", "()V", vec![])?;
         self.shared.borrow_mut().native("flow step=createCKey done");
+        let ck_version = self
+            .call_static("getCkVersion", "()Ljava/lang/String;", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_string(value).ok())
+            .unwrap_or_default();
         apply_runtime_page_patch_entries(
             &self.config.runtime_page_patches_after_create_ckey,
             &self.emulator,
@@ -2130,6 +2138,12 @@ impl PalmchatLab {
             cipher_return_debug
         ));
         let cipher_bytes = jni_value_to_bytes(cipher_value).ok();
+        let encrypted_ckey_hex = hex::encode(&encrypted_ckey_bytes).to_ascii_uppercase();
+        let cipher_hex = cipher_bytes
+            .as_ref()
+            .map(hex::encode)
+            .unwrap_or_default()
+            .to_ascii_uppercase();
         if let Some(bytes) = cipher_bytes.as_ref() {
             self.shared.borrow_mut().native(&format!(
                 "flow step=cipherWithHashKey done bytes_len={}",
@@ -2141,7 +2155,29 @@ impl PalmchatLab {
                 .native("flow step=cipherWithHashKey done bytes_len=null");
         }
 
-        let output = json!({
+        let data_to_control_feedback = build_data_to_control_feedback(
+            &json_value,
+            &encrypted_ckey_hex,
+            &cipher_hex,
+            &ck_version,
+            opts,
+        );
+        let smssend_test = if opts
+            .get("--smssend-test")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false)
+        {
+            Some(self.run_smssend_test(
+                &data_to_control_feedback,
+                &cipher_hex,
+                use_new_key,
+                opts,
+            ))
+        } else {
+            None
+        };
+
+        let mut output = json!({
             "flow": "setLxData->createCKey->getEncryptedCKey->cipherWithHashKey",
             "arg1_json": json_value,
             "bridge_stage1_json": bridge_stage1_value,
@@ -2163,16 +2199,26 @@ impl PalmchatLab {
             "arg3_bool": use_new_key,
             "setLxData": "ok",
             "createCKey": "ok",
-            "encrypted_ckey_hex": hex::encode(&encrypted_ckey_bytes),
+            "ck_version": ck_version,
+            "encrypted_ckey_hex": encrypted_ckey_hex,
             "encrypted_ckey_utf8": String::from_utf8_lossy(&encrypted_ckey_bytes),
             "cipher_return_debug": cipher_return_debug,
-            "cipher_hex": cipher_bytes.as_ref().map(hex::encode).unwrap_or_default(),
+            "cipher_hex": cipher_hex,
             "cipher_utf8": cipher_bytes
                 .as_ref()
                 .map(|bytes| String::from_utf8_lossy(bytes).to_string())
                 .unwrap_or_default(),
             "cipher_null": cipher_bytes.is_none(),
         });
+        if let Value::Object(map) = &mut output {
+            map.insert(
+                "data_to_control_feedback".to_string(),
+                data_to_control_feedback,
+            );
+            if let Some(smssend) = smssend_test {
+                map.insert("smssend_test".to_string(), smssend);
+            }
+        }
         self.shared
             .borrow_mut()
             .native(&format!("flow result={}", output));
