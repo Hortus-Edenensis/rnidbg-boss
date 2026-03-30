@@ -1695,6 +1695,20 @@ impl PalmchatLab {
                 "encrypted_ckey_len": output.get("encrypted_ckey_hex").and_then(Value::as_str).map(|v| v.len() / 2),
                 "cipher_len": output.get("cipher_hex").and_then(Value::as_str).map(|v| v.len() / 2),
             }));
+            if let Some(feedback) = output.get("data_to_control_feedback") {
+                ui_events.push(json!({
+                    "ts": iso_now(),
+                    "phase": "control_flow_feedback",
+                    "feedback": feedback.clone(),
+                }));
+            }
+            if let Some(smssend_result) = output.get("smssend_test") {
+                ui_events.push(json!({
+                    "ts": iso_now(),
+                    "phase": "control_flow_smssend_test",
+                    "result": smssend_result.clone(),
+                }));
+            }
             Some(output)
         } else {
             None
@@ -1791,6 +1805,18 @@ impl PalmchatLab {
         if let Some(use_new_key) = opts.get("--arg3") {
             cmd.arg("--arg3").arg(use_new_key);
         }
+        if let Some(flag) = opts.get("--smssend-test") {
+            cmd.arg("--smssend-test").arg(flag);
+        }
+        if let Some(url) = opts.get("--smssend-url") {
+            cmd.arg("--smssend-url").arg(url);
+        }
+        if let Some(timeout) = opts.get("--smssend-timeout-ms") {
+            cmd.arg("--smssend-timeout-ms").arg(timeout);
+        }
+        if let Some(ua) = opts.get("--smssend-user-agent") {
+            cmd.arg("--smssend-user-agent").arg(ua);
+        }
         let output = cmd
             .output()
             .context("failed to spawn subprocess flow observation")?;
@@ -1821,6 +1847,165 @@ impl PalmchatLab {
             self.run_flow_subprocess_for_captcha_ui(stage2_raw, stage1_raw_normalized, opts)
         } else {
             self.run_flow(&flow_opts)
+        }
+    }
+
+    fn run_smssend_test(
+        &mut self,
+        control_feedback: &Value,
+        cipher_hex: &str,
+        use_new_key: bool,
+        opts: &HashMap<String, String>,
+    ) -> Value {
+        let Some(feedback_obj) = control_feedback.as_object() else {
+            return json!({
+                "status": "blocked",
+                "reason": "invalid_control_feedback_format",
+            });
+        };
+        let ready = feedback_obj
+            .get("ready_for_smssend")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if !ready {
+            return json!({
+                "status": "blocked",
+                "reason": "control_feedback_not_ready",
+                "control_feedback": control_feedback,
+            });
+        }
+        let url = feedback_obj
+            .get("smssend_url")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if url.trim().is_empty() {
+            return json!({
+                "status": "blocked",
+                "reason": "missing_smssend_url",
+                "control_feedback": control_feedback,
+            });
+        }
+        let body_bytes = match hex::decode(cipher_hex) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                return json!({
+                    "status": "blocked",
+                    "reason": "invalid_cipher_hex",
+                    "error": err.to_string(),
+                });
+            }
+        };
+        let timeout_ms = opts
+            .get("--smssend-timeout-ms")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(20_000);
+        let user_agent = opts.get("--smssend-user-agent").cloned();
+
+        let mut headers = HeaderMap::new();
+        let header_map = feedback_obj
+            .get("headers")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        for (name, value) in &header_map {
+            let Some(value_text) = value.as_str() else {
+                continue;
+            };
+            let Ok(header_name) = HeaderName::from_bytes(name.as_bytes()) else {
+                continue;
+            };
+            let Ok(header_value) = HeaderValue::from_str(value_text) else {
+                continue;
+            };
+            headers.insert(header_name, header_value);
+        }
+        if let Some(ua) = user_agent.as_ref() {
+            if let Ok(header_value) = HeaderValue::from_str(ua) {
+                headers.insert(reqwest::header::USER_AGENT, header_value);
+            }
+        }
+
+        let client = match Client::builder()
+            .timeout(Duration::from_millis(timeout_ms))
+            .build()
+        {
+            Ok(client) => client,
+            Err(err) => {
+                return json!({
+                    "status": "blocked",
+                    "reason": "build_http_client_failed",
+                    "error": err.to_string(),
+                });
+            }
+        };
+
+        match client.post(url).headers(headers.clone()).body(body_bytes).send() {
+            Ok(response) => {
+                let status = response.status().as_u16();
+                let response_headers = response.headers().clone();
+                let response_bytes = match response.bytes() {
+                    Ok(bytes) => bytes.to_vec(),
+                    Err(err) => {
+                        return json!({
+                            "status": "blocked",
+                            "reason": "read_response_failed",
+                            "http_status": status,
+                            "error": err.to_string(),
+                        });
+                    }
+                };
+                let encrypted_header = response_headers
+                    .get("content-encrypted-zx")
+                    .and_then(|value| value.to_str().ok())
+                    .unwrap_or_default()
+                    .to_string();
+                let decoded_bytes = if encrypted_header == "1" {
+                    match self.call_static(
+                        "cipherWithType",
+                        "([BIZ)[B",
+                        vec![
+                            JniValue::Object(DvmObject::ByteArray(response_bytes.clone())),
+                            3.into(),
+                            use_new_key.into(),
+                        ],
+                    ) {
+                        Ok(value) => jni_value_to_bytes(value).unwrap_or(response_bytes.clone()),
+                        Err(_) => response_bytes.clone(),
+                    }
+                } else {
+                    response_bytes.clone()
+                };
+                let decoded_utf8 = String::from_utf8_lossy(&decoded_bytes).to_string();
+                let decoded_json = serde_json::from_slice::<Value>(&decoded_bytes).ok();
+                let result_code = decoded_json
+                    .as_ref()
+                    .and_then(|value| value.get("resultCode"))
+                    .and_then(Value::as_i64);
+                let mut response_header_map = Map::new();
+                for (name, value) in response_headers.iter() {
+                    response_header_map.insert(
+                        name.to_string(),
+                        Value::String(value.to_str().unwrap_or_default().to_string()),
+                    );
+                }
+                json!({
+                    "status": "ok",
+                    "http_status": status,
+                    "result_code": result_code,
+                    "response_headers": response_header_map,
+                    "response_body_hex": hex::encode(&response_bytes).to_ascii_uppercase(),
+                    "response_decoded_hex": hex::encode(&decoded_bytes).to_ascii_uppercase(),
+                    "response_decoded_utf8": decoded_utf8,
+                    "response_decoded_json": decoded_json,
+                    "control_feedback": control_feedback,
+                })
+            }
+            Err(err) => json!({
+                "status": "blocked",
+                "reason": "smssend_http_failed",
+                "error": err.to_string(),
+                "control_feedback": control_feedback,
+            }),
         }
     }
 
@@ -3170,8 +3355,8 @@ fn print_usage() {
     eprintln!("  smoke  [--config <path>] [--backend <auto|dynarmic|unicorn>]");
     eprintln!("  invoke [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> [--arg1 <v>] [--arg2 <v>] [--arg3 <v>] [--secret-key <k>] [--secret-iv <iv>]");
     eprintln!("         appInitProbe/gateProbe overrides: [--privacy-agree <bool>] [--read-phone-state <bool>] [--priv-info-init <bool>] [--android-id <str>] [--imei <str>] [--mac <str>] [--process-name <str>]");
-    eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--bridge-stage1-json <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--report-json <path>] [--report-md <path>]");
-    eprintln!("  captcha-ui-debug [--config <path>] [--backend <auto|dynarmic|unicorn>] [--stage1-json <json>|--arg1 <json>] [--interactive <bool>] [--ui-mode <sdk|form|tty|headless>] [--sdk-html <path>] [--verify-status <bool>] [--rid <str>] [--mode-type <str>] [--diff-time <ms>] [--flow <bool>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--bridge-stage1-json <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--smssend-test <bool>] [--smssend-url <url>] [--smssend-timeout-ms <ms>] [--smssend-user-agent <ua>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("  captcha-ui-debug [--config <path>] [--backend <auto|dynarmic|unicorn>] [--stage1-json <json>|--arg1 <json>] [--interactive <bool>] [--ui-mode <sdk|form|tty|headless>] [--sdk-html <path>] [--verify-status <bool>] [--rid <str>] [--mode-type <str>] [--diff-time <ms>] [--flow <bool>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--smssend-test <bool>] [--smssend-url <url>] [--smssend-timeout-ms <ms>] [--smssend-user-agent <ua>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
     eprintln!("  decrypt-trace [--config <path>] [--backend <auto|dynarmic|unicorn>] [--flow-json <json>] [--flow-mode <cipher_mode>] [--flow-use-new-key <bool>] [--skip-flow]");
     eprintln!("                [--bridge-stage1-json <json>] [--type-input <bytes_or_hex>] [--type-encrypt-mode <int>] [--type-encrypt-use-new-key <bool>] [--type-decrypt-mode <int>] [--type-decrypt-use-new-key <bool>]");
     eprintln!("                [--secret-key <k> --secret-iv <iv>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
@@ -7681,6 +7866,55 @@ fn parse_bool_like(text: &str) -> bool {
         "1" | "true" | "t" | "yes" | "y" | "on" => true,
         _ => true,
     }
+}
+
+fn build_data_to_control_feedback(
+    arg1_json: &Value,
+    encrypted_ckey_hex: &str,
+    cipher_hex: &str,
+    ck_version: &str,
+    opts: &HashMap<String, String>,
+) -> Value {
+    let verify_status = arg1_json
+        .get("verifyStatus")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let smssend_url = opts
+        .get("--smssend-url")
+        .cloned()
+        .unwrap_or_else(String::new);
+    let mut blocked_reasons = Vec::<String>::new();
+    if !verify_status {
+        blocked_reasons.push("verifyStatus_false".to_string());
+    }
+    if encrypted_ckey_hex.trim().is_empty() {
+        blocked_reasons.push("empty_encrypted_ckey_hex".to_string());
+    }
+    if cipher_hex.trim().is_empty() {
+        blocked_reasons.push("empty_cipher_hex".to_string());
+    }
+    if smssend_url.trim().is_empty() {
+        blocked_reasons.push("missing_smssend_url".to_string());
+    }
+    let ready = blocked_reasons.is_empty();
+    json!({
+        "summary": "data plane feedback promoted into control action gate for smssend",
+        "ready_for_smssend": ready,
+        "blocked_reasons": blocked_reasons,
+        "verifyStatus": verify_status,
+        "smssend_url": smssend_url,
+        "headers": {
+            "content-encrypted-zx": "1",
+            "content-ckey": encrypted_ckey_hex,
+            "content-ckey-version": ck_version,
+            "content-type": "application/octet-stream; charset=utf-8"
+        },
+        "body_lengths": {
+            "encrypted_ckey_bytes": encrypted_ckey_hex.len() / 2,
+            "cipher_bytes": cipher_hex.len() / 2
+        },
+        "next_control_action": if ready { "smssend_dispatch" } else { "blocked" },
+    })
 }
 
 fn extract_known_fields_from_value(value: &Value, keys: &[&str]) -> Map<String, Value> {
