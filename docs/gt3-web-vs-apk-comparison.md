@@ -6,6 +6,10 @@
 
 - Chrome DevTools MCP 对文章 [JS逆向---极验三代系列详解-最全流程（三）分析JS， w值参数生成最终值](https://blog.csdn.net/m0_52336378/article/details/135157506) 的页面抽取结果
 - 本地 APK/JADX 静态证据，详见 `docs/gt3-geetest-static-analysis.md`
+- 本地 App 端动态证据：
+  - `rnidbg boss-yzwg captcha-trace`（真实链路：`judge -> machine -> GT3 exchange -> captcha/validate`）
+  - `rnidbg boss-yzwg trace` 产物 `trace_summary.json`（JNI/native 事件统计与尾部样本）
+  - `rnidbg boss-yzwg gt3-app3-protocol`（`app3-index` query 合约 + JSInterface 回调合约 + 外部 `fullpage/click` JS 路径）
 
 先说结论：
 
@@ -13,6 +17,7 @@
 2. Boss APK 里的 GT3 是 App 侧 SDK 接入流，App 自己不在业务层手写 `w`，而是把服务端给的 `startCaptcha` 交给 `GT3GeetestUtils`。
 3. 两边都属于 GT3，但协议分工不同，不能把文章里的 `w` 生成思路直接搬进 Boss APK 当作“本地实现”。
 4. 本地可以实现的是“流程对比器”和“trace/hook 对照模板”，而不是验证码绕过逻辑。
+5. 这个仓库已经补齐了 App 端“真实预检链路”取证：可以产出 `startCaptcha`、真实 `validate/secCode`、以及 `captcha_info -> /zpsecureflow/captcha/validate` 的提交证据（并在 `smsCode/codeLogin` 前安全停止）。
 
 ## Chrome DevTools 抓到的文章侧信息
 
@@ -56,6 +61,48 @@ Boss APK 的 GT3 主链已经在本地静态证据里确认：
 - `MachineVerifyActivity.Re()` 再请求 `POST /zpsecureflow/captcha/validate`
 
 关键差异是：App 业务层看到的是 `startCaptcha` 和最终回调结果，中间 GT3 challenge 流程被 SDK 吸收掉了。
+
+## App 端动态证据（新增）
+
+本仓库当前可直接跑出 App 端侧“到 validate 为止”的真实证据链：
+
+```bash
+./scripts/run-boss-yzwg.sh captcha-trace --phone 13800138000 --skip-validate true --out /tmp/captcha-trace.json
+```
+
+如果要连 `/zpsecureflow/captcha/validate` 一并提交，则去掉 `--skip-validate true`。
+
+输出里和 APK 调用点一一对应的关键字段：
+
+- `machine_response.zpData.startCaptcha`
+  - 对应 `p50.d$a.onButtonClick()` 里喂给 `GT3ConfigBean.setApi1Json(...)` 的入参来源
+- `gt3_exchange.validate` / `gt3_exchange.sec_code`
+  - 对应 `p50.d$a.onDialogResult()` 从 GT3 SDK 拿到的核心结果
+- `captcha_info`
+  - 对应 `MachineVerifyActivity.Re(String)` 最终提交体中的核心 JSON
+- `validate_request` / `validate_response` / `validate_status`
+  - 对应 `/zpsecureflow/captcha/validate` 的真实提交与回包结果
+- `machine_verify_activity_replay`
+  - 把 `Re(String)` 这一层做成可对照的结构化复盘
+
+此外，`rnidbg boss-yzwg trace` 已新增 `trace_summary.json`，用于补齐 signer/JNI/native 侧证据：
+
+- `registered_native_methods`：VM 注册过的 native 方法签名
+- `observed_methods`：本次执行实际命中的 native 方法
+- `jni.by_tag` / `native.by_tag`：按标签聚合的事件统计
+- `jni.tail` / `native.tail`：最新事件尾部样本，便于对照调用时序
+
+补充一条点选/全屏题面前端协议取证命令（基于 Boa JS engine）：
+
+```bash
+./scripts/run-boss-yzwg.sh gt3-app3-protocol --trace-json /tmp/captcha-trace-44-click.json --simulate-success true --out /tmp/gt3-app3-protocol.json
+```
+
+输出中可直接核对：
+
+- `bootstrap.js_path`（如 `/static/js/fullpage.*.js`）
+- `boa.report.callbacks`（`gtReady`、`gtCallBack("1", result, "Success")`）
+- `external_js.url`（实际拉取到的 `fullpage/click` JS）
 
 ## 一张对比表
 
@@ -123,25 +170,17 @@ python3 scripts/compare_gt3_flows.py --format markdown
 - 还原滑块图片
 - 构造可用的验证码绕过 payload
 
-## 建议的后续验证点
+## App 端侧当前覆盖面与缺口
 
-如果下一步要继续做“真实链路对比”，建议优先做动态观察，而不是实现文章里的 `w`：
+已经覆盖：
 
-- App 主链：
-  - `com.hpbr.bosszhipin.utils.c4.e(...)`
-  - `p50.b.a(int)`
-  - `p50.d.show()`
-  - `p50.d$a.onButtonClick()`
-  - `p50.d$a.onDialogResult(String)`
-  - `MachineVerifyActivity.Re(String)`
-- signer 链：
-  - `com.twl.signer.a.d/e/i`
-  - `com.twl.signer.YZWG.nativeEncodeRequest`
-  - `com.twl.signer.YZWG.nativeEncodeRequestBody`
-  - `com.twl.signer.YZWG.nativeSignature`
+- `judge -> machine` 真实请求/响应
+- GT3 `get.php` 真实交换结果（包含“有图滑块”与“无图 bootstrap”两类分支）
+- `captcha_info` 组装和 `/zpsecureflow/captcha/validate` 提交
+- JNI/native trace 的结构化摘要
 
-这样能直接回答更关键的问题：
+尚未覆盖（刻意保持安全边界）：
 
-- `startCaptcha` 到底长什么样
-- GT3 SDK 返回的 challenge/validate/seccode 在 App 里如何落地
-- 验证码相关接口是否只是复用通用 signer
+- `/api/zppassport/phone/smsCode`
+- `/api/zppassport/user/codeLogin`
+- 任何形式的验证码绕过、`w` 伪造、或滑块自动化攻防实现

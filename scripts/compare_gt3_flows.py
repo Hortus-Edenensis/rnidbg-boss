@@ -48,6 +48,12 @@ ROWS = [
         takeaway="Both end in GT3 proof material, but payload shape differs.",
     ),
     ComparisonRow(
+        dimension="Runtime evidence",
+        web_article="Article demonstrates flow reconstruction through browser observation.",
+        apk_flow="boss-yzwg captcha-trace outputs machine_response/startCaptcha, gt3_exchange, captcha_info, and validate_request/response.",
+        takeaway="App-side evidence is reproducible without calling smsCode/codeLogin.",
+    ),
+    ComparisonRow(
         dimension="Native role",
         web_article="No app-native signer is involved in the browser article.",
         apk_flow="libyzwg.so signs and encodes app requests via YZWG/com.twl.signer.a.",
@@ -59,6 +65,7 @@ ROWS = [
 SUMMARY = [
     "The article analyzes the browser JS protocol of the official GT3 demo.",
     "The Boss APK integrates GT3 through a provider facade and the GT3 Android SDK.",
+    "This repo now includes an app-side runtime evidence path via boss-yzwg captcha-trace (judge -> machine -> GT3 exchange -> captcha/validate).",
     "A safe local implementation is a comparison model or trace harness, not a captcha-bypass generator.",
 ]
 

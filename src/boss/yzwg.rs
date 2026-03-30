@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::cell::{RefCell, UnsafeCell};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
 use std::io::{BufWriter, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
@@ -19,12 +19,41 @@ use emulator::linux::fs::linux_file::LinuxFileIO;
 use emulator::linux::fs::ByteArrayFileIO;
 use emulator::linux::structs::OFlag;
 use emulator::{AndroidEmulator, BackendKind};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use url::{form_urlencoded, Url};
 
 const PID: u32 = 2667;
 const PPID: u32 = 2427;
 const SIGNATURE_HEX: &str = "308201c13082012aa003020102020453b67db0300d06092a864886f70d01010505003024310d300b060355040b130468706272311330110603550403130a626f73737a686970696e3020170d3134303730343130313035365a180f32313133303631303130313035365a3024310d300b060355040b130468706272311330110603550403130a626f73737a686970696e30819f300d06092a864886f70d010101050003818d00308189028181008d38ee8f6b8d349c152b2dfbac13bc4ffbd6104a6c6eea8112d8d6e3bb15149cc8c79dc622fd6c2f654c87bf20ccfb3b15105c2e35807e004c14ca70ef94d29fbdd39c4f7382bc9e4c64f2a6f415022aa4745afb0a65714fee6e03cab70e946f7d8839b1fe00bdd6857fce138ede301616aafd855fc12abbd02010b76463c8f70203010001300d06092a864886f70d01010505000381810025a410b9fbc0e3139243cd9368fb755f5cd113454f18441373231bf75d4e20f3608e569a0dce32a26ec1e6a5105e61d87b753b903d5bb7eb4646676ab08247290c3eced459bc93a81ec0ff13c7676c3b4763b64414da2e93b433d7869f98bd70818347227c402e7af21da16825bd392e59e549fd3b35be5540e400607e6c211b";
+const LBASE_PROBE_SECRET_FIELD: &str = "com/monch/lbase/LBase->probeSecretKey:Ljava/lang/String;";
+const GT3_PROOF_SOURCE_DEFAULT_TAG: &str = "production-rnidbg";
+const GT3_PROOF_TRUTH_FILE: &str = "gt3_proof_truth.json";
+const GT3_PROOF_TRUTH_RESPONSE_FILE: &str = "gt3_proof_truth_response.json";
+const GT3_PROOF_REQUIRED_FIELDS: [&str; 16] = [
+    "gt",
+    "bootstrap_challenge",
+    "followup_challenge",
+    "final_challenge",
+    "client_type",
+    "pt",
+    "http_method",
+    "request_url",
+    "query_shape",
+    "body_shape",
+    "w",
+    "w_length",
+    "ua",
+    "geetest_cookie_snapshot",
+    "proof_source_tag",
+    "ts_ms",
+];
+const GT3_PROOF_RESPONSE_REQUIRED_FIELDS: [&str; 4] = [
+    "ajax_raw",
+    "success_callback_payload",
+    "validate",
+    "sec_code",
+];
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct LabConfig {
@@ -112,11 +141,30 @@ struct ReplaySigSample {
     sig: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct TraceEvent {
+    timestamp: String,
+    tag: String,
+    message: String,
+}
+
+struct Gt3ProofProbeOutput {
+    status: String,
+    missing_fields: Vec<String>,
+    missing_response_fields: Vec<String>,
+    truth_path: PathBuf,
+    truth_response_path: PathBuf,
+    truth: Value,
+    truth_response: Value,
+}
+
 struct SharedState {
     config: LabConfig,
     jni_calls: BufWriter<File>,
     native_trace: BufWriter<File>,
     static_object_fields: HashMap<String, DvmObject>,
+    jni_events: Vec<TraceEvent>,
+    native_events: Vec<TraceEvent>,
 }
 
 impl SharedState {
@@ -148,16 +196,30 @@ impl SharedState {
             jni_calls,
             native_trace,
             static_object_fields: HashMap::new(),
+            jni_events: Vec::new(),
+            native_events: Vec::new(),
         })
     }
 
     fn append_jni_call(&mut self, kind: &str, signature: &str) {
-        let _ = writeln!(self.jni_calls, "[{}] [{}] {}", iso_now(), kind, signature);
+        let timestamp = iso_now();
+        self.jni_events.push(TraceEvent {
+            timestamp: timestamp.clone(),
+            tag: kind.to_string(),
+            message: signature.to_string(),
+        });
+        let _ = writeln!(self.jni_calls, "[{}] [{}] {}", timestamp, kind, signature);
         let _ = self.jni_calls.flush();
     }
 
     fn append_native_trace(&mut self, tag: &str, message: &str) {
-        let _ = writeln!(self.native_trace, "[{}] [{}] {}", iso_now(), tag, message);
+        let timestamp = iso_now();
+        self.native_events.push(TraceEvent {
+            timestamp: timestamp.clone(),
+            tag: tag.to_string(),
+            message: message.to_string(),
+        });
+        let _ = writeln!(self.native_trace, "[{}] [{}] {}", timestamp, tag, message);
         let _ = self.native_trace.flush();
     }
 }
@@ -177,15 +239,27 @@ impl BossYzwgLab {
         Self::load_with_backend(config_path, None)
     }
 
+    pub fn load_probe_with_backend(
+        config_path: impl AsRef<Path>,
+        backend_override: Option<&str>,
+    ) -> Result<Self> {
+        let config = LabConfig::load(config_path)?.with_backend_override(backend_override)?;
+        Self::from_config_with_mode(config, false)
+    }
+
     pub fn load_with_backend(
         config_path: impl AsRef<Path>,
         backend_override: Option<&str>,
     ) -> Result<Self> {
         let config = LabConfig::load(config_path)?.with_backend_override(backend_override)?;
-        Self::from_config(config)
+        Self::from_config_with_mode(config, true)
     }
 
     fn from_config(config: LabConfig) -> Result<Self> {
+        Self::from_config_with_mode(config, true)
+    }
+
+    fn from_config_with_mode(config: LabConfig, load_native: bool) -> Result<Self> {
         validate_config(&config)?;
 
         let shared = Rc::new(RefCell::new(SharedState::new(config.clone())?));
@@ -229,35 +303,48 @@ impl BossYzwgLab {
             default_context.clone(),
         );
 
-        let module = vm
-            .load_library(
-                emulator.clone(),
-                config.so_path.to_string_lossy().as_ref(),
-                true,
-            )
-            .with_context(|| format!("failed to load library: {}", config.so_path.display()))?;
-        let module = unsafe { &*module.get() };
-        let module_base = module.base;
-        let module_size = module.size as u64;
+        let (module_base, module_size) = if load_native {
+            let module = vm
+                .load_library(
+                    emulator.clone(),
+                    config.so_path.to_string_lossy().as_ref(),
+                    true,
+                )
+                .with_context(|| format!("failed to load library: {}", config.so_path.display()))?;
+            let module = unsafe { &*module.get() };
+            let module_base = module.base;
+            let module_size = module.size as u64;
 
-        shared.borrow_mut().append_native_trace(
-            "init",
-            &format!(
-                "module_base=0x{:x}, size=0x{:x}, requested_backend={}, active_backend={}",
-                module_base,
-                module_size,
-                config.backend,
-                emulator.backend.name()
-            ),
-        );
+            shared.borrow_mut().append_native_trace(
+                "init",
+                &format!(
+                    "module_base=0x{:x}, size=0x{:x}, requested_backend={}, active_backend={}",
+                    module_base,
+                    module_size,
+                    config.backend,
+                    emulator.backend.name()
+                ),
+            );
 
-        vm.call_jni_onload(emulator.clone(), module)
-            .context("failed to call JNI_OnLoad")?;
-        let registered = vm.list_method_signatures(yzwg_class.id);
-        shared.borrow_mut().append_native_trace(
-            "register_natives",
-            &format!("class={}, methods={:?}", yzwg_class.name, registered),
-        );
+            vm.call_jni_onload(emulator.clone(), module)
+                .context("failed to call JNI_OnLoad")?;
+            let registered = vm.list_method_signatures(yzwg_class.id);
+            shared.borrow_mut().append_native_trace(
+                "register_natives",
+                &format!("class={}, methods={:?}", yzwg_class.name, registered),
+            );
+            (module_base, module_size)
+        } else {
+            shared.borrow_mut().append_native_trace(
+                "init",
+                &format!(
+                    "probe_only=true, requested_backend={}, active_backend={}",
+                    config.backend,
+                    emulator.backend.name()
+                ),
+            );
+            (0, 0)
+        };
 
         let lab = Self {
             config,
@@ -268,7 +355,9 @@ impl BossYzwgLab {
             module_size,
             shared,
         };
-        lab.initialize_with_context(default_context);
+        if load_native {
+            lab.initialize_with_context(default_context);
+        }
         Ok(lab)
     }
 
@@ -399,10 +488,14 @@ impl BossYzwgLab {
 
         let invoke_path = self.config.trace_out_dir.join("invoke_result.json");
         write_json(&invoke_path, &Value::Array(results.clone()))?;
+        let summary = self.build_trace_summary(&results);
+        let summary_path = self.config.trace_out_dir.join("trace_summary.json");
+        write_json(&summary_path, &summary)?;
 
         Ok(json!({
             "status": "ok",
             "invoke_result": invoke_path,
+            "trace_summary": summary_path,
             "jni_calls": self.config.trace_out_dir.join("jni_calls.log"),
             "native_trace": self.config.trace_out_dir.join("native_trace.log"),
             "count": results.len(),
@@ -529,6 +622,99 @@ impl BossYzwgLab {
         Ok(output)
     }
 
+    pub fn run_java_probe(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        let probe_mode = opts
+            .get("--probe")
+            .map(|value| value.to_ascii_lowercase())
+            .unwrap_or_else(|| "both".to_string());
+
+        let probe_secret_key = match probe_mode.as_str() {
+            "both" | "all" | "secret-key" | "secret_key" | "lbase" => true,
+            "dialog" | "on-dialog-result" | "on_dialog_result" => false,
+            other => return Err(anyhow!("unsupported --probe mode: {other}")),
+        };
+        let probe_dialog_result = match probe_mode.as_str() {
+            "both" | "all" | "dialog" | "on-dialog-result" | "on_dialog_result" => true,
+            "secret-key" | "secret_key" | "lbase" => false,
+            other => return Err(anyhow!("unsupported --probe mode: {other}")),
+        };
+
+        let mut output = serde_json::Map::new();
+        output.insert("status".to_string(), json!("ok"));
+        output.insert("mode".to_string(), json!("java_probe"));
+        output.insert("probe".to_string(), json!(probe_mode));
+
+        if probe_secret_key {
+            let (secret_key, key_source) = if let Some(value) = opts.get("--secret-key") {
+                (value.clone(), "cli:--secret-key")
+            } else if let Ok(value) = std::env::var("BOSS_SECRET_KEY") {
+                (value, "env:BOSS_SECRET_KEY")
+            } else {
+                (String::new(), "default-empty")
+            };
+            self.shared.borrow_mut().static_object_fields.insert(
+                LBASE_PROBE_SECRET_FIELD.to_string(),
+                DvmObject::String(secret_key.clone()),
+            );
+            self.shared.borrow_mut().append_native_trace(
+                "java_probe",
+                &format!(
+                    "com/monch/lbase/LBase.getSecretKey() source={}, len={}",
+                    key_source,
+                    secret_key.len()
+                ),
+            );
+            output.insert(
+                "secret_key_probe".to_string(),
+                json!({
+                    "class": "com/monch/lbase/LBase",
+                    "method": "getSecretKey()Ljava/lang/String;",
+                    "source": key_source,
+                    "value": secret_key,
+                }),
+            );
+        }
+
+        if probe_dialog_result {
+            let dialog_raw = if let Some(path) = opts.get("--dialog-result-file") {
+                fs::read_to_string(path)
+                    .with_context(|| format!("failed to read --dialog-result-file: {path}"))?
+            } else {
+                opts.get("--dialog-result-json")
+                    .cloned()
+                    .unwrap_or_else(default_dialog_result_json)
+            };
+            let captcha_type = opts
+                .get("--captcha-type")
+                .map(|value| value.parse::<i32>())
+                .transpose()
+                .context("invalid --captcha-type")?
+                .unwrap_or(1);
+
+            let probe = self.synthetic_probe_dialog_result(captcha_type, &dialog_raw)?;
+            output.insert("on_dialog_result_probe".to_string(), probe);
+        }
+
+        let gt3_proof_probe = self.capture_gt3_proof_truth(opts)?;
+        output.insert(
+            "gt3_proof_truth_probe".to_string(),
+            json!({
+                "status": gt3_proof_probe.status,
+                "missing_fields": gt3_proof_probe.missing_fields,
+                "missing_response_fields": gt3_proof_probe.missing_response_fields,
+                "gt3_proof_truth_path": gt3_proof_probe.truth_path,
+                "gt3_proof_truth_response_path": gt3_proof_probe.truth_response_path,
+            }),
+        );
+        output.insert("gt3_proof_truth".to_string(), gt3_proof_probe.truth);
+        output.insert(
+            "gt3_proof_truth_response".to_string(),
+            gt3_proof_probe.truth_response,
+        );
+
+        Ok(Value::Object(output))
+    }
+
     pub fn run_replay(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
         let mode = opts
             .get("--mode")
@@ -645,6 +831,168 @@ impl BossYzwgLab {
             "success_rate": success_rate,
             "total": total,
         }))
+    }
+
+    fn synthetic_probe_dialog_result(
+        &mut self,
+        captcha_type: i32,
+        dialog_raw: &str,
+    ) -> Result<Value> {
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let (_, provider_class) = vm
+            .resolve_class("p50/d")
+            .ok_or_else(|| anyhow!("failed to resolve p50/d"))?;
+        let (_, callback_class) = vm
+            .resolve_class("p50/c")
+            .ok_or_else(|| anyhow!("failed to resolve p50/c"))?;
+        let (_, listener_class) = vm
+            .resolve_class("p50/d$a")
+            .ok_or_else(|| anyhow!("failed to resolve p50/d$a"))?;
+
+        let callback = new_mut_data_object(
+            callback_class,
+            ProbeCaptchaCallbackState {
+                captcha_info: String::new(),
+            },
+        );
+        let provider = new_mut_data_object(
+            provider_class,
+            ProbeDialogProviderState {
+                captcha_type,
+                callback: callback.clone(),
+            },
+        );
+        let mut listener = new_mut_data_object(
+            listener_class,
+            ProbeDialogListenerState {
+                owner: provider.clone(),
+            },
+        );
+        let captcha_info = synthetic_dialog_result_invoke(&mut listener, dialog_raw)?;
+        let callback_value = data_ref::<ProbeCaptchaCallbackState>(&callback)
+            .map(|state| state.captcha_info.clone())
+            .unwrap_or_default();
+        let callback_value = if callback_value.is_empty() {
+            captcha_info.clone()
+        } else {
+            callback_value
+        };
+
+        self.shared.borrow_mut().append_native_trace(
+            "java_probe",
+            &format!(
+                "p50/d$a.onDialogResult captcha_type={}, captcha_info_len={}",
+                captcha_type,
+                callback_value.len()
+            ),
+        );
+
+        Ok(json!({
+            "class": "p50/d$a",
+            "method": "onDialogResult(Ljava/lang/String;)V",
+            "captcha_type": captcha_type,
+            "input_dialog_result": serde_json::from_str::<Value>(dialog_raw).unwrap_or(Value::String(dialog_raw.to_string())),
+            "captcha_info_raw": callback_value,
+            "captcha_info": serde_json::from_str::<Value>(&captcha_info).unwrap_or(Value::String(captcha_info)),
+            "field_write": "p50/c->f130761b:Ljava/lang/String;",
+        }))
+    }
+
+    fn capture_gt3_proof_truth(
+        &mut self,
+        opts: &HashMap<String, String>,
+    ) -> Result<Gt3ProofProbeOutput> {
+        let request_input = load_optional_json_arg(
+            opts,
+            &[
+                "--gt3-proof-truth-json",
+                "--gt3-proof-request-json",
+                "--gt3-request-json",
+                "--geetest-request-json",
+            ],
+            &[
+                "--gt3-proof-truth-file",
+                "--gt3-proof-request-file",
+                "--gt3-request-file",
+                "--geetest-request-file",
+            ],
+        )?;
+        let response_input = load_optional_json_arg(
+            opts,
+            &[
+                "--gt3-proof-response-json",
+                "--gt3-response-json",
+                "--geetest-response-json",
+            ],
+            &[
+                "--gt3-proof-response-file",
+                "--gt3-response-file",
+                "--geetest-response-file",
+            ],
+        )?;
+
+        let mut truth = build_gt3_proof_truth_value(opts, request_input.as_ref());
+        let mut truth_response = build_gt3_proof_truth_response_value(response_input.as_ref());
+
+        if let Some(value) = truth_response
+            .get("success_callback_payload")
+            .and_then(|entry| find_nested_string(entry, &["geetest_challenge", "challenge"]))
+            .filter(|value| !value.is_empty())
+        {
+            set_if_missing_or_empty(&mut truth, "final_challenge", Value::String(value));
+        }
+
+        if let Some(value) = truth
+            .get("final_challenge")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+        {
+            set_if_missing_or_empty(
+                &mut truth_response,
+                "challenge",
+                Value::String(value.to_string()),
+            );
+        }
+
+        let missing_fields = missing_required_fields(&truth, &GT3_PROOF_REQUIRED_FIELDS);
+        let missing_response_fields =
+            missing_required_fields(&truth_response, &GT3_PROOF_RESPONSE_REQUIRED_FIELDS);
+        let status = if missing_fields.is_empty() && missing_response_fields.is_empty() {
+            "ok"
+        } else {
+            "partial"
+        };
+
+        let truth_path = self.config.trace_out_dir.join(GT3_PROOF_TRUTH_FILE);
+        let truth_response_path = self
+            .config
+            .trace_out_dir
+            .join(GT3_PROOF_TRUTH_RESPONSE_FILE);
+        write_json(&truth_path, &truth)?;
+        write_json(&truth_response_path, &truth_response)?;
+
+        self.shared.borrow_mut().append_native_trace(
+            "gt3_proof_truth",
+            &format!(
+                "status={}, missing_fields={:?}, missing_response_fields={:?}, truth_path={}, truth_response_path={}",
+                status,
+                missing_fields,
+                missing_response_fields,
+                truth_path.display(),
+                truth_response_path.display()
+            ),
+        );
+
+        Ok(Gt3ProofProbeOutput {
+            status: status.to_string(),
+            missing_fields,
+            missing_response_fields,
+            truth_path,
+            truth_response_path,
+            truth,
+            truth_response,
+        })
     }
 
     pub fn call_native_encode_request(&mut self, data: &[u8], key: &str) -> Result<String> {
@@ -835,6 +1183,49 @@ impl BossYzwgLab {
             .borrow_mut()
             .append_native_trace("invoke", &row.to_string());
     }
+
+    fn build_trace_summary(&self, results: &[Value]) -> Value {
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let registered_native_methods = vm.list_method_signatures(self.yzwg_class.id);
+        let shared = self.shared.borrow();
+        let jni_tail = tail_events(&shared.jni_events, 12);
+        let native_tail = tail_events(&shared.native_events, 12);
+        let observed_methods = results
+            .iter()
+            .filter_map(|entry| entry.get("method").and_then(Value::as_str))
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>();
+
+        json!({
+            "status": "ok",
+            "timestamp": iso_now(),
+            "package": self.config.package_name,
+            "requested_backend": self.config.backend,
+            "active_backend": self.active_backend(),
+            "module_base": format!("0x{:x}", self.module_base),
+            "module_size": format!("0x{:x}", self.module_size),
+            "registered_native_methods": registered_native_methods,
+            "observed_methods": observed_methods,
+            "invoke_results_count": results.len(),
+            "jni": {
+                "event_count": shared.jni_events.len(),
+                "by_tag": count_events_by_tag(&shared.jni_events),
+                "tail": jni_tail,
+            },
+            "native": {
+                "event_count": shared.native_events.len(),
+                "by_tag": count_events_by_tag(&shared.native_events),
+                "tail": native_tail,
+            },
+            "artifacts": {
+                "trace_dir": self.config.trace_out_dir.clone(),
+                "jni_calls": self.config.trace_out_dir.join("jni_calls.log"),
+                "native_trace": self.config.trace_out_dir.join("native_trace.log"),
+                "invoke_result": self.config.trace_out_dir.join("invoke_result.json"),
+            }
+        })
+    }
 }
 
 impl Drop for BossYzwgLab {
@@ -946,6 +1337,14 @@ impl Jni<()> for BossYzwgJni {
                 "java/lang/String-><init>([B)V" => {
                     let bytes = args.get::<Vec<u8>>(vm);
                     return String::from_utf8_lossy(&bytes).to_string().into();
+                }
+                "org/json/JSONObject-><init>()V" => {
+                    return new_mut_data_object(class.clone(), JsonObjectState::default()).into();
+                }
+                "org/json/JSONObject-><init>(Ljava/lang/String;)V" => {
+                    let raw = args.get::<String>(vm);
+                    return new_mut_data_object(class.clone(), JsonObjectState::from_str(&raw))
+                        .into();
                 }
                 _ => {
                     return DvmObject::new_simple(class.clone()).into();
@@ -1104,6 +1503,86 @@ impl Jni<()> for BossYzwgJni {
                 let right = string_from_id(vm, args.get::<i64>(vm));
                 return (left == right).into();
             }
+            "com/monch/lbase/LBase->getSecretKey()Ljava/lang/String;" => {
+                if let Some(DvmObject::String(value)) = self
+                    .shared
+                    .borrow()
+                    .static_object_fields
+                    .get(LBASE_PROBE_SECRET_FIELD)
+                {
+                    return value.clone().into();
+                }
+                return String::new().into();
+            }
+            "android/text/TextUtils->isEmpty(Ljava/lang/CharSequence;)Z" => {
+                let text = string_from_id(vm, args.get::<i64>(vm));
+                return text.is_empty().into();
+            }
+            "p50/d->e()I" => {
+                let Some(instance) = instance else {
+                    return 1.into();
+                };
+                if let Some(provider) = data_ref::<ProbeDialogProviderState>(instance) {
+                    return provider.captcha_type.into();
+                }
+                return 1.into();
+            }
+            "p50/c->a()Ljava/lang/String;" => {
+                let Some(instance) = instance else {
+                    return String::new().into();
+                };
+                if let Some(callback) = data_ref::<ProbeCaptchaCallbackState>(instance) {
+                    return callback.captcha_info.clone().into();
+                }
+                return String::new().into();
+            }
+            "org/json/JSONObject->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;" => {
+                let key = args.get::<String>(vm);
+                let value_id = args.get::<i64>(vm);
+                let value = object_from_id_mut(vm, value_id)
+                    .map(|object| object_to_json_value(object))
+                    .unwrap_or(Value::Null);
+                let Some(instance) = instance else {
+                    return JniValue::Null;
+                };
+                if let Some(state) = data_mut::<JsonObjectState>(instance) {
+                    state.put_value(&key, value);
+                    return instance.clone().into();
+                }
+                return JniValue::Null;
+            }
+            "org/json/JSONObject->optString(Ljava/lang/String;)Ljava/lang/String;" => {
+                let key = args.get::<String>(vm);
+                let Some(instance) = instance else {
+                    return String::new().into();
+                };
+                if let Some(state) = data_ref::<JsonObjectState>(instance) {
+                    return state.opt_string(&key).into();
+                }
+                return String::new().into();
+            }
+            "org/json/JSONObject->toString()Ljava/lang/String;" => {
+                let Some(instance) = instance else {
+                    return "{}".to_string().into();
+                };
+                if let Some(state) = data_ref::<JsonObjectState>(instance) {
+                    return state.to_json_string().into();
+                }
+                return "{}".to_string().into();
+            }
+            "p50/d$a->onDialogResult(Ljava/lang/String;)V" => {
+                let raw = args.get::<String>(vm);
+                let Some(instance) = instance else {
+                    return JniValue::Void;
+                };
+                if let Err(err) = synthetic_dialog_result_invoke(instance, &raw) {
+                    self.shared.borrow_mut().append_native_trace(
+                        "jni_error",
+                        &format!("p50/d$a.onDialogResult synthetic invoke failed: {err:#}"),
+                    );
+                }
+                return JniValue::Void;
+            }
             "java/io/InputStream->read()I" => {
                 let Some(instance) = instance else {
                     return (-1).into();
@@ -1197,6 +1676,30 @@ impl Jni<()> for BossYzwgJni {
                     return package_info.signatures.clone().into();
                 }
             }
+            "p50/d->f130764c:Lp50/c;" => {
+                let Some(instance) = instance else {
+                    return JniValue::Null;
+                };
+                if let Some(provider) = data_ref::<ProbeDialogProviderState>(instance) {
+                    return provider.callback.clone().into();
+                }
+            }
+            "p50/c->f130761b:Ljava/lang/String;" => {
+                let Some(instance) = instance else {
+                    return JniValue::Null;
+                };
+                if let Some(callback) = data_ref::<ProbeCaptchaCallbackState>(instance) {
+                    return callback.captcha_info.clone().into();
+                }
+            }
+            "p50/d$a->a:Lp50/d;" | "p50/d$a->this$0:Lp50/d;" => {
+                let Some(instance) = instance else {
+                    return JniValue::Null;
+                };
+                if let Some(listener) = data_ref::<ProbeDialogListenerState>(instance) {
+                    return listener.owner.clone().into();
+                }
+            }
             _ => {}
         }
 
@@ -1208,13 +1711,50 @@ impl Jni<()> for BossYzwgJni {
         _vm: &mut DalvikVM64<()>,
         class: &Rc<DvmClass>,
         field: &emulator::android::dvm::member::DvmField,
-        _instance: Option<&mut DvmObject>,
+        instance: Option<&mut DvmObject>,
         value: JniValue,
     ) {
         let signature = Self::field_signature(class, &field.name, &field.signature);
         self.shared
             .borrow_mut()
             .append_jni_call("SET_FIELD", &signature);
+
+        match signature.as_str() {
+            "p50/d->f130764c:Lp50/c;" => {
+                if let Some(instance) = instance {
+                    if let Some(provider) = data_mut::<ProbeDialogProviderState>(instance) {
+                        if let JniValue::Object(object) = &value {
+                            provider.callback = object.clone();
+                        }
+                        return;
+                    }
+                }
+            }
+            "p50/c->f130761b:Ljava/lang/String;" => {
+                if let Some(instance) = instance {
+                    if let Some(callback) = data_mut::<ProbeCaptchaCallbackState>(instance) {
+                        callback.captcha_info = match &value {
+                            JniValue::Object(object) => string_from_object(object),
+                            JniValue::Null => String::new(),
+                            other => other.to_string(),
+                        };
+                        return;
+                    }
+                }
+            }
+            "p50/d$a->a:Lp50/d;" | "p50/d$a->this$0:Lp50/d;" => {
+                if let Some(instance) = instance {
+                    if let Some(listener) = data_mut::<ProbeDialogListenerState>(instance) {
+                        if let JniValue::Object(object) = &value {
+                            listener.owner = object.clone();
+                        }
+                        return;
+                    }
+                }
+            }
+            _ => {}
+        }
+
         if let JniValue::Object(object) = value {
             self.shared
                 .borrow_mut()
@@ -1249,6 +1789,78 @@ struct PackageInfoState {
 
 struct SignatureState;
 
+#[derive(Default)]
+struct JsonObjectState {
+    entries: Vec<(String, Value)>,
+}
+
+impl JsonObjectState {
+    fn from_str(raw: &str) -> Self {
+        let mut state = Self::default();
+        if let Ok(value) = serde_json::from_str::<Value>(raw) {
+            if let Some(obj) = value.as_object() {
+                for (key, value) in obj {
+                    state.put_value(key, value.clone());
+                }
+            }
+        }
+        state
+    }
+
+    fn put_value(&mut self, key: &str, value: Value) {
+        if let Some((_, slot)) = self.entries.iter_mut().find(|(name, _)| name == key) {
+            *slot = value;
+        } else {
+            self.entries.push((key.to_string(), value));
+        }
+    }
+
+    fn opt_string(&self, key: &str) -> String {
+        self.entries
+            .iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| match value {
+                Value::String(text) => text.clone(),
+                Value::Null => String::new(),
+                other => other.to_string(),
+            })
+            .unwrap_or_default()
+    }
+
+    fn to_json_string(&self) -> String {
+        let mut parts = Vec::with_capacity(self.entries.len());
+        for (key, value) in &self.entries {
+            let key_json = serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+            let value_json = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
+            parts.push(format!("{key_json}:{value_json}"));
+        }
+        format!("{{{}}}", parts.join(","))
+    }
+}
+
+struct ProbeDialogProviderState {
+    captcha_type: i32,
+    callback: DvmObject,
+}
+
+struct ProbeCaptchaCallbackState {
+    captcha_info: String,
+}
+
+struct ProbeDialogListenerState {
+    owner: DvmObject,
+}
+
+#[derive(Serialize)]
+struct CaptchaInfoPayload {
+    #[serde(rename = "type")]
+    r#type: i32,
+    challenge: String,
+    validate: String,
+    #[serde(rename = "secCode")]
+    sec_code: String,
+}
+
 fn validate_config(config: &LabConfig) -> Result<()> {
     for path in [
         &config.apk_path,
@@ -1266,6 +1878,12 @@ fn validate_config(config: &LabConfig) -> Result<()> {
 fn build_class_resolver() -> ClassResolver {
     ClassResolver::new(vec![
         "com/twl/signer/YZWG",
+        "com/monch/lbase/LBase",
+        "p50/d",
+        "p50/d$a",
+        "p50/c",
+        "org/json/JSONObject",
+        "android/text/TextUtils",
         "android/content/Context",
         "android/content/res/AssetManager",
         "android/content/pm/PackageManager",
@@ -1423,6 +2041,748 @@ fn read_into(
     }
 }
 
+fn default_dialog_result_json() -> String {
+    r#"{"geetest_challenge":"","geetest_validate":"","geetest_seccode":""}"#.to_string()
+}
+
+fn object_to_json_value(object: &DvmObject) -> Value {
+    match object {
+        DvmObject::String(value) => Value::String(value.clone()),
+        DvmObject::ByteArray(bytes) => Value::String(String::from_utf8_lossy(bytes).to_string()),
+        _ => Value::String("[object]".to_string()),
+    }
+}
+
+fn synthetic_dialog_result_invoke(listener: &mut DvmObject, dialog_raw: &str) -> Result<String> {
+    let Some(listener_state) = data_mut::<ProbeDialogListenerState>(listener) else {
+        return Err(anyhow!("listener state missing for p50/d$a"));
+    };
+    let Some(provider_state) = data_ref::<ProbeDialogProviderState>(&listener_state.owner) else {
+        return Err(anyhow!("provider state missing for p50/d"));
+    };
+    let payload = build_captcha_info_payload(provider_state.captcha_type, dialog_raw)?;
+    let captcha_info = serde_json::to_string(&payload)?;
+    let mut callback = provider_state.callback.clone();
+    if let Some(callback_state) = data_mut::<ProbeCaptchaCallbackState>(&mut callback) {
+        callback_state.captcha_info = captcha_info.clone();
+    }
+    Ok(captcha_info)
+}
+
+fn build_captcha_info_payload(captcha_type: i32, dialog_raw: &str) -> Result<CaptchaInfoPayload> {
+    let input = serde_json::from_str::<Value>(dialog_raw)
+        .with_context(|| "failed to parse onDialogResult JSON")?;
+    let challenge = input
+        .get("geetest_challenge")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let validate = input
+        .get("geetest_validate")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let sec_code = input
+        .get("geetest_seccode")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    Ok(CaptchaInfoPayload {
+        r#type: captcha_type,
+        challenge,
+        validate,
+        sec_code,
+    })
+}
+
+fn load_optional_json_arg(
+    opts: &HashMap<String, String>,
+    inline_keys: &[&str],
+    file_keys: &[&str],
+) -> Result<Option<Value>> {
+    for key in inline_keys {
+        if let Some(raw) = opts
+            .get(*key)
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+        {
+            return parse_json_or_string(raw)
+                .with_context(|| format!("failed to parse {key}"))
+                .map(Some);
+        }
+    }
+    for key in file_keys {
+        if let Some(path) = opts
+            .get(*key)
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+        {
+            let raw = fs::read_to_string(path)
+                .with_context(|| format!("failed to read {key}: {path}"))?;
+            return parse_json_or_string(raw.trim())
+                .with_context(|| format!("failed to parse {key} payload: {path}"))
+                .map(Some);
+        }
+    }
+    Ok(None)
+}
+
+fn parse_json_or_string(raw: &str) -> Result<Value> {
+    if raw.trim().is_empty() {
+        return Ok(Value::Null);
+    }
+    match serde_json::from_str::<Value>(raw) {
+        Ok(value) => Ok(value),
+        Err(_) => Ok(Value::String(raw.to_string())),
+    }
+}
+
+fn build_gt3_proof_truth_value(
+    opts: &HashMap<String, String>,
+    request_input: Option<&Value>,
+) -> Value {
+    let request_root = normalize_json_value(request_input.unwrap_or(&Value::Null));
+    let request_url = first_non_empty([
+        opt_text(opts, "--request-url"),
+        opt_text(opts, "--gt3-request-url"),
+        find_first_string(
+            &request_root,
+            &[
+                "request_url",
+                "url",
+                "request.url",
+                "request.request_url",
+                "ajax.url",
+            ],
+            &[],
+        ),
+    ]);
+
+    let query_pairs = request_url
+        .as_deref()
+        .map(parse_query_pairs_from_url)
+        .unwrap_or_default();
+    let body_value = find_first_value(
+        &request_root,
+        &[
+            "body",
+            "body_form",
+            "request.body",
+            "request.body_form",
+            "post_body",
+            "payload",
+            "form",
+        ],
+        &[],
+    )
+    .cloned()
+    .unwrap_or_else(|| {
+        opt_text(opts, "--gt3-request-body-json")
+            .and_then(|raw| parse_json_or_string(&raw).ok())
+            .or_else(|| opt_text(opts, "--gt3-request-body").map(Value::String))
+            .unwrap_or(Value::Null)
+    });
+    let body_pairs = parse_body_pairs(&body_value);
+
+    let gt = first_non_empty([
+        opt_text(opts, "--gt"),
+        find_first_string(
+            &request_root,
+            &["gt", "request.gt", "query.gt", "params.gt"],
+            &["gt"],
+        ),
+        lookup_param_ci(&query_pairs, "gt"),
+        lookup_param_ci(&body_pairs, "gt"),
+    ]);
+    let bootstrap_challenge = first_non_empty([
+        opt_text(opts, "--bootstrap-challenge"),
+        find_first_string(
+            &request_root,
+            &[
+                "bootstrap_challenge",
+                "request.bootstrap_challenge",
+                "start_captcha.challenge",
+            ],
+            &["bootstrap_challenge"],
+        ),
+    ]);
+    let followup_challenge = first_non_empty([
+        opt_text(opts, "--followup-challenge"),
+        find_first_string(
+            &request_root,
+            &[
+                "followup_challenge",
+                "request.followup_challenge",
+                "challenge",
+                "request.challenge",
+            ],
+            &["followup_challenge"],
+        ),
+        lookup_param_ci(&query_pairs, "challenge"),
+        lookup_param_ci(&body_pairs, "challenge"),
+    ]);
+    let final_challenge = first_non_empty([
+        opt_text(opts, "--final-challenge"),
+        find_first_string(
+            &request_root,
+            &["final_challenge", "request.final_challenge"],
+            &["final_challenge"],
+        ),
+        lookup_param_ci(&query_pairs, "challenge"),
+        lookup_param_ci(&body_pairs, "challenge"),
+        followup_challenge.clone(),
+    ]);
+    let client_type = first_non_empty([
+        opt_text(opts, "--client-type"),
+        find_first_string(
+            &request_root,
+            &["client_type", "request.client_type", "query.client_type"],
+            &["client_type"],
+        ),
+        lookup_param_ci(&query_pairs, "client_type"),
+        lookup_param_ci(&body_pairs, "client_type"),
+    ]);
+    let pt = first_non_empty([
+        opt_text(opts, "--pt"),
+        find_first_string(
+            &request_root,
+            &["pt", "request.pt", "query.pt", "params.pt"],
+            &["pt"],
+        ),
+        lookup_param_ci(&query_pairs, "pt"),
+        lookup_param_ci(&body_pairs, "pt"),
+    ]);
+    let http_method = first_non_empty([
+        opt_text(opts, "--http-method").map(|value| value.to_ascii_uppercase()),
+        find_first_string(
+            &request_root,
+            &[
+                "http_method",
+                "method",
+                "request.method",
+                "request.http_method",
+            ],
+            &[],
+        )
+        .map(|value| value.to_ascii_uppercase()),
+    ])
+    .or_else(|| Some("POST".to_string()));
+    let w = first_non_empty([
+        opt_text(opts, "--w"),
+        find_first_string(
+            &request_root,
+            &["w", "request.w", "body.w", "params.w"],
+            &["w"],
+        ),
+        lookup_param_ci(&body_pairs, "w"),
+        lookup_param_ci(&query_pairs, "w"),
+    ]);
+    let w_length = w.as_ref().map(|value| value.chars().count() as i64);
+    let ua = first_non_empty([
+        opt_text(opts, "--ua"),
+        opt_text(opts, "--user-agent"),
+        find_first_string(
+            &request_root,
+            &[
+                "ua",
+                "user_agent",
+                "headers.user-agent",
+                "headers.User-Agent",
+                "request.headers.user-agent",
+            ],
+            &["ua", "user_agent"],
+        ),
+    ]);
+    let geetest_cookie_snapshot = first_non_empty([
+        opt_text(opts, "--geetest-cookie"),
+        find_first_string(
+            &request_root,
+            &[
+                "geetest_cookie_snapshot",
+                "geetest_cookie",
+                "headers.cookie",
+                "headers.Cookie",
+                "request.headers.cookie",
+            ],
+            &["geetest_cookie_snapshot", "geetest_cookie"],
+        ),
+    ]);
+    let proof_source_tag = first_non_empty([
+        opt_text(opts, "--proof-source-tag"),
+        find_first_string(
+            &request_root,
+            &["proof_source_tag", "source_tag", "proof_source"],
+            &["proof_source_tag", "proof_source"],
+        ),
+    ])
+    .or_else(|| Some(GT3_PROOF_SOURCE_DEFAULT_TAG.to_string()));
+    let query_shape = parse_shape_hint(opts, "--query-shape").unwrap_or_else(|| {
+        extract_shape_from_value(find_first_value(
+            &request_root,
+            &["query_shape", "request.query_shape"],
+            &[],
+        ))
+        .unwrap_or_else(|| shape_from_pairs(&query_pairs))
+    });
+    let body_shape = parse_shape_hint(opts, "--body-shape").unwrap_or_else(|| {
+        extract_shape_from_value(find_first_value(&request_root, &["body_shape"], &[]))
+            .unwrap_or_else(|| shape_from_pairs(&body_pairs))
+    });
+    let ts_ms = find_first_i64(&request_root, &["ts_ms", "timestamp_ms"], &["ts_ms"])
+        .or_else(|| Some(Utc::now().timestamp_millis()));
+
+    json!({
+        "gt": optional_text_value(gt),
+        "bootstrap_challenge": optional_text_value(bootstrap_challenge),
+        "followup_challenge": optional_text_value(followup_challenge),
+        "final_challenge": optional_text_value(final_challenge),
+        "client_type": optional_text_value(client_type),
+        "pt": optional_text_value(pt),
+        "http_method": optional_text_value(http_method),
+        "request_url": optional_text_value(request_url),
+        "query_shape": shape_to_value(query_shape),
+        "body_shape": shape_to_value(body_shape),
+        "w": optional_text_value(w.clone()),
+        "w_length": w_length.map(Value::from).unwrap_or(Value::Null),
+        "ua": optional_text_value(ua),
+        "geetest_cookie_snapshot": optional_text_value(geetest_cookie_snapshot),
+        "proof_source_tag": optional_text_value(proof_source_tag),
+        "ts_ms": ts_ms.map(Value::from).unwrap_or(Value::Null),
+    })
+}
+
+fn build_gt3_proof_truth_response_value(response_input: Option<&Value>) -> Value {
+    let response_root = normalize_json_value(response_input.unwrap_or(&Value::Null));
+
+    let ajax_raw = find_first_value(
+        &response_root,
+        &[
+            "ajax_raw",
+            "response.ajax_raw",
+            "ajax",
+            "response.ajax",
+            "raw",
+            "response_body",
+            "body",
+        ],
+        &["ajax_raw", "ajax"],
+    )
+    .map(normalize_json_value)
+    .map(normalize_jsonp_wrapped_value)
+    .unwrap_or(Value::Null);
+
+    let mut success_callback_payload = find_first_value(
+        &response_root,
+        &[
+            "success_callback_payload",
+            "response.success_callback_payload",
+            "callback_payload",
+            "success_payload",
+            "callback",
+        ],
+        &["success_callback_payload", "callback_payload"],
+    )
+    .map(normalize_json_value)
+    .unwrap_or(Value::Null);
+    if success_callback_payload == Value::Null {
+        success_callback_payload = build_success_callback_payload_from_ajax(&ajax_raw);
+    }
+
+    let validate = first_non_empty([
+        find_first_string(
+            &response_root,
+            &[
+                "validate",
+                "geetest_validate",
+                "result.validate",
+                "response.validate",
+            ],
+            &["validate", "geetest_validate"],
+        ),
+        find_nested_string(&success_callback_payload, &["geetest_validate", "validate"]),
+        find_nested_string(&ajax_raw, &["geetest_validate", "validate"]),
+    ]);
+    let sec_code = first_non_empty([
+        find_first_string(
+            &response_root,
+            &[
+                "sec_code",
+                "secCode",
+                "seccode",
+                "geetest_seccode",
+                "response.sec_code",
+            ],
+            &["sec_code", "secCode", "geetest_seccode"],
+        ),
+        find_nested_string(
+            &success_callback_payload,
+            &["geetest_seccode", "sec_code", "secCode", "seccode"],
+        ),
+        find_nested_string(
+            &ajax_raw,
+            &["geetest_seccode", "sec_code", "secCode", "seccode"],
+        ),
+    ])
+    .or_else(|| validate.clone().map(|value| format!("{value}|jordan")));
+
+    json!({
+        "ajax_raw": ajax_raw,
+        "success_callback_payload": success_callback_payload,
+        "validate": optional_text_value(validate),
+        "sec_code": optional_text_value(sec_code),
+    })
+}
+
+fn normalize_json_value(value: &Value) -> Value {
+    if let Value::String(raw) = value {
+        parse_json_or_string(raw).unwrap_or_else(|_| Value::String(raw.clone()))
+    } else {
+        value.clone()
+    }
+}
+
+fn normalize_jsonp_wrapped_value(value: Value) -> Value {
+    if let Value::String(raw) = value {
+        let trimmed = raw.trim();
+        if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
+            return parsed;
+        }
+        if let (Some(start), Some(end)) = (trimmed.find('('), trimmed.rfind(')')) {
+            if start < end {
+                let body = trimmed[start + 1..end].trim();
+                if let Ok(parsed) = serde_json::from_str::<Value>(body) {
+                    return parsed;
+                }
+            }
+        }
+        Value::String(raw)
+    } else {
+        value
+    }
+}
+
+fn build_success_callback_payload_from_ajax(ajax_raw: &Value) -> Value {
+    let challenge = find_nested_string(ajax_raw, &["geetest_challenge", "challenge"]);
+    let validate = find_nested_string(ajax_raw, &["geetest_validate", "validate"]);
+    let sec_code = first_non_empty([
+        find_nested_string(
+            ajax_raw,
+            &["geetest_seccode", "sec_code", "secCode", "seccode"],
+        ),
+        validate.clone().map(|value| format!("{value}|jordan")),
+    ]);
+    if challenge.as_deref().unwrap_or_default().is_empty()
+        && validate.as_deref().unwrap_or_default().is_empty()
+        && sec_code.as_deref().unwrap_or_default().is_empty()
+    {
+        Value::Null
+    } else {
+        json!({
+            "geetest_challenge": optional_text_value(challenge),
+            "geetest_validate": optional_text_value(validate),
+            "geetest_seccode": optional_text_value(sec_code),
+        })
+    }
+}
+
+fn parse_query_pairs_from_url(url: &str) -> Vec<(String, String)> {
+    if let Ok(parsed) = Url::parse(url) {
+        return parsed
+            .query_pairs()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect();
+    }
+    if let Some((_, query)) = url.split_once('?') {
+        return form_urlencoded::parse(query.as_bytes())
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect();
+    }
+    Vec::new()
+}
+
+fn parse_body_pairs(value: &Value) -> Vec<(String, String)> {
+    match normalize_json_value(value) {
+        Value::Object(map) => map
+            .into_iter()
+            .map(|(key, value)| (key, json_value_to_text(&value).unwrap_or_default()))
+            .collect(),
+        Value::String(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                return Vec::new();
+            }
+            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
+                return parse_body_pairs(&parsed);
+            }
+            form_urlencoded::parse(trimmed.as_bytes())
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn parse_shape_hint(opts: &HashMap<String, String>, key: &str) -> Option<Vec<String>> {
+    let raw = opts
+        .get(key)
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())?;
+    if let Ok(value) = serde_json::from_str::<Value>(raw) {
+        return extract_shape_from_value(Some(&value));
+    }
+    let parts = raw
+        .split(',')
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts)
+    }
+}
+
+fn extract_shape_from_value(value: Option<&Value>) -> Option<Vec<String>> {
+    let value = value?;
+    match normalize_json_value(value) {
+        Value::Array(list) => {
+            let shape = list
+                .iter()
+                .filter_map(json_value_to_text)
+                .filter(|entry| !entry.is_empty())
+                .collect::<Vec<_>>();
+            if shape.is_empty() {
+                None
+            } else {
+                Some(shape)
+            }
+        }
+        Value::Object(map) => {
+            let keys = map.keys().cloned().collect::<Vec<_>>();
+            if keys.is_empty() {
+                None
+            } else {
+                Some(keys)
+            }
+        }
+        Value::String(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(vec![trimmed.to_string()])
+            }
+        }
+        _ => None,
+    }
+}
+
+fn shape_from_pairs(pairs: &[(String, String)]) -> Vec<String> {
+    let mut shape: Vec<String> = Vec::new();
+    for (key, _) in pairs {
+        if !shape.iter().any(|entry| entry.eq_ignore_ascii_case(key)) {
+            shape.push(key.clone());
+        }
+    }
+    shape
+}
+
+fn shape_to_value(shape: Vec<String>) -> Value {
+    Value::Array(shape.into_iter().map(Value::String).collect())
+}
+
+fn first_non_empty<const N: usize>(candidates: [Option<String>; N]) -> Option<String> {
+    candidates
+        .into_iter()
+        .flatten()
+        .map(|value| value.trim().to_string())
+        .find(|value| !value.is_empty())
+}
+
+fn optional_text_value(value: Option<String>) -> Value {
+    value
+        .map(|entry| Value::String(entry))
+        .unwrap_or(Value::Null)
+}
+
+fn opt_text(opts: &HashMap<String, String>, key: &str) -> Option<String> {
+    opts.get(key)
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn find_first_string(root: &Value, paths: &[&str], fallback_keys: &[&str]) -> Option<String> {
+    for path in paths {
+        if let Some(value) = value_by_path_ci(root, path) {
+            if let Some(text) = json_value_to_text(value).filter(|value| !value.is_empty()) {
+                return Some(text);
+            }
+        }
+    }
+    find_nested_string(root, fallback_keys)
+}
+
+fn find_first_i64(root: &Value, paths: &[&str], fallback_keys: &[&str]) -> Option<i64> {
+    for path in paths {
+        if let Some(value) = value_by_path_ci(root, path) {
+            if let Some(number) = json_value_to_i64(value) {
+                return Some(number);
+            }
+        }
+    }
+    for key in fallback_keys {
+        if let Some(value) = find_nested_value_by_key(root, key) {
+            if let Some(number) = json_value_to_i64(value) {
+                return Some(number);
+            }
+        }
+    }
+    None
+}
+
+fn find_first_value<'a>(
+    root: &'a Value,
+    paths: &[&str],
+    fallback_keys: &[&str],
+) -> Option<&'a Value> {
+    for path in paths {
+        if let Some(value) = value_by_path_ci(root, path) {
+            return Some(value);
+        }
+    }
+    for key in fallback_keys {
+        if let Some(value) = find_nested_value_by_key(root, key) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn value_by_path_ci<'a>(root: &'a Value, path: &str) -> Option<&'a Value> {
+    let mut current = root;
+    let normalized = path.trim_matches('/').replace('/', ".");
+    for segment in normalized.split('.').filter(|entry| !entry.is_empty()) {
+        let Value::Object(map) = current else {
+            return None;
+        };
+        current = object_get_ci(map, segment)?;
+    }
+    Some(current)
+}
+
+fn object_get_ci<'a>(map: &'a serde_json::Map<String, Value>, key: &str) -> Option<&'a Value> {
+    if let Some(value) = map.get(key) {
+        return Some(value);
+    }
+    map.iter()
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value)
+}
+
+fn json_value_to_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.clone()),
+        Value::Number(number) => Some(number.to_string()),
+        Value::Bool(flag) => Some(flag.to_string()),
+        _ => None,
+    }
+}
+
+fn json_value_to_i64(value: &Value) -> Option<i64> {
+    match value {
+        Value::Number(number) => number
+            .as_i64()
+            .or_else(|| number.as_u64().map(|v| v as i64)),
+        Value::String(raw) => raw.trim().parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
+fn find_nested_value_by_key<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
+    match value {
+        Value::Object(map) => {
+            if let Some(found) = object_get_ci(map, key) {
+                return Some(found);
+            }
+            for child in map.values() {
+                if let Some(found) = find_nested_value_by_key(child, key) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        Value::Array(items) => {
+            for item in items {
+                if let Some(found) = find_nested_value_by_key(item, key) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn find_nested_string(value: &Value, keys: &[&str]) -> Option<String> {
+    for key in keys {
+        if let Some(found) = find_nested_value_by_key(value, key) {
+            if let Some(text) = json_value_to_text(found).filter(|entry| !entry.is_empty()) {
+                return Some(text);
+            }
+        }
+    }
+    None
+}
+
+fn lookup_param_ci(pairs: &[(String, String)], key: &str) -> Option<String> {
+    pairs
+        .iter()
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn set_if_missing_or_empty(target: &mut Value, key: &str, replacement: Value) {
+    let Value::Object(map) = target else {
+        return;
+    };
+    let is_missing_or_empty = map
+        .get(key)
+        .map(|existing| !value_is_present(existing))
+        .unwrap_or(true);
+    if is_missing_or_empty {
+        map.insert(key.to_string(), replacement);
+    }
+}
+
+fn missing_required_fields(value: &Value, required: &[&str]) -> Vec<String> {
+    let mut missing = Vec::new();
+    for field in required {
+        let present = value
+            .as_object()
+            .and_then(|map| map.get(*field))
+            .map(value_is_present)
+            .unwrap_or(false);
+        if !present {
+            missing.push((*field).to_string());
+        }
+    }
+    missing
+}
+
+fn value_is_present(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::String(text) => !text.trim().is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(map) => !map.is_empty(),
+        Value::Number(_) => true,
+        Value::Bool(_) => true,
+    }
+}
+
 fn jni_value_to_string(value: JniValue) -> Result<String> {
     match value {
         JniValue::Object(DvmObject::String(value)) => Ok(value),
@@ -1481,6 +2841,19 @@ fn required_option(opts: &HashMap<String, String>, key: &str) -> Result<String> 
 
 fn matches_filter(filter: &str, method: &str) -> bool {
     filter.eq_ignore_ascii_case("all") || filter.eq_ignore_ascii_case(method)
+}
+
+fn count_events_by_tag(events: &[TraceEvent]) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for event in events {
+        *counts.entry(event.tag.clone()).or_insert(0) += 1;
+    }
+    counts
+}
+
+fn tail_events(events: &[TraceEvent], limit: usize) -> Vec<TraceEvent> {
+    let keep = events.len().saturating_sub(limit);
+    events.iter().skip(keep).cloned().collect()
 }
 
 fn java_string_hash(value: &str) -> i32 {

@@ -86,6 +86,50 @@ services:
       interval: 20s
       timeout: 5s
       retries: 6
+  rnidbg-gt3-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: rnidbg-lab:dev
+    container_name: rnidbg-gt3-web
+    working_dir: /workspace/rnidbg
+    restart: unless-stopped
+    environment:
+      PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      RNIDBG_CONTAINER_REPO_ROOT: /workspace/rnidbg
+      RNIDBG_GT3_WEB_BIND_HOST: ${RNIDBG_GT3_WEB_BIND_HOST:-0.0.0.0}
+      RNIDBG_GT3_WEB_PORT: ${RNIDBG_GT3_WEB_PORT:-8880}
+      RNIDBG_GT3_WEB_STATE_DIR: ${RNIDBG_GT3_WEB_STATE_DIR:-/workspace/lab-data/gt3-web}
+      RNIDBG_GT3_WEB_PHONE: ${RNIDBG_GT3_WEB_PHONE:-7593791087}
+      RNIDBG_GT3_WEB_REGION: ${RNIDBG_GT3_WEB_REGION:-+44}
+      RNIDBG_GT3_WEB_BACKEND: ${RNIDBG_GT3_WEB_BACKEND:-dynarmic}
+    volumes:
+      - ${RNIDBG_REPO_ROOT:-.}:/workspace/rnidbg
+      - ${RNIDBG_ASSETS_ROOT:-../drizzle-dumper-rust}:/workspace/lab-assets
+      - ${RNIDBG_HOST_TMP:-/tmp}:/workspace/host-tmp:ro
+      - lab-data:/workspace/lab-data
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+    ports:
+      - "${RNIDBG_GT3_WEB_HOST_PORT:-28880}:${RNIDBG_GT3_WEB_PORT:-8880}"
+    command:
+      - bash
+      - -lc
+      - >
+        cd /workspace/rnidbg &&
+        ./scripts/run-gt3-web.sh
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c 'import json, os, urllib.request;
+          port = int(os.environ.get("RNIDBG_GT3_WEB_PORT", "8880"));
+          body = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3).read().decode("utf-8"));
+          raise SystemExit(0 if str(body.get("status", "")).lower() == "ok" else 1)'
+      interval: 20s
+      timeout: 5s
+      retries: 6
 
 volumes:
   cargo-registry:

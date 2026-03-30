@@ -5,21 +5,33 @@ export PATH="/usr/local/cargo/bin:${PATH}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONTAINER_REPO_ROOT="${RNIDBG_CONTAINER_REPO_ROOT:-${REPO_ROOT}}"
+CONTAINER_REPO_ROOT_ENV="${RNIDBG_CONTAINER_REPO_ROOT:-}"
+CONTAINER_REPO_ROOT="${CONTAINER_REPO_ROOT_ENV:-${REPO_ROOT}}"
+CONTAINER_TARGET_ROOT="${RNIDBG_CONTAINER_TARGET_ROOT:-/workspace/lab-data/cargo-targets}"
 
 BACKEND_MODE="${1:-default}"
 PROFILE="${RNIDBG_BUILD_PROFILE:-debug}"
+HOST_OS="$(uname -s)"
 
 case "${BACKEND_MODE}" in
   unicorn|unicorn2)
     TARGET_DIR="${RNIDBG_UNICORN_TARGET_DIR:-${CONTAINER_REPO_ROOT}/target/rnidbg-unicorn}"
     FEATURE_FLAG="unicorn"
+    TARGET_SUFFIX="rnidbg-unicorn"
     ;;
   *)
     TARGET_DIR="${RNIDBG_DEFAULT_TARGET_DIR:-${CONTAINER_REPO_ROOT}/target/rnidbg-default}"
     FEATURE_FLAG=""
+    TARGET_SUFFIX="rnidbg-default"
     ;;
 esac
+
+# In Docker we share the repository worktree with the host, so `${REPO_ROOT}/target`
+# may already contain a host-built Mach-O binary. Redirect container builds into
+# a dedicated Linux-only target root to avoid reusing or overwriting host artifacts.
+if [[ "${HOST_OS}" == "Linux" ]] && [[ -n "${CONTAINER_REPO_ROOT_ENV}" ]] && [[ "${TARGET_DIR}" == "${CONTAINER_REPO_ROOT}/target/"* ]]; then
+  TARGET_DIR="${CONTAINER_TARGET_ROOT}/${TARGET_SUFFIX}"
+fi
 
 case "${PROFILE}" in
   release)

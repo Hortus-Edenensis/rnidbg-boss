@@ -2,12 +2,7 @@
 
 ## 目标
 
-把 GT3 相关的两类能力从主仓库里拆出来：
-
-1. Boss APK 真实调用链还原
-2. Web 风格的图片解码 / 边缘检测 / 偏移估计 / 轨迹生成
-
-这样主仓库负责业务入口，独立子模块负责算法与调用链模型。
+把 GT3 能力聚焦为 Boss APK App 端真实链路取证，主仓库负责业务入口，子模块负责调用链模型与交换实现。
 
 ## 子模块位置
 
@@ -35,28 +30,22 @@ cargo run --no-default-features --features unicorn -- boss-yzwg gt3-call-chain
 - `captcha/validate`
 - `libyzwg.so` 只负责 signer，不负责 GT3 challenge 引擎
 
-### 2. 跑图片管线
+### 2. 真实探针（替代已移除的 Web 分支）
+
+`gt3-pipeline|gt3-image-solve` 已从主命令入口移除。当前统一使用 App 端真实探针：
 
 ```bash
-cargo run --no-default-features --features unicorn -- boss-yzwg gt3-pipeline \
-  --background-image /tmp/bg.png \
-  --slider-image /tmp/slider.png
-```
-
-或者：
-
-```bash
-cargo run --no-default-features --features unicorn -- boss-yzwg gt3-pipeline \
-  --background-url https://example.com/bg.png \
-  --slider-url https://example.com/slider.png \
-  --referer https://www.geetest.com/demo/slide-float.html
+cargo run --no-default-features --features unicorn -- boss-yzwg captcha-trace \
+  --phone 7593791087 \
+  --region-code +44 \
+  --skip-validate true
 ```
 
 ## 边界
 
-这个子模块刻意把“调用链还原”和“本地图像分析”分开：
+当前边界：
 
 - APK 链路说明 Boss App 怎么把 `startCaptcha` 喂给 GT3 SDK
-- 图片管线只做本地分析，不冒充 APK 内部 GT3 SDK 逻辑
+- 已移除 Geetest Web 分支命令入口，避免偏离 App native 方案
 
 这和 `docs/gt3-geetest-static-analysis.md`、`docs/gt3-web-vs-apk-comparison.md` 的结论一致。

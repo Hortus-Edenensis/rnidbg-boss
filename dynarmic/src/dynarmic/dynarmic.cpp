@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <exception>
@@ -20,10 +21,29 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
+static inline u64 normalize_vaddr(u64 vaddr) {
+    const u64 top = vaddr >> 56;
+    switch (top) {
+        case 0x20:
+        case 0x40:
+        case 0x60:
+        case 0x80:
+        case 0xA0:
+        case 0xC0:
+        case 0xE0:
+            return vaddr & 0x00FFFFFFFFFFFFFFULL;
+        default:
+            return vaddr;
+    }
+}
+
 static char *get_memory_page(khash_t(memory) *memory, u64 vaddr, size_t num_page_table_entries, void **page_table) {
+    vaddr = normalize_vaddr(vaddr);
     u64 idx = vaddr >> DYN_PAGE_BITS;
     if(page_table && idx < num_page_table_entries) {
-        return (char *)page_table[idx];
+        if(page_table[idx]) {
+            return (char *)page_table[idx];
+        }
     }
     u64 base = vaddr & ~DYN_PAGE_MASK;
     khiter_t k = kh_get(memory, memory, base);
@@ -35,6 +55,7 @@ static char *get_memory_page(khash_t(memory) *memory, u64 vaddr, size_t num_page
 }
 
 static inline void *get_memory(khash_t(memory) *memory, u64 vaddr, size_t num_page_table_entries, void **page_table) {
+    vaddr = normalize_vaddr(vaddr);
     char *page = get_memory_page(memory, vaddr, num_page_table_entries, page_table);
     return page ? &page[vaddr & DYN_PAGE_MASK] : nullptr;
 }
@@ -44,6 +65,151 @@ public:
     explicit DynarmicCallbacks64(khash_t(memory) *memory)
             : memory{memory} {}
 
+    struct RecentCodeFetch {
+        u64 pc = 0;
+        u32 code = 0;
+    };
+
+    void DumpCpuState(const char* op, u64 vaddr) const {
+        if (!cpu) {
+            fprintf(stderr, "%s: vaddr=%p cpu=null\n", op, (void*)vaddr);
+            return;
+        }
+        auto regs = cpu->GetRegisters();
+        fprintf(
+            stderr,
+            "%s: vaddr=%p pc=%p sp=%p fp=%p lr=%p\n",
+            op,
+            (void*)vaddr,
+            (void*)cpu->GetPC(),
+            (void*)cpu->GetSP(),
+            (void*)regs[29],
+            (void*)regs[30]
+        );
+        fprintf(
+            stderr,
+            "  x0=%p x1=%p x2=%p x3=%p x4=%p x5=%p x6=%p x7=%p\n",
+            (void*)regs[0], (void*)regs[1], (void*)regs[2], (void*)regs[3],
+            (void*)regs[4], (void*)regs[5], (void*)regs[6], (void*)regs[7]
+        );
+        fprintf(
+            stderr,
+            "  x8=%p x9=%p x10=%p x11=%p x12=%p x13=%p x14=%p x15=%p\n",
+            (void*)regs[8], (void*)regs[9], (void*)regs[10], (void*)regs[11],
+            (void*)regs[12], (void*)regs[13], (void*)regs[14], (void*)regs[15]
+        );
+        fprintf(
+            stderr,
+            "  x16=%p x17=%p x18=%p x19=%p x20=%p x21=%p x22=%p x23=%p\n",
+            (void*)regs[16], (void*)regs[17], (void*)regs[18], (void*)regs[19],
+            (void*)regs[20], (void*)regs[21], (void*)regs[22], (void*)regs[23]
+        );
+        fprintf(
+            stderr,
+            "  x24=%p x25=%p x26=%p x27=%p x28=%p\n",
+            (void*)regs[24], (void*)regs[25], (void*)regs[26], (void*)regs[27], (void*)regs[28]
+        );
+    }
+
+    void RecordCodeFetch(u64 pc, u32 code) {
+        recent_code_fetches[recent_code_fetch_cursor % recent_code_fetches.size()] = {pc, code};
+        recent_code_fetch_cursor++;
+    }
+
+    void DumpRecentCodeFetches() const {
+        const size_t total = recent_code_fetch_cursor < recent_code_fetches.size()
+                             ? recent_code_fetch_cursor
+                             : recent_code_fetches.size();
+        fprintf(stderr, "RecentCodeFetches(total=%zu):\n", total);
+        for (size_t i = 0; i < total; i++) {
+            const size_t idx =
+                (recent_code_fetch_cursor + recent_code_fetches.size() - total + i) %
+                recent_code_fetches.size();
+            const auto& fetch = recent_code_fetches[idx];
+            fprintf(stderr, "  [%02zu] pc=%p instr=0x%08X\n", i, (void*)fetch.pc, fetch.code);
+        }
+    }
+
+    bool ShouldAbortOnLowRead() const {
+        const char* value = std::getenv("DYNARMIC_ABORT_ON_LOW_READ");
+        return value && value[0] != '\0' && value[0] != '0';
+    }
+
+    bool TryGetWatchRange(u64& start, u64& end) const {
+        const char* start_env = std::getenv("DYNARMIC_WATCH_START");
+        const char* end_env = std::getenv("DYNARMIC_WATCH_END");
+        if (!start_env || !end_env) {
+            return false;
+        }
+        char* start_tail = nullptr;
+        char* end_tail = nullptr;
+        start = std::strtoull(start_env, &start_tail, 0);
+        end = std::strtoull(end_env, &end_tail, 0);
+        return start_tail && end_tail && *start_tail == '\0' && *end_tail == '\0' && start <= end;
+    }
+
+    bool IsWatchedRange(u64 vaddr, size_t size) const {
+        u64 start = 0;
+        u64 end = 0;
+        if (!TryGetWatchRange(start, end)) {
+            return false;
+        }
+        const u64 last = vaddr + size - 1;
+        return !(last < start || vaddr > end);
+    }
+
+    void DumpWatchedAccess(const char* op, u64 vaddr, size_t size, u64 value_low, u64 value_high = 0) {
+        fprintf(
+            stderr,
+            "%s: addr=%p size=0x%zx value_low=0x%llx value_high=0x%llx\n",
+            op,
+            (void*)vaddr,
+            size,
+            static_cast<unsigned long long>(value_low),
+            static_cast<unsigned long long>(value_high)
+        );
+        DumpCpuState(op, vaddr);
+        DumpRecentCodeFetches();
+    }
+
+    bool ShouldLogLowRead() {
+        low_read_count++;
+        return low_read_count <= 4 || ShouldAbortOnLowRead();
+    }
+
+    void HandleLowRead(const char* op, u64 vaddr) {
+        if (!ShouldLogLowRead()) {
+            return;
+        }
+        fprintf(stderr, "%s: low vaddr=%p\n", op, (void*)vaddr);
+        DumpCpuState(op, vaddr);
+        DumpRecentCodeFetches();
+        if (ShouldAbortOnLowRead()) {
+            abort();
+        }
+    }
+
+    static u64 CanonicalizeVaddr(u64 vaddr) {
+        // Dynarmic fastmem miss addresses may encode metadata in the top byte
+        // (e.g. 0x20/0x40/... prefixes). Android user-space pointers can also
+        // carry TBI tags; for emulator page lookup we always use canonical
+        // low-56-bit virtual addresses.
+        const u64 top = (vaddr >> 56) & 0xff;
+        switch (top) {
+            case 0x20:
+            case 0x40:
+            case 0x60:
+            case 0x80:
+            case 0xA0:
+            case 0xC0:
+            case 0xE0:
+                return vaddr & 0x00FFFFFFFFFFFFFFULL;
+            default:
+                break;
+        }
+        return vaddr;
+    }
+
     bool IsReadOnlyMemory(u64 vaddr) override {
 //        u64 idx;
 //        return mem_map && (idx = vaddr >> DYN_PAGE_BITS) < num_page_table_entries && mem_map[idx] & PAGE_EXISTS_BIT && (mem_map[idx] & UC_PROT_WRITE) == 0;
@@ -52,20 +218,33 @@ public:
 
     std::optional<std::uint32_t> MemoryReadCode(u64 vaddr) override {
         u32 code = MemoryRead32(vaddr);
+        RecordCodeFetch(vaddr, code);
 //        printf("MemoryReadCode[%s->%s:%d]: vaddr=0x%llx, code=0x%08x\n", __FILE__, __func__, __LINE__, vaddr, code);
         return code;
     }
 
     u8 MemoryRead8(u64 vaddr) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if(vaddr < 0x1000) {
+            HandleLowRead("MemoryRead8(low)", vaddr);
+            return 0;
+        }
         u8 *dest = (u8 *) get_memory(memory, vaddr, num_page_table_entries, page_table);
         if(dest) {
             return dest[0];
         } else {
-            fprintf(stderr, "MemoryRead8[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryRead8[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
     }
     u16 MemoryRead16(u64 vaddr) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if(vaddr < 0x1000) {
+            HandleLowRead("MemoryRead16(low)", vaddr);
+            return 0;
+        }
         if(vaddr & 1) {
             const u8 a{MemoryRead8(vaddr)};
             const u8 b{MemoryRead8(vaddr + sizeof(u8))};
@@ -75,11 +254,17 @@ public:
         if(dest) {
             return dest[0];
         } else {
-            fprintf(stderr, "MemoryRead16[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryRead16[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
     }
     u32 MemoryRead32(u64 vaddr) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if(vaddr < 0x1000) {
+            HandleLowRead("MemoryRead32(low)", vaddr);
+            return 0;
+        }
         if(vaddr & 3) {
             const u16 a{MemoryRead16(vaddr)};
             const u16 b{MemoryRead16(vaddr + sizeof(u16))};
@@ -89,11 +274,18 @@ public:
         if(dest) {
             return dest[0];
         } else {
-            fprintf(stderr, "MemoryRead32[%s->%s:%d]: vaddr=%p, pc=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr, (void*) cpu->GetPC());
+            fprintf(stderr, "MemoryRead32[%s->%s:%d]: raw=%p canon=%p, pc=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr, (void*) cpu->GetPC());
+            DumpCpuState("MemoryRead32(miss)", vaddr);
             abort();
         }
     }
     u64 MemoryRead64(u64 vaddr) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if(vaddr < 0x1000) {
+            HandleLowRead("MemoryRead64(low)", vaddr);
+            return 0;
+        }
         if(vaddr & 7) {
             const u32 a{MemoryRead32(vaddr)};
             const u32 b{MemoryRead32(vaddr + sizeof(u32))};
@@ -103,7 +295,7 @@ public:
         if(dest) {
             return dest[0];
         } else {
-            fprintf(stderr, "MemoryRead64[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryRead64[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
     }
@@ -112,15 +304,25 @@ public:
     }
 
     void MemoryWrite8(u64 vaddr, u8 value) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if (IsWatchedRange(vaddr, sizeof(value))) {
+            DumpWatchedAccess("MemoryWrite8(watch)", vaddr, sizeof(value), value);
+        }
         u8 *dest = (u8 *) get_memory(memory, vaddr, num_page_table_entries, page_table);
         if(dest) {
             dest[0] = value;
         } else {
-            fprintf(stderr, "MemoryWrite8[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryWrite8[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
     }
     void MemoryWrite16(u64 vaddr, u16 value) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if (IsWatchedRange(vaddr, sizeof(value))) {
+            DumpWatchedAccess("MemoryWrite16(watch)", vaddr, sizeof(value), value);
+        }
         if(vaddr & 1) {
             MemoryWrite8(vaddr, static_cast<u8>(value));
             MemoryWrite8(vaddr + sizeof(u8), static_cast<u8>(value >> 8));
@@ -130,12 +332,17 @@ public:
         if(dest) {
             dest[0] = value;
         } else {
-            fprintf(stderr, "MemoryWrite16[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryWrite16[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
 
     }
     void MemoryWrite32(u64 vaddr, u32 value) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if (IsWatchedRange(vaddr, sizeof(value))) {
+            DumpWatchedAccess("MemoryWrite32(watch)", vaddr, sizeof(value), value);
+        }
         if(vaddr & 3) {
             MemoryWrite16(vaddr, static_cast<u16>(value));
             MemoryWrite16(vaddr + sizeof(u16), static_cast<u16>(value >> 16));
@@ -145,11 +352,16 @@ public:
         if(dest) {
             dest[0] = value;
         } else {
-            fprintf(stderr, "MemoryWrite32[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryWrite32[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
     }
     void MemoryWrite64(u64 vaddr, u64 value) override {
+        const u64 raw_vaddr = vaddr;
+        vaddr = CanonicalizeVaddr(vaddr);
+        if (IsWatchedRange(vaddr, sizeof(value))) {
+            DumpWatchedAccess("MemoryWrite64(watch)", vaddr, sizeof(value), value);
+        }
         if(vaddr & 7) {
             MemoryWrite32(vaddr, static_cast<u32>(value));
             MemoryWrite32(vaddr + sizeof(u32), static_cast<u32>(value >> 32));
@@ -159,11 +371,14 @@ public:
         if(dest) {
             dest[0] = value;
         } else {
-            fprintf(stderr, "MemoryWrite64[%s->%s:%d]: vaddr=%p\n", __FILE__, __func__, __LINE__, (void*)vaddr);
+            fprintf(stderr, "MemoryWrite64[%s->%s:%d]: raw=%p canon=%p\n", __FILE__, __func__, __LINE__, (void*)raw_vaddr, (void*)vaddr);
             abort();
         }
     }
     void MemoryWrite128(u64 vaddr, Dynarmic::A64::Vector value) override {
+        if (IsWatchedRange(vaddr, 16)) {
+            DumpWatchedAccess("MemoryWrite128(watch)", vaddr, 16, value[0], value[1]);
+        }
         MemoryWrite64(vaddr, value[0]);
         MemoryWrite64(vaddr + 8, value[1]);
     }
@@ -257,6 +472,9 @@ public:
 
     cb_call_svc svc_callback = nullptr;
     void* svc_user_data = nullptr;
+    mutable std::array<RecentCodeFetch, 32> recent_code_fetches{};
+    mutable size_t recent_code_fetch_cursor = 0;
+    mutable size_t low_read_count = 0;
 
     ~DynarmicCallbacks64() override = default;
 };

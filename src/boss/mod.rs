@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Result};
 
 pub mod captcha_mock;
+pub mod captcha_trace;
 pub mod contact;
 pub mod fingerprint;
 pub mod gt3;
@@ -16,6 +17,7 @@ pub mod qr_codec;
 pub mod qr_login;
 pub mod qr_web;
 pub mod search;
+pub mod seetong;
 pub mod yzwg;
 
 pub use yzwg::BossYzwgLab;
@@ -39,7 +41,22 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             return Ok(());
         }
         "captcha-mock" => {
-            let output = captcha_mock::run_captcha_mock(&opts)?;
+            return Err(anyhow!(
+                "captcha-mock has been retired; use captcha-trace|login-captcha-trace for real probe"
+            ));
+        }
+        "captcha-trace" | "login-captcha-trace" => {
+            let output = captcha_trace::run_captcha_trace(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "captcha-validate-submit" | "validate-submit" => {
+            let output = captcha_trace::run_captcha_validate_submit(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "captcha-validate-experiment" | "validate-experiment" | "validate-matrix" => {
+            let output = captcha_trace::run_captcha_validate_experiment(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
@@ -48,10 +65,20 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
-        "gt3-pipeline" | "gt3-image-solve" => {
-            let output = gt3::run_gt3_pipeline(&opts)?;
+        "gt3-app3-protocol" | "gt3-app3" => {
+            let output = gt3::run_gt3_app3_protocol(&opts)?;
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
+        }
+        "gt3-manual-trajectory" | "gt3-manual-track" => {
+            let output = gt3::run_gt3_manual_trajectory(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "gt3-pipeline" | "gt3-image-solve" => {
+            return Err(anyhow!(
+                "gt3-pipeline|gt3-image-solve (geetest web branch) has been removed; use captcha-trace for app-native probe"
+            ));
         }
         "job-detail" => {
             let output = job_detail::run_job_detail(&opts)?;
@@ -140,6 +167,16 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&output)?);
             return Ok(());
         }
+        "seetong-smoke" => {
+            let output = seetong::run_smoke(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
+        "seetong-live" => {
+            let output = seetong::run_live(&opts)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            return Ok(());
+        }
         _ => {}
     }
 
@@ -148,6 +185,15 @@ pub fn run(mut args: Vec<String>) -> Result<()> {
             .cloned()
             .unwrap_or_else(default_config_path),
     );
+    if matches!(command.as_str(), "java-probe" | "runtime-probe") {
+        let mut lab = yzwg::BossYzwgLab::load_probe_with_backend(
+            &config_path,
+            opts.get("--backend").map(String::as_str),
+        )?;
+        let output = lab.run_java_probe(&opts)?;
+        println!("{}", serde_json::to_string_pretty(&output)?);
+        return Ok(());
+    }
     let mut lab = yzwg::BossYzwgLab::load_with_backend(
         &config_path,
         opts.get("--backend").map(String::as_str),
@@ -186,17 +232,40 @@ pub fn print_usage() {
     eprintln!(
         "  invoke  [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> --arg1 <utf8|hex:...> [--arg2 <key>] [--dump-rc4 true]"
     );
-    eprintln!("  replay  [--config <path>] [--backend <auto|dynarmic|unicorn>] [--lookup <path>] [--limit <N>] [--mode <sp|sig|both>]");
     eprintln!(
-        "  captcha-mock --session-path <path> [--dialog-result-json <json>|--dialog-result-file <path>] [--host <host>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+        "  java-probe|runtime-probe [--config <path>] [--backend <auto|dynarmic|unicorn>] [--probe <both|secret-key|dialog>] [--secret-key <hex>] [--captcha-type <n>] [--dialog-result-json <json>|--dialog-result-file <path>] [--gt3-proof-truth-json <json>|--gt3-proof-truth-file <path>] [--gt3-proof-response-json <json>|--gt3-proof-response-file <path>]"
+    );
+    eprintln!("  replay  [--config <path>] [--backend <auto|dynarmic|unicorn>] [--lookup <path>] [--limit <N>] [--mode <sp|sig|both>]");
+    eprintln!("  captcha-mock  (retired; use captcha-trace|login-captcha-trace)");
+    eprintln!(
+        "  captcha-trace|login-captcha-trace --phone <number> [--region-code <+86>] [--machine-type <3>] [--skip-validate true] [--skip-gt3-exchange true] [--captcha-info-json <json>] [--secret-key <hex>] [--sec-code-normalization <none|strip-pipe-suffix|strip-jordan>] [--proof-source <production-truth|legacy>] [--production-proof-truth-json <json>|--production-proof-truth-path <path>] [--gt3-proof-truth-json <json>|--gt3-proof-truth-path <path>] [--host <host>] [--brand <name>] [--model-name <name>] [--network <wifi|2G|3G|4G|5G>] [--operator-name <CMCC|CHN-CT|CHN-UNICOM|CHN-CR>] [--huawei true] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--gt3-api-server <url>] [--gt3-static-server <url>] [--gt3-user-agent <ua>] [--edge-low <f32>] [--edge-high <f32>] [--seed <u64>] [--out <path>]"
     );
     eprintln!(
-        "           real flow: GET /zpsecureflow/captcha/gettype (signed via libyzwg.so) then POST /zpsecureflow/captcha/validate with user-supplied GT3 dialog result"
+        "           output includes GT3 chain evidence and, when available, production_proof_truth/gt3_proof_truth blocks for native proof replay"
+    );
+    eprintln!(
+        "           real flow: judge -> machine -> GT3 exchange (get.php -> image solve -> ajax.php) -> POST /api/zpsecureflow/captcha/validate, then stop before smsCode/codeLogin"
+    );
+    eprintln!(
+        "  captcha-validate-submit|validate-submit --trace-json <path> --captcha-info-json <json> [--secret-key <hex>] [--sec-code-normalization <none|strip-pipe-suffix|strip-jordan>] [--java-probe-path <path>|--java-probe-json <json>] [--host <host>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "           manual backfill: reuse device/host from the trace and submit only /api/zpsecureflow/captcha/validate"
+    );
+    eprintln!(
+        "  captcha-validate-experiment|validate-experiment|validate-matrix --trace-json <path> --captcha-info-json <json> [--secret-key <hex>] [--session-path <path>] [--java-probe-path <path>|--java-probe-json <json>] [--matrix-out-dir <dir>] [--host <host>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>]"
+    );
+    eprintln!(
+        "           explicit experiment matrix: baseline + secCode normalization + optional secret-key/session signing variants"
     );
     eprintln!("  gt3-call-chain|gt3-chain [--format <json|markdown>] [--out <path>]");
     eprintln!(
-        "  gt3-pipeline|gt3-image-solve [--background-url <url>|--background-image <path>] [--slider-url <url>|--slider-image <path>] [--user-agent <ua>] [--referer <url>] [--edge-low <f32>] [--edge-high <f32>] [--seed <u64>] [--out <path>]"
+        "  gt3-app3-protocol|gt3-app3 [--trace-json <path>|--url <app3-url>] [--type <fullpage|click|slide>] [--lang <zh-cn>] [--timeout <10000>] [--debug true] [--simulate-success true] [--out <path>]"
     );
+    eprintln!(
+        "  gt3-manual-trajectory|gt3-manual-track --offset-x <px> (--trajectory-json <json>|--trajectory-path <path>) [--proof-source <production-truth|legacy>] [--trace-json <path>] [--production-proof-truth-json <json>|--production-proof-truth-path <path>] [--gt3-proof-truth-json <json>|--gt3-proof-truth-path <path>] [--register-json <json>|--register-path <path>] [--gt <id>] [--challenge <id>] [--bootstrap-challenge <id>] [--gt3-api-server <url>] [--gt3-static-server <url>] [--gt3-user-agent <ua>] [--out <path>]"
+    );
+    eprintln!("  gt3-pipeline|gt3-image-solve  (removed; geetest web branch retired)");
     eprintln!(
         "  private-info|profile [--session-path <path>] [--host <host>] [--city-code <code>] [--user-id <id>] [--sub-location <id>] [--config <path>] [--backend <auto|dynarmic|unicorn>] [--invoke-runtime <auto|local|bridge>] [--bridge-url <url>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only true] [--out <path>] [--force-so true]"
     );
@@ -255,6 +324,12 @@ pub fn print_usage() {
     );
     eprintln!(
         "  qr-consume  --producer-id <id> [--base-url <url>] [--login-type <1|2>] [--session-path <path>]"
+    );
+    eprintln!(
+        "  seetong-smoke [--config <path>] [--backend <dynarmic|unicorn>] [--trace-out <dir>]"
+    );
+    eprintln!(
+        "  seetong-live --seed <path> [--config <path>] [--backend <dynarmic|unicorn>] [--trace-out <dir>]"
     );
     eprintln!("  shared proxy flags: [--socks5-proxy <host:port:user:pass>] [--socks5-proxy-pool-file <path>]");
 }

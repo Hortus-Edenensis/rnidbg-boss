@@ -110,6 +110,18 @@ fn build_with_cmake() {
 }
 
 fn main() {
+    for path in [
+        "binding/build.rs",
+        "CMakeLists.txt",
+        "cmake",
+        "CMakeModules",
+        "binding/src",
+        "src",
+        "externals",
+    ] {
+        println!("cargo:rerun-if-changed={path}");
+    }
+
     match pkg_config::Config::new()
         .atleast_version("2")
         .cargo_metadata(false)

@@ -1,0 +1,9 @@
+{
+  "package": "com.seetong.app.seetong",
+  "apk_path": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/exports/seetong_export_20260216_145713/seetong_base.apk",
+  "funclib_agent_path": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/jadx_seetong_20260216_1500/seetong_export_20260216_145713/jadx_base/resources/lib/arm64-v8a/libFunclibAgent.so",
+  "funclib_path": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/jadx_seetong_20260216_1500/seetong_export_20260216_145713/jadx_base/resources/lib/arm64-v8a/libFunclib.so",
+  "trace_out_dir": "/private/tmp/seetong-rnidbg-trace",
+  "android_api": 28,
+  "backend": "dynarmic"
+}

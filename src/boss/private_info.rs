@@ -647,12 +647,15 @@ fn headers_to_json(headers: &reqwest::header::HeaderMap) -> Value {
 
 fn normalize_bridge_url(url: &str) -> Result<String> {
     let parsed = Url::parse(url).with_context(|| format!("invalid bridge url: {url}"))?;
-    let host = parsed
+    let mut host = parsed
         .host_str()
         .ok_or_else(|| anyhow!("bridge url missing host: {url}"))?;
     let port = parsed
         .port_or_known_default()
         .ok_or_else(|| anyhow!("bridge url missing port: {url}"))?;
+    if std::env::var("RNIDBG_CONTAINER_REPO_ROOT").is_ok() && host == "127.0.0.1" && port == 28080 {
+        host = "host.docker.internal";
+    }
     Ok(format!("{}://{}:{}", parsed.scheme(), host, port))
 }
 

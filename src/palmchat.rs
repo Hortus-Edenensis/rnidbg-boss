@@ -2,12 +2,15 @@ use std::any::Any;
 use std::cell::{RefCell, UnsafeCell};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{self, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::rc::Rc;
 
 use anyhow::{anyhow, Context, Result};
+use boa_engine::{Context as BoaContext, Source};
 use chrono::{SecondsFormat, Utc};
 use emulator::android::dvm::class::DvmClass;
 use emulator::android::dvm::class_resolver::ClassResolver;
@@ -110,9 +113,11 @@ struct PalmchatIdentityProbeConfig {
     imei: Option<String>,
     #[serde(default)]
     mac: Option<String>,
+    #[serde(default)]
+    process_name: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct PalmchatIdentityRuntimeState {
     privacy_agree: Option<bool>,
     read_phone_state_granted: Option<bool>,
@@ -120,6 +125,7 @@ struct PalmchatIdentityRuntimeState {
     android_id: String,
     imei: String,
     mac: String,
+    process_name: String,
 }
 
 impl PalmchatIdentityRuntimeState {
@@ -131,6 +137,7 @@ impl PalmchatIdentityRuntimeState {
             android_id: config.android_id.clone().unwrap_or_default(),
             imei: config.imei.clone().unwrap_or_default(),
             mac: config.mac.clone().unwrap_or_default(),
+            process_name: config.process_name.clone().unwrap_or_default(),
         }
     }
 
@@ -161,6 +168,30 @@ impl PalmchatIdentityRuntimeState {
     fn effective_mac(&self) -> String {
         self.mac.clone()
     }
+
+    fn effective_process_name(&self, package_name: &str) -> String {
+        if self.process_name.trim().is_empty() {
+            package_name.to_string()
+        } else {
+            self.process_name.clone()
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CaptchaUiDebugSubmission {
+    verify_status: bool,
+    rid: String,
+    mode_type: String,
+    diff_time: String,
+}
+
+#[derive(Clone, Debug)]
+struct CaptchaUiDebugLaunch {
+    submission: CaptchaUiDebugSubmission,
+    extra_events: Vec<Value>,
+    ui_mode: String,
+    ui_source: String,
 }
 
 impl PalmchatConfig {
@@ -197,6 +228,11 @@ impl PalmchatConfig {
             .identity_probe
             .mac
             .map(|value| value.trim().to_string());
+        config.identity_probe.process_name = config
+            .identity_probe
+            .process_name
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
         config.wksec_so_path = config.wksec_so_path.map(normalize);
         config.got_seed_path = config.got_seed_path.map(normalize);
         config.runtime_page_patches = config
@@ -851,6 +887,9 @@ impl PalmchatLab {
         if let Some(value) = opts.get("--mac") {
             state.mac = value.clone();
         }
+        if let Some(value) = opts.get("--process-name") {
+            state.process_name = value.clone();
+        }
         *self.identity_state.borrow_mut() = state;
     }
 
@@ -1101,22 +1140,19 @@ impl PalmchatLab {
         }))
     }
 
-    fn run_gate_probe(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
-        self.reset_identity_probe_state(opts);
+    fn capture_app_init_upstream_observation(&mut self) -> Result<Value> {
         let app_context = self.app_context_object()?;
-        let before_state = self.identity_state.borrow().clone();
-
-        let privacy_gate =
-            jni_value_to_bool(self.call_java_static("defpackage/r75", "l", "()Z", vec![])?)?;
-        let read_phone_permissions =
-            self.make_string_array(&["android.permission.READ_PHONE_STATE"])?;
-        let phone_gate = jni_value_to_bool(self.call_java_static(
-            "defpackage/tg4",
-            "b",
-            "(Landroid/content/Context;[Ljava/lang/String;)Z",
-            vec![app_context.clone().into(), read_phone_permissions.into()],
+        let package_name = self.config.package_name.clone();
+        let process_name = jni_value_to_string(self.call_java_static(
+            "defpackage/k86",
+            "m",
+            "(Landroid/content/Context;)Ljava/lang/String;",
+            vec![app_context.clone().into()],
         )?)?;
+        let process_name_empty = process_name.trim().is_empty();
+        let main_process_gate = app_init_main_process_gate(&package_name, &process_name);
 
+        let before_state = self.identity_state.borrow().clone();
         let before_android_id = jni_value_to_string(self.call_java_instance(
             "com/zenmen/palmchat/privinfo/PrivInfoManager",
             "getAndroidID",
@@ -1136,13 +1172,19 @@ impl PalmchatLab {
             vec![],
         )?)?;
 
-        let _ = self.call_java_instance(
-            "com/zenmen/palmchat/privinfo/PrivInfoManager",
-            "init",
-            "(Landroid/content/Context;)V",
-            vec![app_context.clone().into()],
-        )?;
+        let init_called = if main_process_gate {
+            let _ = self.call_java_instance(
+                "com/zenmen/palmchat/privinfo/PrivInfoManager",
+                "init",
+                "(Landroid/content/Context;)V",
+                vec![app_context.clone().into()],
+            )?;
+            true
+        } else {
+            false
+        };
 
+        let after_state = self.identity_state.borrow().clone();
         let after_android_id = jni_value_to_string(self.call_java_instance(
             "com/zenmen/palmchat/privinfo/PrivInfoManager",
             "getAndroidID",
@@ -1161,6 +1203,101 @@ impl PalmchatLab {
             "()Ljava/lang/String;",
             vec![],
         )?)?;
+
+        self.shared.borrow_mut().native(&format!(
+            "app_init_probe process_name={} package_name={} process_empty={} main_process_gate={} init_called={} before_init={} after_init={}",
+            process_name,
+            package_name,
+            process_name_empty,
+            main_process_gate,
+            init_called,
+            before_state.priv_info_initialized,
+            after_state.priv_info_initialized,
+        ));
+
+        Ok(json!({
+            "status": "ok",
+            "anchor_callsite": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/AppContext.java:607",
+            "summary": "This observation chain reconstructs the AppContext.processOnCreate gate that decides whether PrivInfoManager.INSTANCE.init(this) executes in the main process branch.",
+            "runtime_inputs": {
+                "package_name": package_name,
+                "process_name": process_name,
+                "process_name_empty": process_name_empty,
+                "main_process_gate": main_process_gate,
+            },
+            "priv_info": {
+                "before_init": {
+                    "is_init": before_state.priv_info_initialized,
+                    "android_id": before_android_id,
+                    "imei": before_imei,
+                    "mac": before_mac,
+                },
+                "after_init": {
+                    "is_init": after_state.priv_info_initialized,
+                    "android_id": after_android_id,
+                    "imei": after_imei,
+                    "mac": after_mac,
+                }
+            },
+            "step_chain": [
+                {
+                    "order": 1,
+                    "node": "AppContext.processOnCreate()",
+                    "kind": "anchor",
+                    "evidence": "AppContext.java:596"
+                },
+                {
+                    "order": 2,
+                    "node": "k86.m(this)",
+                    "kind": "process_name_probe",
+                    "result": process_name,
+                    "evidence": "AppContext.java:600"
+                },
+                {
+                    "order": 3,
+                    "node": "TextUtils.isEmpty(strM) || strM.equals(getPackageName())",
+                    "kind": "main_process_gate",
+                    "result": main_process_gate,
+                    "inputs": {
+                        "process_name": process_name,
+                        "package_name": package_name
+                    },
+                    "evidence": "AppContext.java:602-605"
+                },
+                {
+                    "order": 4,
+                    "node": "PrivInfoManager.INSTANCE.init(this)",
+                    "kind": "init_call",
+                    "result": init_called,
+                    "evidence": "AppContext.java:607"
+                },
+                {
+                    "order": 5,
+                    "node": "OAuthApi.onAppCreate()",
+                    "kind": "downstream_static",
+                    "result": main_process_gate,
+                    "evidence": "AppContext.java:608"
+                },
+                {
+                    "order": 6,
+                    "node": "initFramework() -> initDeviceInfos(this) -> ts0.o().I(this) -> initVolley() ...",
+                    "kind": "downstream_static",
+                    "result": main_process_gate,
+                    "evidence": "AppContext.java:622-635"
+                }
+            ]
+        }))
+    }
+
+    fn run_app_init_probe(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        self.reset_identity_probe_state(opts);
+        self.capture_app_init_upstream_observation()
+    }
+
+    fn run_gate_probe(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        self.reset_identity_probe_state(opts);
+        let app_init_upstream_observation = self.capture_app_init_upstream_observation()?;
+        let app_context = self.app_context_object()?;
 
         let wm4_android_id = jni_value_to_string(self.call_java_instance(
             "defpackage/wm4",
@@ -1181,17 +1318,37 @@ impl PalmchatLab {
             vec![],
         )?)?;
 
-        let after_state = self.identity_state.borrow().clone();
+        let privacy_gate =
+            jni_value_to_bool(self.call_java_static("defpackage/r75", "l", "()Z", vec![])?)?;
+        let read_phone_permissions =
+            self.make_string_array(&["android.permission.READ_PHONE_STATE"])?;
+        let phone_gate = jni_value_to_bool(self.call_java_static(
+            "defpackage/tg4",
+            "b",
+            "(Landroid/content/Context;[Ljava/lang/String;)Z",
+            vec![app_context.clone().into(), read_phone_permissions.into()],
+        )?)?;
+
+        let before_priv = app_init_upstream_observation
+            .get("priv_info")
+            .and_then(|v| v.get("before_init"))
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        let after_priv = app_init_upstream_observation
+            .get("priv_info")
+            .and_then(|v| v.get("after_init"))
+            .cloned()
+            .unwrap_or_else(|| json!({}));
         self.shared.borrow_mut().native(&format!(
             "gate_probe privacy_agree={} read_phone_state={} before_init={} after_init={} before_android_id={} after_android_id={} after_imei_len={} after_mac_len={}",
             privacy_gate,
             phone_gate,
-            before_state.priv_info_initialized,
-            after_state.priv_info_initialized,
-            before_android_id,
-            after_android_id,
-            after_imei.len(),
-            after_mac.len(),
+            before_priv.get("is_init").and_then(Value::as_bool).unwrap_or(false),
+            after_priv.get("is_init").and_then(Value::as_bool).unwrap_or(false),
+            before_priv.get("android_id").and_then(Value::as_str).unwrap_or(""),
+            after_priv.get("android_id").and_then(Value::as_str).unwrap_or(""),
+            after_priv.get("imei").and_then(Value::as_str).unwrap_or("").len(),
+            after_priv.get("mac").and_then(Value::as_str).unwrap_or("").len(),
         ));
 
         Ok(json!({
@@ -1201,7 +1358,7 @@ impl PalmchatLab {
             "active_backend": self.emulator.backend.name(),
             "native_log": self.config.trace_out_dir.join("palmchat_native.log"),
             "jni_log": self.config.trace_out_dir.join("palmchat_jni.log"),
-            "runtime_state_seed": before_state,
+            "runtime_state_seed": self.identity_seed.clone(),
             "gates": {
                 "privacy_agree_gate": {
                     "call": "r75.l()",
@@ -1216,16 +1373,16 @@ impl PalmchatLab {
             },
             "priv_info": {
                 "before_init": {
-                    "is_init": before_state.priv_info_initialized,
-                    "android_id": before_android_id,
-                    "imei": before_imei,
-                    "mac": before_mac,
+                    "is_init": before_priv.get("is_init").cloned().unwrap_or(Value::Bool(false)),
+                    "android_id": before_priv.get("android_id").cloned().unwrap_or_else(|| json!("")),
+                    "imei": before_priv.get("imei").cloned().unwrap_or_else(|| json!("")),
+                    "mac": before_priv.get("mac").cloned().unwrap_or_else(|| json!("")),
                 },
                 "after_init": {
-                    "is_init": after_state.priv_info_initialized,
-                    "android_id": after_android_id,
-                    "imei": after_imei,
-                    "mac": after_mac,
+                    "is_init": after_priv.get("is_init").cloned().unwrap_or(Value::Bool(false)),
+                    "android_id": after_priv.get("android_id").cloned().unwrap_or_else(|| json!("")),
+                    "imei": after_priv.get("imei").cloned().unwrap_or_else(|| json!("")),
+                    "mac": after_priv.get("mac").cloned().unwrap_or_else(|| json!("")),
                 }
             },
             "wm4": {
@@ -1233,12 +1390,435 @@ impl PalmchatLab {
                 "imei": wm4_imei,
                 "mac": wm4_mac,
             },
+            "app_init_upstream_observation": app_init_upstream_observation,
             "evidence": {
                 "privacy_agree_device_pref": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/device_20260326_203005/extracted2/palmchat_pull/shared_prefs/wifi_social.xml:22",
                 "app_init_callsite": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/AppContext.java:607",
                 "read_phone_state_runtime_check": "adb shell dumpsys package com.zenmen.palmchat | rg READ_PHONE_STATE",
             }
         }))
+    }
+
+    fn run_captcha_ui_debug(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        let stage1_raw = opts
+            .get("--stage1-json")
+            .or_else(|| opts.get("--arg1"))
+            .cloned()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "{}".to_string());
+        let (stage1_raw_normalized, stage1_value) =
+            self.normalize_flow_arg1_json(&stage1_raw, "captcha_ui_debug.stage1");
+        let stage1_obj = match stage1_value.clone() {
+            Value::Object(map) => map,
+            _ => {
+                return Err(anyhow!(
+                    "--stage1-json/--arg1 must be a JSON object for captcha-ui-debug"
+                ));
+            }
+        };
+        let interactive = opts
+            .get("--interactive")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false);
+        let flow_enabled = opts
+            .get("--flow")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(true);
+        let ui_mode = opts
+            .get("--ui-mode")
+            .map(|value| value.trim().to_ascii_lowercase())
+            .unwrap_or_else(|| {
+                if interactive {
+                    "sdk".to_string()
+                } else {
+                    "headless".to_string()
+                }
+            });
+
+        let default_verify_status = opts
+            .get("--verify-status")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false);
+        let default_rid = opts
+            .get("--rid")
+            .cloned()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(default_manual_rid);
+        let default_mode_type = opts
+            .get("--mode-type")
+            .cloned()
+            .unwrap_or_else(|| "select".to_string());
+        let default_diff_time = opts
+            .get("--diff-time")
+            .cloned()
+            .unwrap_or_else(|| "5000".to_string());
+        let sdk_html_path = opts
+            .get("--sdk-html")
+            .map(PathBuf::from)
+            .unwrap_or_else(default_smcaptcha_html_path);
+
+        let launch = if interactive {
+            match ui_mode.as_str() {
+                "tty" => {
+                    render_captcha_ui_debug_banner(&stage1_obj);
+                    let verify_status =
+                        prompt_bool_with_default("captcha pass? [y/N]", default_verify_status)?;
+                    let submission = if verify_status {
+                        let rid = prompt_text_with_default("rid", &default_rid)?;
+                        let mode_type = prompt_text_with_default("modeType", &default_mode_type)?;
+                        let diff_time =
+                            prompt_text_with_default("diffTime(ms)", &default_diff_time)?;
+                        CaptchaUiDebugSubmission {
+                            verify_status,
+                            rid,
+                            mode_type,
+                            diff_time,
+                        }
+                    } else {
+                        CaptchaUiDebugSubmission {
+                            verify_status,
+                            rid: String::new(),
+                            mode_type: String::new(),
+                            diff_time: String::new(),
+                        }
+                    };
+                    CaptchaUiDebugLaunch {
+                        submission,
+                        extra_events: Vec::new(),
+                        ui_mode: "tty".to_string(),
+                        ui_source: "tty_manual".to_string(),
+                    }
+                }
+                "form" => launch_captcha_ui_form_browser(
+                    &stage1_value,
+                    default_verify_status,
+                    &default_rid,
+                    &default_mode_type,
+                    &default_diff_time,
+                    flow_enabled,
+                )?,
+                "sdk" | "browser" => launch_captcha_ui_sdk_browser(
+                    &stage1_value,
+                    default_verify_status,
+                    &default_rid,
+                    &default_mode_type,
+                    &default_diff_time,
+                    flow_enabled,
+                    &sdk_html_path,
+                )?,
+                "headless" => CaptchaUiDebugLaunch {
+                    submission: CaptchaUiDebugSubmission {
+                        verify_status: default_verify_status,
+                        rid: default_rid.clone(),
+                        mode_type: default_mode_type.clone(),
+                        diff_time: default_diff_time.clone(),
+                    },
+                    extra_events: Vec::new(),
+                    ui_mode: "headless".to_string(),
+                    ui_source: "headless_defaults".to_string(),
+                },
+                other => {
+                    return Err(anyhow!(
+                        "unsupported --ui-mode value: {other} (expected sdk|form|tty|headless)"
+                    ));
+                }
+            }
+        } else {
+            CaptchaUiDebugLaunch {
+                submission: CaptchaUiDebugSubmission {
+                    verify_status: default_verify_status,
+                    rid: default_rid,
+                    mode_type: default_mode_type,
+                    diff_time: default_diff_time,
+                },
+                extra_events: Vec::new(),
+                ui_mode: "headless".to_string(),
+                ui_source: "cli_defaults".to_string(),
+            }
+        };
+
+        self.execute_captcha_ui_debug_session(
+            stage1_raw_normalized,
+            stage1_obj,
+            interactive,
+            flow_enabled,
+            launch,
+            opts,
+        )
+    }
+
+    fn execute_captcha_ui_debug_session(
+        &mut self,
+        stage1_raw_normalized: String,
+        stage1_obj: Map<String, Value>,
+        interactive: bool,
+        flow_enabled: bool,
+        launch: CaptchaUiDebugLaunch,
+        opts: &HashMap<String, String>,
+    ) -> Result<Value> {
+        let CaptchaUiDebugLaunch {
+            mut submission,
+            mut extra_events,
+            ui_mode,
+            ui_source,
+        } = launch;
+        let mut stage2_obj = stage1_obj.clone();
+        let mut ui_events = Vec::new();
+        ui_events.push(json!({
+            "ts": iso_now(),
+            "phase": "ui_session_begin",
+            "interactive": interactive,
+            "flow_enabled": flow_enabled,
+            "ui_mode": ui_mode,
+            "ui_source": ui_source,
+        }));
+        ui_events.push(json!({
+            "ts": iso_now(),
+            "phase": "ui_render_first_send",
+            "payload": Value::Object(stage1_obj.clone()),
+            "key_fields": extract_known_fields_from_value(&Value::Object(stage1_obj.clone()), V7_CAPTCHA_BRIDGE_KEYS),
+        }));
+        ui_events.push(json!({
+            "ts": iso_now(),
+            "phase": "ui_receive_1900_branch",
+            "result_code": 1900,
+            "message": "captcha_required",
+        }));
+        ui_events.append(&mut extra_events);
+
+        let mut manual_input = Map::new();
+        manual_input.insert("interactive".to_string(), Value::Bool(interactive));
+        manual_input.insert("ui_source".to_string(), Value::String(ui_source.clone()));
+        manual_input.insert(
+            "verifyStatus".to_string(),
+            Value::Bool(submission.verify_status),
+        );
+        if submission.verify_status {
+            if submission.rid.trim().is_empty() {
+                submission.rid = default_manual_rid();
+            }
+            if submission.mode_type.trim().is_empty() {
+                submission.mode_type = "select".to_string();
+            }
+            if submission.diff_time.trim().is_empty() {
+                submission.diff_time = "5000".to_string();
+            }
+            stage2_obj.insert("verifyStatus".to_string(), Value::Bool(true));
+            stage2_obj.insert("rid".to_string(), Value::String(submission.rid.clone()));
+            stage2_obj.insert(
+                "modeType".to_string(),
+                Value::String(submission.mode_type.clone()),
+            );
+            stage2_obj.insert(
+                "diffTime".to_string(),
+                Value::String(submission.diff_time.clone()),
+            );
+            manual_input.insert("rid".to_string(), Value::String(submission.rid.clone()));
+            manual_input.insert(
+                "modeType".to_string(),
+                Value::String(submission.mode_type.clone()),
+            );
+            manual_input.insert(
+                "diffTime".to_string(),
+                Value::String(submission.diff_time.clone()),
+            );
+            let pass_phase = if ui_source == "sdk_bridge" {
+                "ui_captcha_pass_sdk"
+            } else {
+                "ui_captcha_pass_manual"
+            };
+            ui_events.push(json!({
+                "ts": iso_now(),
+                "phase": pass_phase,
+                "rid": submission.rid,
+                "modeType": submission.mode_type,
+                "diffTime": submission.diff_time,
+            }));
+        } else {
+            stage2_obj.insert("verifyStatus".to_string(), Value::Bool(false));
+            stage2_obj.remove("rid");
+            stage2_obj.remove("modeType");
+            stage2_obj.remove("diffTime");
+            stage2_obj.remove("captcha");
+            ui_events.push(json!({
+                "ts": iso_now(),
+                "phase": "ui_captcha_not_passed",
+                "verifyStatus": false,
+            }));
+        }
+
+        let stage2_value = Value::Object(stage2_obj.clone());
+        let stage2_raw = stage2_value.to_string();
+        ui_events.push(json!({
+            "ts": iso_now(),
+            "phase": "ui_stage2_ready",
+            "payload": stage2_value.clone(),
+            "bridge_fields": extract_known_fields_from_value(&stage2_value, V7_CAPTCHA_BRIDGE_KEYS),
+        }));
+
+        let v7_captcha_bridge_surface = build_v7_captcha_bridge_surface(
+            Some(&Value::Object(stage1_obj.clone())),
+            &stage2_value,
+        );
+        let v7_captcha_upstream_production = build_v7_captcha_upstream_production(
+            Some(&Value::Object(stage1_obj.clone())),
+            &stage2_value,
+        );
+        let v7_retry_payload_views =
+            build_v7_retry_payload_views(Some(&Value::Object(stage1_obj.clone())), &stage2_value);
+        let v7_captcha_business_surface = build_v7_captcha_business_surface(
+            Some(&Value::Object(stage1_obj.clone())),
+            &stage2_value,
+        );
+
+        let flow_result = if flow_enabled {
+            self.shared
+                .borrow_mut()
+                .native("captcha_ui_debug step=flow start");
+            let output = self.run_flow_for_captcha_ui(
+                &stage2_raw,
+                &stage1_raw_normalized,
+                opts,
+                &ui_source,
+            )?;
+            self.shared
+                .borrow_mut()
+                .native("captcha_ui_debug step=flow done");
+            ui_events.push(json!({
+                "ts": iso_now(),
+                "phase": "data_flow_observation",
+                "flow": output.get("flow").cloned(),
+                "cipher_return_debug": output.get("cipher_return_debug").cloned(),
+                "encrypted_ckey_len": output.get("encrypted_ckey_hex").and_then(Value::as_str).map(|v| v.len() / 2),
+                "cipher_len": output.get("cipher_hex").and_then(Value::as_str).map(|v| v.len() / 2),
+            }));
+            Some(output)
+        } else {
+            None
+        };
+        let v7_captcha_ui_surface = build_v7_captcha_ui_surface(
+            &Value::Object(stage1_obj.clone()),
+            &stage2_value,
+            interactive,
+            &manual_input,
+            &ui_events,
+        );
+
+        let jsonl_path = opts
+            .get("--jsonl-out")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                self.config
+                    .trace_out_dir
+                    .join("palmchat_captcha_ui_debug.jsonl")
+            });
+        write_jsonl_file(&jsonl_path, &ui_events)?;
+
+        let output = json!({
+            "status": "ok",
+            "command": "captcha-ui-debug",
+            "requested_backend": self.config.backend,
+            "active_backend": self.emulator.backend.name(),
+            "interactive": interactive,
+            "ui_mode": ui_mode,
+            "ui_source": ui_source,
+            "flow_enabled": flow_enabled,
+            "stage1_json": Value::Object(stage1_obj),
+            "stage2_json": stage2_value,
+            "manual_input": Value::Object(manual_input),
+            "v7_captcha_ui_surface": v7_captcha_ui_surface,
+            "v7_captcha_bridge_surface": v7_captcha_bridge_surface,
+            "v7_captcha_upstream_production": v7_captcha_upstream_production,
+            "v7_retry_payload_views": v7_retry_payload_views,
+            "v7_captcha_business_surface": v7_captcha_business_surface,
+            "flow_result": flow_result,
+            "trace_jsonl": jsonl_path,
+            "native_log": self.config.trace_out_dir.join("palmchat_native.log"),
+            "jni_log": self.config.trace_out_dir.join("palmchat_jni.log"),
+        });
+        self.shared
+            .borrow_mut()
+            .native(&format!("captcha_ui_debug result={}", output));
+        Ok(output)
+    }
+
+    fn build_flow_opts_for_captcha_ui(
+        &self,
+        stage2_raw: &str,
+        stage1_raw_normalized: &str,
+        opts: &HashMap<String, String>,
+    ) -> HashMap<String, String> {
+        let mut flow_opts = HashMap::new();
+        flow_opts.insert("--arg1".to_string(), stage2_raw.to_string());
+        flow_opts.insert(
+            "--bridge-stage1-json".to_string(),
+            stage1_raw_normalized.to_string(),
+        );
+        if let Some(mode) = opts.get("--arg2") {
+            flow_opts.insert("--arg2".to_string(), mode.clone());
+        }
+        if let Some(use_new_key) = opts.get("--arg3") {
+            flow_opts.insert("--arg3".to_string(), use_new_key.clone());
+        }
+        flow_opts
+    }
+
+    fn run_flow_subprocess_for_captcha_ui(
+        &mut self,
+        stage2_raw: &str,
+        stage1_raw_normalized: &str,
+        opts: &HashMap<String, String>,
+    ) -> Result<Value> {
+        let exe = std::env::current_exe().context("failed to resolve current executable path")?;
+        let mut cmd = Command::new(exe);
+        cmd.arg("palmchat").arg("flow");
+        if let Some(config_path) = opts.get("--config") {
+            cmd.arg("--config").arg(config_path);
+        }
+        if let Some(backend) = opts.get("--backend") {
+            cmd.arg("--backend").arg(backend);
+        } else {
+            cmd.arg("--backend").arg(self.emulator.backend.name());
+        }
+        cmd.arg("--arg1").arg(stage2_raw);
+        cmd.arg("--bridge-stage1-json").arg(stage1_raw_normalized);
+        if let Some(mode) = opts.get("--arg2") {
+            cmd.arg("--arg2").arg(mode);
+        }
+        if let Some(use_new_key) = opts.get("--arg3") {
+            cmd.arg("--arg3").arg(use_new_key);
+        }
+        let output = cmd
+            .output()
+            .context("failed to spawn subprocess flow observation")?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!(
+                "subprocess flow observation failed: status={} stderr={}",
+                output.status,
+                stderr.trim()
+            ));
+        }
+        let stdout = String::from_utf8(output.stdout)
+            .context("subprocess flow observation stdout is not valid utf-8")?;
+        serde_json::from_str::<Value>(&stdout)
+            .context("failed to parse subprocess flow observation json output")
+    }
+
+    fn run_flow_for_captcha_ui(
+        &mut self,
+        stage2_raw: &str,
+        stage1_raw_normalized: &str,
+        opts: &HashMap<String, String>,
+        ui_source: &str,
+    ) -> Result<Value> {
+        let flow_opts =
+            self.build_flow_opts_for_captcha_ui(stage2_raw, stage1_raw_normalized, opts);
+        if ui_source.starts_with("sdk") {
+            self.run_flow_subprocess_for_captcha_ui(stage2_raw, stage1_raw_normalized, opts)
+        } else {
+            self.run_flow(&flow_opts)
+        }
     }
 
     fn run_invoke(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
@@ -1286,6 +1866,7 @@ impl PalmchatLab {
                 let raw = arg1.trim();
                 self.run_ckdiag((!raw.is_empty()).then_some(raw))?
             }
+            "appInitProbe" => self.run_app_init_probe(opts)?,
             "gateProbe" => self.run_gate_probe(opts)?,
             "getEncryptedCKey" => {
                 let use_new_key = parse_bool_like(&arg1);
@@ -1407,7 +1988,7 @@ impl PalmchatLab {
             }
             _ => {
                 return Err(anyhow!(
-                    "unsupported method: {method}; supported=skeyAvailable|createCKey|setSecretKeys|getCkVersion|ckDiag|getEncryptedCKey|setLxData|cipherWithHashKey|cipherWithType"
+                    "unsupported method: {method}; supported=skeyAvailable|createCKey|setSecretKeys|getCkVersion|ckDiag|appInitProbe|gateProbe|getEncryptedCKey|setLxData|cipherWithHashKey|cipherWithType"
                 ));
             }
         };
@@ -1493,10 +2074,18 @@ impl PalmchatLab {
         let v7_base_field_production = build_v7_base_field_production(&json_value);
         let v7_identity_dependency_graph = build_v7_identity_dependency_graph(&json_value);
         let v7_identity_gate_diagnostics = build_v7_identity_gate_diagnostics();
+        let app_init_upstream_observation = self.capture_app_init_upstream_observation()?;
         let v7_captcha_upstream_production =
             build_v7_captcha_upstream_production(bridge_stage1_value.as_ref(), &json_value);
         let v7_retry_payload_views =
             build_v7_retry_payload_views(bridge_stage1_value.as_ref(), &json_value);
+        let v7_captcha_business_surface =
+            build_v7_captcha_business_surface(bridge_stage1_value.as_ref(), &json_value);
+        let palmchat_project_planes = build_palmchat_project_planes(
+            &json_value,
+            &app_init_upstream_observation,
+            &v7_captcha_business_surface,
+        );
         let json_obj = self.make_json_object(&normalized_raw)?;
         self.shared.borrow_mut().native("flow step=setLxData start");
         let _ = self.call_static(
@@ -1560,8 +2149,11 @@ impl PalmchatLab {
             "v7_base_field_production": v7_base_field_production,
             "v7_identity_dependency_graph": v7_identity_dependency_graph,
             "v7_identity_gate_diagnostics": v7_identity_gate_diagnostics,
+            "app_init_upstream_observation": app_init_upstream_observation,
             "v7_captcha_upstream_production": v7_captcha_upstream_production,
             "v7_retry_payload_views": v7_retry_payload_views,
+            "v7_captcha_business_surface": v7_captcha_business_surface,
+            "palmchat_project_planes": palmchat_project_planes,
             "app_version_from_original": {
                 "versionCode": self.app_version_info.version_code,
                 "versionName": self.app_version_info.version_name,
@@ -1612,10 +2204,18 @@ impl PalmchatLab {
         let v7_base_field_production = build_v7_base_field_production(&flow_seed_value);
         let v7_identity_dependency_graph = build_v7_identity_dependency_graph(&flow_seed_value);
         let v7_identity_gate_diagnostics = build_v7_identity_gate_diagnostics();
+        let app_init_upstream_observation = self.capture_app_init_upstream_observation()?;
         let v7_captcha_upstream_production =
             build_v7_captcha_upstream_production(bridge_stage1_value.as_ref(), &flow_seed_value);
         let v7_retry_payload_views =
             build_v7_retry_payload_views(bridge_stage1_value.as_ref(), &flow_seed_value);
+        let v7_captcha_business_surface =
+            build_v7_captcha_business_surface(bridge_stage1_value.as_ref(), &flow_seed_value);
+        let palmchat_project_planes = build_palmchat_project_planes(
+            &flow_seed_value,
+            &app_init_upstream_observation,
+            &v7_captcha_business_surface,
+        );
         let flow_cipher_mode = opts
             .get("--flow-mode")
             .or_else(|| opts.get("--arg2"))
@@ -1705,6 +2305,11 @@ impl PalmchatLab {
         }));
         events.push(json!({
             "ts": iso_now(),
+            "phase": "app_init_upstream_observation",
+            "surface": app_init_upstream_observation.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
             "phase": "v7_captcha_upstream_production",
             "surface": v7_captcha_upstream_production.clone(),
         }));
@@ -1712,6 +2317,16 @@ impl PalmchatLab {
             "ts": iso_now(),
             "phase": "v7_retry_payload_views",
             "surface": v7_retry_payload_views.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_captcha_business_surface",
+            "surface": v7_captcha_business_surface.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "palmchat_project_planes",
+            "surface": palmchat_project_planes.clone(),
         }));
 
         let mut v7_consume_fields = Map::new();
@@ -1943,8 +2558,11 @@ impl PalmchatLab {
             "v7_base_field_production": v7_base_field_production,
             "v7_identity_dependency_graph": v7_identity_dependency_graph,
             "v7_identity_gate_diagnostics": v7_identity_gate_diagnostics,
+            "app_init_upstream_observation": app_init_upstream_observation,
             "v7_captcha_upstream_production": v7_captcha_upstream_production,
             "v7_retry_payload_views": v7_retry_payload_views,
+            "v7_captcha_business_surface": v7_captcha_business_surface,
+            "palmchat_project_planes": palmchat_project_planes,
             "report_status": report.status,
             "event_count": events.len(),
         }))
@@ -2100,6 +2718,17 @@ impl Jni<()> for PalmchatJni {
                     "probe tg4.b permissions={:?} -> {}",
                     requested, result
                 ));
+                return result.into();
+            }
+            "defpackage/k86->m(Landroid/content/Context;)Ljava/lang/String;" => {
+                let _context = args.get::<DvmObject>(vm);
+                let result = self
+                    .identity_state
+                    .borrow()
+                    .effective_process_name(&self.package_name);
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe k86.m -> {}", result));
                 return result.into();
             }
             "com/zenmen/palmchat/privinfo/PrivInfoManager->init(Landroid/content/Context;)V" => {
@@ -2424,7 +3053,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&report)?);
             Ok(())
         }
-        "smoke" | "invoke" | "flow" | "decrypt-trace" => {
+        "smoke" | "invoke" | "flow" | "decrypt-trace" | "captcha-ui-debug" => {
             let config_path = PathBuf::from(
                 opts.get("--config")
                     .cloned()
@@ -2439,10 +3068,16 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 "invoke" => lab.run_invoke(&opts)?,
                 "flow" => lab.run_flow(&opts)?,
                 "decrypt-trace" => lab.run_decrypt_trace(&opts)?,
+                "captcha-ui-debug" => lab.run_captcha_ui_debug(&opts)?,
                 _ => unreachable!(),
             };
             if command != "decrypt-trace"
                 && (opts.contains_key("--report-json") || opts.contains_key("--report-md"))
+                && !(command == "captcha-ui-debug"
+                    && !opts
+                        .get("--flow")
+                        .map(|value| parse_bool_like(value))
+                        .unwrap_or(true))
             {
                 let report = parse_palmchat_flow_report(
                     &lab.config.trace_out_dir.join("palmchat_native.log"),
@@ -2488,15 +3123,16 @@ fn print_usage() {
     eprintln!("palmchat commands:");
     eprintln!("  smoke  [--config <path>] [--backend <auto|dynarmic|unicorn>]");
     eprintln!("  invoke [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> [--arg1 <v>] [--arg2 <v>] [--arg3 <v>] [--secret-key <k>] [--secret-iv <iv>]");
-    eprintln!("         gateProbe overrides: [--privacy-agree <bool>] [--read-phone-state <bool>] [--priv-info-init <bool>] [--android-id <str>] [--imei <str>] [--mac <str>]");
+    eprintln!("         appInitProbe/gateProbe overrides: [--privacy-agree <bool>] [--read-phone-state <bool>] [--priv-info-init <bool>] [--android-id <str>] [--imei <str>] [--mac <str>] [--process-name <str>]");
     eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--bridge-stage1-json <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("  captcha-ui-debug [--config <path>] [--backend <auto|dynarmic|unicorn>] [--stage1-json <json>|--arg1 <json>] [--interactive <bool>] [--ui-mode <sdk|form|tty|headless>] [--sdk-html <path>] [--verify-status <bool>] [--rid <str>] [--mode-type <str>] [--diff-time <ms>] [--flow <bool>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
     eprintln!("  decrypt-trace [--config <path>] [--backend <auto|dynarmic|unicorn>] [--flow-json <json>] [--flow-mode <cipher_mode>] [--flow-use-new-key <bool>] [--skip-flow]");
     eprintln!("                [--bridge-stage1-json <json>] [--type-input <bytes_or_hex>] [--type-encrypt-mode <int>] [--type-encrypt-use-new-key <bool>] [--type-decrypt-mode <int>] [--type-decrypt-use-new-key <bool>]");
     eprintln!("                [--secret-key <k> --secret-iv <iv>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
     eprintln!(
         "  report [--config <path>] [--native-log <path>] [--json-out <path>] [--md-out <path>]"
     );
-    eprintln!("    methods: skeyAvailable, createCKey, setSecretKeys, getCkVersion, ckDiag, gateProbe, getEncryptedCKey, setLxData, cipherWithHashKey, cipherWithType");
+    eprintln!("    methods: skeyAvailable, createCKey, setSecretKeys, getCkVersion, ckDiag, appInitProbe, gateProbe, getEncryptedCKey, setLxData, cipherWithHashKey, cipherWithType");
 }
 
 fn default_config_path() -> String {
@@ -2960,6 +3596,43 @@ fn render_palmchat_flow_report_markdown(report: &PalmchatFlowReport) -> String {
                 lines.push("```".to_string());
             }
         }
+        if let Some(app_init) = flow_result.get("app_init_upstream_observation") {
+            lines.push(String::new());
+            lines.push("## App Init Upstream".to_string());
+            if let Some(summary) = app_init.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            if let Some(runtime_inputs) = app_init.get("runtime_inputs") {
+                lines.push("- runtime_inputs:".to_string());
+                lines.push("```json".to_string());
+                lines.push(
+                    serde_json::to_string_pretty(runtime_inputs)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                );
+                lines.push("```".to_string());
+            }
+            if let Some(chain) = app_init.get("step_chain").and_then(Value::as_array) {
+                for item in chain {
+                    let order = item
+                        .get("order")
+                        .and_then(Value::as_u64)
+                        .unwrap_or_default();
+                    let node = item
+                        .get("node")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let kind = item
+                        .get("kind")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let result = item
+                        .get("result")
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "null".to_string());
+                    lines.push(format!("- `{order}` `{node}` [{kind}] result=`{result}`"));
+                }
+            }
+        }
         if let Some(graph) = flow_result.get("v7_identity_dependency_graph") {
             lines.push(String::new());
             lines.push("## V7 Identity Dependency Graph".to_string());
@@ -2991,6 +3664,45 @@ fn render_palmchat_flow_report_markdown(report: &PalmchatFlowReport) -> String {
             lines.push(serde_json::to_string_pretty(gates).unwrap_or_else(|_| "{}".to_string()));
             lines.push("```".to_string());
         }
+        if let Some(business) = flow_result.get("v7_captcha_business_surface") {
+            lines.push(String::new());
+            lines.push("## V7 Captcha Business Surface".to_string());
+            if let Some(summary) = business.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            if let Some(branch) = business.get("observed_branch").and_then(Value::as_str) {
+                lines.push(format!("- observed_branch: `{branch}`"));
+            }
+            if let Some(state) = business.get("business_state").and_then(Value::as_str) {
+                lines.push(format!("- business_state: `{state}`"));
+            }
+            if let Some(flags) = business.get("business_flags") {
+                lines.push("- business_flags:".to_string());
+                lines.push("```json".to_string());
+                lines
+                    .push(serde_json::to_string_pretty(flags).unwrap_or_else(|_| "{}".to_string()));
+                lines.push("```".to_string());
+            }
+            if let Some(states) = business.get("business_states").and_then(Value::as_array) {
+                for item in states {
+                    let order = item
+                        .get("order")
+                        .and_then(Value::as_u64)
+                        .unwrap_or_default();
+                    let state = item
+                        .get("state")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let meaning = item.get("meaning").and_then(Value::as_str).unwrap_or("");
+                    lines.push(format!("- `{order}` `{state}` {meaning}"));
+                }
+            }
+            if let Some(mermaid) = business.get("graph_mermaid").and_then(Value::as_str) {
+                lines.push("```mermaid".to_string());
+                lines.push(mermaid.to_string());
+                lines.push("```".to_string());
+            }
+        }
         if let Some(retry_views) = flow_result.get("v7_retry_payload_views") {
             lines.push(String::new());
             lines.push("## V7 Retry Payload Views".to_string());
@@ -3008,6 +3720,42 @@ fn render_palmchat_flow_report_markdown(report: &PalmchatFlowReport) -> String {
                     );
                     lines.push("```".to_string());
                 }
+            }
+        }
+        if let Some(project_planes) = flow_result.get("palmchat_project_planes") {
+            lines.push(String::new());
+            lines.push("## Project Planes".to_string());
+            if let Some(summary) = project_planes.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            if let Some(project_state) = project_planes.get("project_state") {
+                lines.push("- project_state:".to_string());
+                lines.push("```json".to_string());
+                lines.push(
+                    serde_json::to_string_pretty(project_state)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                );
+                lines.push("```".to_string());
+            }
+            if let Some(data_plane_mermaid) = project_planes
+                .get("data_plane")
+                .and_then(|v| v.get("mermaid"))
+                .and_then(Value::as_str)
+            {
+                lines.push("### Data Plane".to_string());
+                lines.push("```mermaid".to_string());
+                lines.push(data_plane_mermaid.to_string());
+                lines.push("```".to_string());
+            }
+            if let Some(control_plane_mermaid) = project_planes
+                .get("control_plane")
+                .and_then(|v| v.get("mermaid"))
+                .and_then(Value::as_str)
+            {
+                lines.push("### Control Plane".to_string());
+                lines.push("```mermaid".to_string());
+                lines.push(control_plane_mermaid.to_string());
+                lines.push("```".to_string());
             }
         }
         lines.push(String::new());
@@ -3308,6 +4056,7 @@ fn build_class_resolver() -> ClassResolver {
         "com/zenmen/palmchat/privinfo/PrivInfoManager",
         "defpackage/r75",
         "defpackage/tg4",
+        "defpackage/k86",
         "defpackage/wm4",
         "org/json/JSONObject",
         "android/app/Application",
@@ -6017,6 +6766,868 @@ fn required_option(opts: &HashMap<String, String>, key: &str) -> Result<String> 
         .ok_or_else(|| anyhow!("missing required option: {key}"))
 }
 
+fn render_captcha_ui_debug_banner(stage1_obj: &Map<String, Value>) {
+    eprintln!("[captcha-ui-debug] manual UI session");
+    eprintln!("[captcha-ui-debug] first-send key fields:");
+    for key in [
+        "mobile",
+        "countryCode",
+        "verifyStatus",
+        "rid",
+        "modeType",
+        "diffTime",
+    ] {
+        let text = stage1_obj
+            .get(key)
+            .map(value_to_compact_text)
+            .unwrap_or_else(|| "<missing>".to_string());
+        eprintln!("  - {key}: {text}");
+    }
+}
+
+fn prompt_text_with_default(label: &str, default: &str) -> Result<String> {
+    eprint!("{label} [{default}]: ");
+    io::stderr().flush()?;
+    let mut line = String::new();
+    io::stdin()
+        .read_line(&mut line)
+        .with_context(|| format!("failed to read input for {label}"))?;
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        Ok(default.to_string())
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
+fn prompt_bool_with_default(label: &str, default: bool) -> Result<bool> {
+    let default_hint = if default { "Y/n" } else { "y/N" };
+    eprint!("{label} ({default_hint}): ");
+    io::stderr().flush()?;
+    let mut line = String::new();
+    io::stdin()
+        .read_line(&mut line)
+        .with_context(|| format!("failed to read bool input for {label}"))?;
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        Ok(default)
+    } else {
+        Ok(parse_bool_like(trimmed))
+    }
+}
+
+fn default_manual_rid() -> String {
+    format!("manual{}", Utc::now().format("%Y%m%d%H%M%S"))
+}
+
+fn default_smcaptcha_html_path() -> PathBuf {
+    PathBuf::from("/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/resources/assets/smcaptcha.html")
+}
+
+fn launch_captcha_ui_form_browser(
+    stage1_value: &Value,
+    default_verify_status: bool,
+    default_rid: &str,
+    default_mode_type: &str,
+    default_diff_time: &str,
+    flow_enabled: bool,
+) -> Result<CaptchaUiDebugLaunch> {
+    let listener =
+        TcpListener::bind("127.0.0.1:0").context("failed to bind local browser ui listener")?;
+    let addr = listener
+        .local_addr()
+        .context("failed to resolve browser ui listener address")?;
+    let url = format!("http://{}", addr);
+    let html = build_captcha_ui_form_html(
+        stage1_value,
+        default_verify_status,
+        default_rid,
+        default_mode_type,
+        default_diff_time,
+        flow_enabled,
+    )?;
+    eprintln!("[captcha-ui-debug] form browser ui: {url}");
+    if let Err(err) = open_url_in_browser(&url) {
+        eprintln!("[captcha-ui-debug] browser open failed: {err:#}");
+        eprintln!("[captcha-ui-debug] open this URL manually: {url}");
+    }
+
+    loop {
+        let (mut stream, _) = listener
+            .accept()
+            .context("failed to accept browser ui request")?;
+        let Some((method, path, body)) = read_http_request(&mut stream)? else {
+            continue;
+        };
+        match (method.as_str(), path.as_str()) {
+            ("GET", "/") => {
+                write_http_response(
+                    &mut stream,
+                    "200 OK",
+                    "text/html; charset=utf-8",
+                    html.as_bytes(),
+                )?;
+            }
+            ("GET", "/favicon.ico") => {
+                write_http_response(&mut stream, "204 No Content", "text/plain", b"")?;
+            }
+            ("POST", "/submit") => {
+                let payload = if body.is_empty() {
+                    json!({})
+                } else {
+                    serde_json::from_slice::<Value>(&body)
+                        .context("failed to parse browser ui submission json")?
+                };
+                let verify_status = payload
+                    .get("verifyStatus")
+                    .map(|value| match value {
+                        Value::Bool(v) => *v,
+                        Value::String(v) => parse_bool_like(v),
+                        _ => false,
+                    })
+                    .unwrap_or(default_verify_status);
+                let rid = payload
+                    .get("rid")
+                    .and_then(Value::as_str)
+                    .unwrap_or(default_rid)
+                    .to_string();
+                let mode_type = payload
+                    .get("modeType")
+                    .and_then(Value::as_str)
+                    .unwrap_or(default_mode_type)
+                    .to_string();
+                let diff_time = payload
+                    .get("diffTime")
+                    .and_then(Value::as_str)
+                    .unwrap_or(default_diff_time)
+                    .to_string();
+                let submission = CaptchaUiDebugSubmission {
+                    verify_status,
+                    rid,
+                    mode_type,
+                    diff_time,
+                };
+                let response = json!({
+                    "status": "ok",
+                    "message": "captcha ui submission received; returning to data flow observation",
+                    "submission": submission.clone(),
+                });
+                write_http_response(
+                    &mut stream,
+                    "200 OK",
+                    "application/json; charset=utf-8",
+                    serde_json::to_string_pretty(&response)?.as_bytes(),
+                )?;
+                return Ok(CaptchaUiDebugLaunch {
+                    submission,
+                    extra_events: vec![json!({
+                        "ts": iso_now(),
+                        "phase": "ui_form_submit",
+                        "source": "form_browser",
+                        "flow_enabled": flow_enabled,
+                    })],
+                    ui_mode: "form".to_string(),
+                    ui_source: "form_manual".to_string(),
+                });
+            }
+            _ => {
+                write_http_response(
+                    &mut stream,
+                    "404 Not Found",
+                    "text/plain; charset=utf-8",
+                    b"not found",
+                )?;
+            }
+        }
+    }
+}
+
+fn launch_captcha_ui_sdk_browser(
+    stage1_value: &Value,
+    default_verify_status: bool,
+    default_rid: &str,
+    default_mode_type: &str,
+    default_diff_time: &str,
+    flow_enabled: bool,
+    sdk_html_path: &Path,
+) -> Result<CaptchaUiDebugLaunch> {
+    let original_html = load_original_smcaptcha_html(sdk_html_path)?;
+    let html = build_captcha_ui_sdk_html(
+        &original_html,
+        stage1_value,
+        default_mode_type,
+        flow_enabled,
+    )?;
+    let listener =
+        TcpListener::bind("127.0.0.1:0").context("failed to bind local sdk captcha ui listener")?;
+    let addr = listener
+        .local_addr()
+        .context("failed to resolve sdk captcha ui listener address")?;
+    let url = format!("http://{}", addr);
+    eprintln!("[captcha-ui-debug] sdk browser ui: {url}");
+    if let Err(err) = open_url_in_browser(&url) {
+        eprintln!("[captcha-ui-debug] browser open failed: {err:#}");
+        eprintln!("[captcha-ui-debug] open this URL manually: {url}");
+    }
+
+    let mut ready_ts_millis: Option<u128> = None;
+    let mut extra_events = vec![json!({
+        "ts": iso_now(),
+        "phase": "ui_sdk_asset_loaded",
+        "sdk_html_path": sdk_html_path.display().to_string(),
+        "modeType": default_mode_type,
+        "flow_enabled": flow_enabled,
+    })];
+
+    loop {
+        let (mut stream, _) = listener
+            .accept()
+            .context("failed to accept sdk captcha browser request")?;
+        let Some((method, path, body)) = read_http_request(&mut stream)? else {
+            continue;
+        };
+        match (method.as_str(), path.as_str()) {
+            ("GET", "/") => {
+                write_http_response(
+                    &mut stream,
+                    "200 OK",
+                    "text/html; charset=utf-8",
+                    html.as_bytes(),
+                )?;
+            }
+            ("GET", "/favicon.ico") => {
+                write_http_response(&mut stream, "204 No Content", "text/plain", b"")?;
+            }
+            ("POST", "/bridge") => {
+                let payload = if body.is_empty() {
+                    json!({})
+                } else {
+                    serde_json::from_slice::<Value>(&body)
+                        .context("failed to parse sdk bridge payload json")?
+                };
+                let event = payload
+                    .get("event")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                let payload_value = payload.get("payload").cloned().unwrap_or(Value::Null);
+                extra_events.push(json!({
+                    "ts": iso_now(),
+                    "phase": "ui_sdk_bridge_event",
+                    "event": event,
+                    "payload": payload_value,
+                }));
+                match event {
+                    "onReady" => {
+                        ready_ts_millis = Some(current_timestamp_millis());
+                        write_http_response(
+                            &mut stream,
+                            "200 OK",
+                            "application/json; charset=utf-8",
+                            br#"{"status":"ok","event":"onReady"}"#,
+                        )?;
+                    }
+                    "onError" => {
+                        write_http_response(
+                            &mut stream,
+                            "200 OK",
+                            "application/json; charset=utf-8",
+                            br#"{"status":"ok","event":"onError"}"#,
+                        )?;
+                    }
+                    "onData" => {
+                        let raw = payload
+                            .get("payload")
+                            .and_then(Value::as_object)
+                            .and_then(|obj| obj.get("raw"))
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        let parsed_payload = parse_captcha_bridge_payload(raw);
+                        let verify_status = parsed_payload
+                            .get("pass")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(default_verify_status);
+                        let rid = parsed_payload
+                            .get("rid")
+                            .and_then(Value::as_str)
+                            .filter(|value| !value.trim().is_empty())
+                            .unwrap_or(default_rid)
+                            .to_string();
+                        let diff_time = if let Some(v) = parsed_payload
+                            .get("diffTime")
+                            .and_then(Value::as_str)
+                            .filter(|value| !value.trim().is_empty())
+                        {
+                            v.to_string()
+                        } else if let Some(start) = ready_ts_millis {
+                            current_timestamp_millis().saturating_sub(start).to_string()
+                        } else {
+                            default_diff_time.to_string()
+                        };
+                        let submission = CaptchaUiDebugSubmission {
+                            verify_status,
+                            rid,
+                            mode_type: default_mode_type.to_string(),
+                            diff_time,
+                        };
+                        extra_events.push(json!({
+                            "ts": iso_now(),
+                            "phase": "ui_sdk_bridge_data_parsed",
+                            "parsed_payload": parsed_payload,
+                            "submission": submission,
+                        }));
+                        let response = json!({
+                            "status": "ok",
+                            "event": "onData",
+                            "verifyStatus": verify_status,
+                        });
+                        write_http_response(
+                            &mut stream,
+                            "200 OK",
+                            "application/json; charset=utf-8",
+                            serde_json::to_string_pretty(&response)?.as_bytes(),
+                        )?;
+                        if verify_status {
+                            return Ok(CaptchaUiDebugLaunch {
+                                submission,
+                                extra_events,
+                                ui_mode: "sdk".to_string(),
+                                ui_source: "sdk_bridge".to_string(),
+                            });
+                        }
+                    }
+                    _ => {
+                        write_http_response(
+                            &mut stream,
+                            "200 OK",
+                            "application/json; charset=utf-8",
+                            br#"{"status":"ok","event":"ignored"}"#,
+                        )?;
+                    }
+                }
+            }
+            ("POST", "/submit") => {
+                let payload = if body.is_empty() {
+                    json!({})
+                } else {
+                    serde_json::from_slice::<Value>(&body)
+                        .context("failed to parse sdk manual submission json")?
+                };
+                let verify_status = payload
+                    .get("verifyStatus")
+                    .map(|value| match value {
+                        Value::Bool(v) => *v,
+                        Value::String(v) => parse_bool_like(v),
+                        _ => false,
+                    })
+                    .unwrap_or(default_verify_status);
+                let rid = payload
+                    .get("rid")
+                    .and_then(Value::as_str)
+                    .unwrap_or(default_rid)
+                    .to_string();
+                let mode_type = payload
+                    .get("modeType")
+                    .and_then(Value::as_str)
+                    .unwrap_or(default_mode_type)
+                    .to_string();
+                let diff_time = payload
+                    .get("diffTime")
+                    .and_then(Value::as_str)
+                    .unwrap_or(default_diff_time)
+                    .to_string();
+                let submission = CaptchaUiDebugSubmission {
+                    verify_status,
+                    rid,
+                    mode_type,
+                    diff_time,
+                };
+                extra_events.push(json!({
+                    "ts": iso_now(),
+                    "phase": "ui_sdk_manual_submit",
+                    "submission": submission,
+                }));
+                write_http_response(
+                    &mut stream,
+                    "200 OK",
+                    "application/json; charset=utf-8",
+                    br#"{"status":"ok","event":"manual_submit"}"#,
+                )?;
+                return Ok(CaptchaUiDebugLaunch {
+                    submission,
+                    extra_events,
+                    ui_mode: "sdk".to_string(),
+                    ui_source: "sdk_manual_submit".to_string(),
+                });
+            }
+            _ => {
+                write_http_response(
+                    &mut stream,
+                    "404 Not Found",
+                    "text/plain; charset=utf-8",
+                    b"not found",
+                )?;
+            }
+        }
+    }
+}
+
+fn build_captcha_ui_form_html(
+    stage1_value: &Value,
+    default_verify_status: bool,
+    default_rid: &str,
+    default_mode_type: &str,
+    default_diff_time: &str,
+    flow_enabled: bool,
+) -> Result<String> {
+    let stage1_pretty = serde_json::to_string_pretty(stage1_value)?;
+    let stage1_json_literal = stage1_value.to_string().replace("</script>", "<\\/script>");
+    let html = format!(
+        r#"<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Palmchat Captcha UI Debug</title>
+  <style>
+    :root {{
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1e232d;
+      --text: #eef2f7;
+      --muted: #8e9aab;
+      --accent: #6ee7b7;
+      --accent-2: #60a5fa;
+      --warn: #f59e0b;
+      --border: #2a3240;
+    }}
+    body {{
+      margin: 0;
+      font-family: Menlo, Monaco, monospace;
+      background: radial-gradient(circle at top, #1a2230 0%, var(--bg) 55%);
+      color: var(--text);
+    }}
+    .wrap {{
+      max-width: 1100px;
+      margin: 32px auto;
+      padding: 0 20px 40px;
+    }}
+    .hero {{
+      padding: 20px 24px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(96,165,250,0.18), rgba(110,231,183,0.08));
+      border-radius: 18px;
+      margin-bottom: 20px;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 20px;
+    }}
+    .panel {{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.24);
+    }}
+    h1, h2 {{
+      margin: 0 0 12px;
+      font-weight: 700;
+    }}
+    .muted {{
+      color: var(--muted);
+    }}
+    textarea, input {{
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 12px;
+      font: inherit;
+    }}
+    textarea {{
+      min-height: 360px;
+      resize: vertical;
+    }}
+    .row {{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }}
+    .toggle {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 18px;
+      color: var(--text);
+    }}
+    button {{
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #0b1220;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 18px;
+      cursor: pointer;
+    }}
+    pre {{
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0b0e13;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 160px;
+    }}
+    .badge {{
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(245,158,11,0.14);
+      color: var(--warn);
+      border: 1px solid rgba(245,158,11,0.25);
+      margin-top: 10px;
+    }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Palmchat Captcha UI Debug</h1>
+      <div class="muted">This page represents the 1900 captcha branch at the UI layer. Submit the retry tuple, then the CLI returns to the native data flow observation.</div>
+      <div class="badge">flow enabled: {flow_enabled}</div>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <h2>Stage1 Body</h2>
+        <div class="muted">First sendsms body before captcha retry patch.</div>
+        <textarea readonly>{stage1_pretty}</textarea>
+      </div>
+      <div class="panel">
+        <h2>Manual Retry Tuple</h2>
+        <div class="muted">Fill the fields that correspond to CaptchaResult -> nz.a retry patch.</div>
+        <label class="toggle">
+          <input id="verifyStatus" type="checkbox" {verify_checked}>
+          <span>verifyStatus = true</span>
+        </label>
+        <div class="row">
+          <div>
+            <div class="muted">rid</div>
+            <input id="rid" value="{rid}">
+          </div>
+          <div>
+            <div class="muted">modeType</div>
+            <input id="modeType" value="{mode_type}">
+          </div>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <div class="muted">diffTime(ms)</div>
+          <input id="diffTime" value="{diff_time}">
+        </div>
+        <button id="submit">Submit Retry Patch</button>
+        <div style="height: 16px;"></div>
+        <h2>Submit Result</h2>
+        <pre id="result">Waiting for submission...</pre>
+      </div>
+    </div>
+  </div>
+  <script id="stage1-json" type="application/json">{stage1_json_literal}</script>
+  <script>
+    const submitBtn = document.getElementById('submit');
+    const resultBox = document.getElementById('result');
+    submitBtn.addEventListener('click', async () => {{
+      const payload = {{
+        verifyStatus: document.getElementById('verifyStatus').checked,
+        rid: document.getElementById('rid').value,
+        modeType: document.getElementById('modeType').value,
+        diffTime: document.getElementById('diffTime').value
+      }};
+      resultBox.textContent = 'Submitting...';
+      try {{
+        const res = await fetch('/submit', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify(payload)
+        }});
+        resultBox.textContent = await res.text();
+      }} catch (err) {{
+        resultBox.textContent = String(err);
+      }}
+    }});
+  </script>
+</body>
+</html>
+"#,
+        flow_enabled = flow_enabled,
+        stage1_pretty = html_escape(&stage1_pretty),
+        verify_checked = if default_verify_status { "checked" } else { "" },
+        rid = html_escape(default_rid),
+        mode_type = html_escape(default_mode_type),
+        diff_time = html_escape(default_diff_time),
+        stage1_json_literal = stage1_json_literal,
+    );
+    Ok(html)
+}
+
+fn load_original_smcaptcha_html(path: &Path) -> Result<String> {
+    fs::read_to_string(path)
+        .with_context(|| format!("failed to read smcaptcha html asset: {}", path.display()))
+}
+
+fn build_captcha_ui_sdk_html(
+    original_html: &str,
+    stage1_value: &Value,
+    mode_type: &str,
+    flow_enabled: bool,
+) -> Result<String> {
+    let stage1_pretty = serde_json::to_string_pretty(stage1_value)?;
+    let stage1_json_literal = stage1_value.to_string().replace("</script>", "<\\/script>");
+    let mode_type_literal = serde_json::to_string(mode_type)?;
+    let patched_mode_html = original_html.replace("xxxxxxxxxxxxxxxxxxxx", mode_type);
+    let injected = format!(
+        r#"
+<div id="codex-debug-panel" style="position:fixed;right:10px;bottom:10px;z-index:99999;width:360px;background:rgba(16,20,27,0.92);color:#e6edf3;border:1px solid #2f3a4d;border-radius:12px;padding:10px;font:12px/1.4 Menlo,Monaco,monospace;">
+  <div style="font-weight:700;margin-bottom:6px;">Palmchat SDK Captcha Debug Surface</div>
+  <div style="margin-bottom:6px;opacity:.9;">modeType=<span id="codex-mode-type"></span> flow=<span id="codex-flow-enabled"></span></div>
+  <div style="max-height:140px;overflow:auto;background:#0b1118;border:1px solid #253041;border-radius:8px;padding:6px;white-space:pre-wrap;">{stage1_pretty}</div>
+  <div id="codex-bridge-status" style="margin-top:6px;color:#8b949e;">bridge: waiting...</div>
+</div>
+<script id="codex-stage1-json" type="application/json">{stage1_json_literal}</script>
+<script>
+(function() {{
+  const MODE_TYPE = {mode_type_literal};
+  const FLOW_ENABLED = {flow_enabled};
+  const statusEl = document.getElementById('codex-bridge-status');
+  document.getElementById('codex-mode-type').textContent = MODE_TYPE;
+  document.getElementById('codex-flow-enabled').textContent = String(FLOW_ENABLED);
+  function updateStatus(text) {{
+    if (statusEl) statusEl.textContent = text;
+  }}
+  async function postBridge(event, payload) {{
+    try {{
+      await fetch('/bridge', {{
+        method: 'POST',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify({{ event: event, payload: payload, ts: Date.now() }})
+      }});
+      updateStatus('bridge: ' + event);
+    }} catch (err) {{
+      updateStatus('bridge error: ' + String(err));
+    }}
+  }}
+  window.jsBridge = {{
+    onReady: function() {{
+      postBridge('onReady', {{ ready: true }});
+    }},
+    onData: function(data) {{
+      postBridge('onData', {{ raw: data }});
+    }},
+    onError: function(err) {{
+      postBridge('onError', {{ raw: err }});
+    }}
+  }};
+  postBridge('sdk_page_loaded', {{ modeType: MODE_TYPE }});
+}})();
+</script>
+"#,
+        stage1_pretty = html_escape(&stage1_pretty),
+        stage1_json_literal = stage1_json_literal,
+        mode_type_literal = mode_type_literal,
+        flow_enabled = if flow_enabled { "true" } else { "false" },
+    );
+    if patched_mode_html.contains("</body>") {
+        Ok(patched_mode_html.replacen("</body>", &(injected + "\n</body>"), 1))
+    } else {
+        Ok(format!("{patched_mode_html}\n{injected}"))
+    }
+}
+
+fn parse_captcha_bridge_payload(raw: &str) -> Value {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return json!({});
+    }
+    if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
+        return value;
+    }
+    if let Some(value) = parse_json_like_with_boa(trimmed) {
+        return value;
+    }
+    json!({ "raw": trimmed })
+}
+
+fn parse_json_like_with_boa(raw: &str) -> Option<Value> {
+    let mut context = BoaContext::default();
+    let raw_literal = serde_json::to_string(raw).ok()?;
+    let script = format!(
+        "(() => {{
+            const __raw = {raw_literal};
+            try {{
+              return JSON.stringify(JSON.parse(__raw));
+            }} catch (e) {{
+              try {{
+                return JSON.stringify((0, eval)('(' + __raw + ')'));
+              }} catch (e2) {{
+                return '';
+              }}
+            }}
+        }})()"
+    );
+    let value = context.eval(Source::from_bytes(&script)).ok()?;
+    let normalized = value.to_string(&mut context).ok()?.to_std_string_escaped();
+    if normalized.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str::<Value>(&normalized).ok()
+}
+
+fn current_timestamp_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
+
+fn open_url_in_browser(url: &str) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut cmd = Command::new("open");
+        cmd.arg(url);
+        cmd
+    };
+    #[cfg(target_os = "linux")]
+    let mut cmd = {
+        let mut cmd = Command::new("xdg-open");
+        cmd.arg(url);
+        cmd
+    };
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", "start", "", url]);
+        cmd
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        return Err(anyhow!("unsupported desktop platform for browser open"));
+    }
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    {
+        cmd.spawn()
+            .with_context(|| format!("failed to spawn browser opener for {url}"))?;
+        Ok(())
+    }
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Result<Option<(String, String, Vec<u8>)>> {
+    let mut buffer = Vec::new();
+    let mut header_end = None;
+    let mut content_length = 0usize;
+    loop {
+        let mut chunk = [0u8; 4096];
+        let read = stream
+            .read(&mut chunk)
+            .context("failed to read browser ui request")?;
+        if read == 0 {
+            break;
+        }
+        buffer.extend_from_slice(&chunk[..read]);
+        if header_end.is_none() {
+            header_end = find_header_end(&buffer);
+            if let Some(end) = header_end {
+                let headers_text = String::from_utf8_lossy(&buffer[..end]);
+                content_length = parse_content_length(&headers_text);
+                if buffer.len() >= end + content_length {
+                    break;
+                }
+            }
+        } else if let Some(end) = header_end {
+            if buffer.len() >= end + content_length {
+                break;
+            }
+        }
+    }
+    let Some(header_end) = header_end else {
+        return Ok(None);
+    };
+    let header_text = String::from_utf8_lossy(&buffer[..header_end]);
+    let mut lines = header_text.lines();
+    let Some(request_line) = lines.next() else {
+        return Ok(None);
+    };
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or_default().to_string();
+    let path = parts.next().unwrap_or("/").to_string();
+    let body = buffer
+        .get(header_end..header_end + content_length)
+        .unwrap_or(&[])
+        .to_vec();
+    Ok(Some((method, path, body)))
+}
+
+fn find_header_end(buffer: &[u8]) -> Option<usize> {
+    buffer
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .map(|idx| idx + 4)
+}
+
+fn parse_content_length(headers: &str) -> usize {
+    headers
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            if name.trim().eq_ignore_ascii_case("Content-Length") {
+                value.trim().parse::<usize>().ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0)
+}
+
+fn write_http_response(
+    stream: &mut TcpStream,
+    status: &str,
+    content_type: &str,
+    body: &[u8],
+) -> Result<()> {
+    write!(
+        stream,
+        "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )
+    .context("failed to write browser ui response header")?;
+    stream
+        .write_all(body)
+        .context("failed to write browser ui response body")?;
+    stream
+        .flush()
+        .context("failed to flush browser ui response")
+}
+
+fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+fn value_to_compact_text(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(v) => v.to_string(),
+        Value::Number(v) => v.to_string(),
+        Value::String(v) => v.clone(),
+        Value::Array(_) | Value::Object(_) => value.to_string(),
+    }
+}
+
 fn parse_bool_like(text: &str) -> bool {
     let normalized = text.trim().to_ascii_lowercase();
     match normalized.as_str() {
@@ -6326,6 +7937,265 @@ fn build_v7_retry_payload_views(explicit_stage1: Option<&Value>, stage2_value: &
         "stage1_plus_patch_preview": Value::Object(patched_preview),
         "stage2_effective_body": Value::Object(stage2_obj),
         "patch_diff": patch_diff,
+    })
+}
+
+fn build_v7_captcha_business_surface(
+    explicit_stage1: Option<&Value>,
+    stage2_value: &Value,
+) -> Value {
+    let bridge_surface = build_v7_captcha_bridge_surface(explicit_stage1, stage2_value);
+    let retry_views = build_v7_retry_payload_views(explicit_stage1, stage2_value);
+    let branch_type = bridge_surface
+        .get("branch_type")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let stage1_candidate = retry_views
+        .get("stage1_candidate_body")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let retry_patch_only = retry_views
+        .get("retry_patch_only")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let stage2_effective = retry_views
+        .get("stage2_effective_body")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let verify_status = stage2_effective
+        .get("verifyStatus")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let has_retry_tuple = value_present(stage2_effective.get("rid"))
+        && value_present(stage2_effective.get("modeType"))
+        && value_present(stage2_effective.get("diffTime"));
+    let business_state = match branch_type {
+        "captcha_retry_ready" => "captcha_passed_retry_ready",
+        "captcha_retry_partial" => "captcha_partial_retry_blocked",
+        "first_stage_only" => "first_send_only_waiting_for_captcha",
+        _ => "unknown_or_direct_branch",
+    };
+
+    let mermaid = [
+        "flowchart TD",
+        "  user_input[SmsFragment.K0 / user mobile input] --> sms_info[cl6.e -> SMSInfo]",
+        "  sms_info --> first_send[o92.getRequestArgs -> mh.a -> u63.a first sendsms]",
+        "  first_send --> first_state[first stage business body]",
+        "  first_state --> gate1900[resultCode 1900 / captcha required branch]",
+        "  gate1900 --> captcha_ui[captcha UI / select or slide challenge]",
+        "  captcha_ui --> captcha_result[CaptchaResult(rid, modeType, diffTime)]",
+        "  captcha_result --> retry_patch[nz.a retry patch verifyStatus/rid/modeType/diffTime]",
+        "  retry_patch --> retry_body[stage1 + retry patch preview]",
+        "  retry_body --> second_send[o92.getRequestArgs -> u63.a second sendsms]",
+        "  second_send --> ready202[202-ready business request body]",
+    ]
+    .join("\n");
+
+    json!({
+        "summary": "This surface turns the captcha branch into a business-state view: first sendsms, 1900 captcha gate, CaptchaResult production, retry patching, and second sendsms body ready for 202.",
+        "observed_branch": branch_type,
+        "business_state": business_state,
+        "business_flags": {
+            "verifyStatus": verify_status,
+            "has_retry_tuple": has_retry_tuple,
+            "captcha_present": value_present(stage2_effective.get("captcha")),
+        },
+        "business_states": [
+            {
+                "order": 1,
+                "state": "first_send_business_body",
+                "meaning": "Initial sendsms body before captcha tuple exists.",
+                "payload": stage1_candidate
+            },
+            {
+                "order": 2,
+                "state": "captcha_required_gate",
+                "meaning": "Server-side 1900 branch routes into captcha handling.",
+                "evidence": {
+                    "gate_callback": "u63.onPostExecute/d",
+                    "bridge_branch": branch_type
+                }
+            },
+            {
+                "order": 3,
+                "state": "captcha_business_result",
+                "meaning": "CaptchaResult materializes rid/modeType/diffTime for retry.",
+                "payload": retry_patch_only
+            },
+            {
+                "order": 4,
+                "state": "retry_send_business_body",
+                "meaning": "Second sendsms body after nz.a retry patch.",
+                "payload": stage2_effective
+            }
+        ],
+        "control_keys": {
+            "stage1_candidate": extract_known_fields_from_value(&stage1_candidate, V7_FINGERPRINT_KEYS),
+            "retry_patch_only": retry_patch_only,
+            "stage2_effective": extract_known_fields_from_value(&stage2_effective, V7_FINGERPRINT_KEYS),
+        },
+        "graph_mermaid": mermaid,
+        "bridge_surface": bridge_surface,
+        "retry_payload_views": retry_views,
+    })
+}
+
+fn build_v7_captcha_ui_surface(
+    stage1_value: &Value,
+    stage2_value: &Value,
+    interactive: bool,
+    manual_input: &Map<String, Value>,
+    ui_events: &[Value],
+) -> Value {
+    let bridge_surface = build_v7_captcha_bridge_surface(Some(stage1_value), stage2_value);
+    let business_surface = build_v7_captcha_business_surface(Some(stage1_value), stage2_value);
+    let retry_views = build_v7_retry_payload_views(Some(stage1_value), stage2_value);
+    let observed_branch = bridge_surface
+        .get("branch_type")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let business_state = business_surface
+        .get("business_state")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown_or_direct_branch");
+    let ui_mermaid = [
+        "flowchart TD",
+        "  click_send[SmsFragment Next Button Click] --> first_send[o92.getRequestArgs first sendsms]",
+        "  first_send --> rc1900[resultCode=1900]",
+        "  rc1900 --> popup[Captcha Dialog WebView]",
+        "  popup --> manual_input[Manual Debug Inputs rid/modeType/diffTime/verifyStatus]",
+        "  manual_input --> patch[nz.a retry patch]",
+        "  patch --> second_send[o92.getRequestArgs second sendsms]",
+        "  second_send --> flow_obs[EncryptUtils data flow observation]",
+    ]
+    .join("\n");
+    json!({
+        "summary": "UI-layer captcha debug surface for manually driving 1900->retry patch and returning into flow observation.",
+        "interactive": interactive,
+        "observed_branch": observed_branch,
+        "business_state": business_state,
+        "manual_input": Value::Object(manual_input.clone()),
+        "ui_events": ui_events,
+        "stage1_bridge_fields": extract_known_fields_from_value(stage1_value, V7_CAPTCHA_BRIDGE_KEYS),
+        "stage2_bridge_fields": extract_known_fields_from_value(stage2_value, V7_CAPTCHA_BRIDGE_KEYS),
+        "graph_mermaid": ui_mermaid,
+        "anchors": {
+            "ui_entry": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/loginnew/fragment/SmsFragment.java:343",
+            "captcha_result_builder": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/utils/captcha/a.java:223",
+            "retry_patcher": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/defpackage/nz.java:11"
+        },
+        "bridge_surface": bridge_surface,
+        "business_surface": business_surface,
+        "retry_payload_views": retry_views,
+    })
+}
+
+fn build_palmchat_project_planes(
+    stage2_value: &Value,
+    app_init_observation: &Value,
+    captcha_business_surface: &Value,
+) -> Value {
+    let observed_branch = captcha_business_surface
+        .get("observed_branch")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let main_process_gate = app_init_observation
+        .get("runtime_inputs")
+        .and_then(|v| v.get("main_process_gate"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let app_init_called = app_init_observation
+        .get("step_chain")
+        .and_then(Value::as_array)
+        .and_then(|steps| {
+            steps.iter().find(|step| {
+                step.get("node").and_then(Value::as_str)
+                    == Some("PrivInfoManager.INSTANCE.init(this)")
+            })
+        })
+        .and_then(|step| step.get("result"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let observed_android_id = stage2_value
+        .get("androidId")
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    let data_plane_mermaid = [
+        "flowchart LR",
+        "  ui[Login UI / SmsFragment.K0] --> smsinfo[SMSInfo(cl6.e)]",
+        "  smsinfo --> reqbuilder[o92.getRequestArgs + mh.a -> sw4]",
+        "  reqbuilder --> retrypatch[nz.a retry patch]",
+        "  retrypatch --> encrypt[EncryptUtils.setLxData/createCKey/getEncryptedCKey/cipherWithHashKey]",
+        "  encrypt --> request[EncryptedJsonRequest]",
+        "  request --> wire[Pre-TLS request / network]",
+    ]
+    .join("\n");
+
+    let control_plane_mermaid = [
+        "flowchart TD",
+        "  appctx[AppContext.processOnCreate] --> procgate[k86.m + main-process gate]",
+        "  procgate --> privinit[PrivInfoManager.init(this)]",
+        "  privacy[r75.l privacy gate] --> ac1A[ac1.A(Context)]",
+        "  phoneperm[tg4.b READ_PHONE_STATE] --> ac1k[ac1.k(Context)]",
+        "  firstresp[u63.onPostExecute 1900] --> captcha[captcha result builder]",
+        "  captcha --> patch[nz.a retry patch]",
+        "  patch --> secondsend[second sendsms dispatch]",
+    ]
+    .join("\n");
+
+    json!({
+        "summary": "This project-state surface separates the request production path (data plane) from the gate/branch/orchestration path (control plane) for the Palmchat rnidbg project.",
+        "project_state": {
+            "app_init_plane": {
+                "main_process_gate": main_process_gate,
+                "priv_info_init_called": app_init_called,
+                "status": if app_init_called { "observed_main_process_init" } else { "blocked_or_non_main_process" }
+            },
+            "identity_plane": {
+                "androidId": observed_android_id,
+                "status": "observed",
+            },
+            "captcha_business_plane": {
+                "observed_branch": observed_branch,
+                "status": "observed",
+            },
+            "crypto_plane": {
+                "status": "proven_in_rnidbg_blackbox",
+                "steps": "setLxData->createCKey->getEncryptedCKey->cipherWithHashKey"
+            }
+        },
+        "data_plane": {
+            "focus": "Business payload production and encryption before request emission.",
+            "components": [
+                "SmsFragment.K0 / cl6.e / SMSInfo",
+                "o92.getRequestArgs / mh.a / sw4",
+                "nz.a retry patch",
+                "EncryptUtils native chain",
+                "EncryptedJsonRequest / request body"
+            ],
+            "mermaid": data_plane_mermaid
+        },
+        "control_plane": {
+            "focus": "Initialization, permissions, process gates, and captcha branching.",
+            "components": [
+                "AppContext.processOnCreate / k86.m main-process gate",
+                "PrivInfoManager.init(this)",
+                "r75.l privacy gate",
+                "tg4.b READ_PHONE_STATE permission gate",
+                "u63.onPostExecute 1900 branch",
+                "CaptchaResult builder / nz.a retry patch"
+            ],
+            "mermaid": control_plane_mermaid
+        },
+        "evidence": {
+            "app_init_callsite": app_init_observation
+                .get("anchor_callsite")
+                .cloned()
+                .unwrap_or(Value::Null),
+            "captcha_branch": observed_branch,
+            "crypto_chain": "setLxData->createCKey->getEncryptedCKey->cipherWithHashKey"
+        }
     })
 }
 
@@ -6924,6 +8794,10 @@ fn permission_granted(state: &PalmchatIdentityRuntimeState, permission: &str) ->
     }
 }
 
+fn app_init_main_process_gate(package_name: &str, process_name: &str) -> bool {
+    process_name.trim().is_empty() || process_name == package_name
+}
+
 fn object_to_json_value(object: &DvmObject) -> Value {
     match object {
         DvmObject::String(value) => Value::String(value.clone()),
@@ -7248,6 +9122,7 @@ mod tests {
             android_id: "abc123".to_string(),
             imei: "imei-value".to_string(),
             mac: "mac-value".to_string(),
+            process_name: "com.zenmen.palmchat".to_string(),
         };
         assert_eq!(state.effective_android_id(), "abc123");
         assert_eq!(state.effective_imei(), "");
@@ -7277,5 +9152,161 @@ mod tests {
                 "android.permission.ACCESS_WIFI_STATE".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn app_init_main_process_gate_accepts_empty_or_package_name() {
+        assert!(app_init_main_process_gate("com.zenmen.palmchat", ""));
+        assert!(app_init_main_process_gate(
+            "com.zenmen.palmchat",
+            "com.zenmen.palmchat"
+        ));
+        assert!(!app_init_main_process_gate(
+            "com.zenmen.palmchat",
+            "com.zenmen.palmchat:push"
+        ));
+    }
+
+    #[test]
+    fn build_v7_captcha_business_surface_marks_retry_ready_branch() {
+        let stage2 = json!({
+            "mobile": "15390455973",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "select",
+            "diffTime": "6551"
+        });
+        let business = build_v7_captcha_business_surface(None, &stage2);
+        assert_eq!(
+            business.get("observed_branch").and_then(Value::as_str),
+            Some("captcha_retry_ready")
+        );
+        assert_eq!(
+            business.get("business_state").and_then(Value::as_str),
+            Some("captcha_passed_retry_ready")
+        );
+        assert!(business
+            .get("graph_mermaid")
+            .and_then(Value::as_str)
+            .map(|v| v.contains("CaptchaResult") && v.contains("1900"))
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn build_palmchat_project_planes_contains_data_and_control_mermaid() {
+        let stage2 = json!({
+            "androidId": "17dadd8ec4b84ba0",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "select",
+            "diffTime": "6551"
+        });
+        let app_init = json!({
+            "runtime_inputs": {
+                "main_process_gate": true
+            },
+            "step_chain": [
+                {
+                    "node": "PrivInfoManager.INSTANCE.init(this)",
+                    "result": true
+                }
+            ]
+        });
+        let business = build_v7_captcha_business_surface(None, &stage2);
+        let planes = build_palmchat_project_planes(&stage2, &app_init, &business);
+        assert_eq!(
+            planes
+                .get("project_state")
+                .and_then(|v| v.get("app_init_plane"))
+                .and_then(|v| v.get("status"))
+                .and_then(Value::as_str),
+            Some("observed_main_process_init")
+        );
+        assert!(planes
+            .get("data_plane")
+            .and_then(|v| v.get("mermaid"))
+            .and_then(Value::as_str)
+            .map(|v| v.contains("EncryptUtils") && v.contains("EncryptedJsonRequest"))
+            .unwrap_or(false));
+        assert!(planes
+            .get("control_plane")
+            .and_then(|v| v.get("mermaid"))
+            .and_then(Value::as_str)
+            .map(|v| v.contains("PrivInfoManager.init") && v.contains("u63.onPostExecute 1900"))
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn build_v7_captcha_ui_surface_contains_manual_input_and_graph() {
+        let stage1 = json!({
+            "mobile": "15390455973",
+            "countryCode": "86",
+            "verifyStatus": false
+        });
+        let stage2 = json!({
+            "mobile": "15390455973",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "select",
+            "diffTime": "6551"
+        });
+        let mut manual_input = Map::new();
+        manual_input.insert("interactive".to_string(), Value::Bool(false));
+        manual_input.insert("verifyStatus".to_string(), Value::Bool(true));
+        manual_input.insert("rid".to_string(), Value::String("RID123".to_string()));
+        let ui_events = vec![json!({
+            "phase": "ui_receive_1900_branch",
+            "result_code": 1900
+        })];
+        let ui_surface =
+            build_v7_captcha_ui_surface(&stage1, &stage2, false, &manual_input, &ui_events);
+        assert_eq!(
+            ui_surface.get("observed_branch").and_then(Value::as_str),
+            Some("captcha_retry_ready")
+        );
+        assert_eq!(
+            ui_surface.get("business_state").and_then(Value::as_str),
+            Some("captcha_passed_retry_ready")
+        );
+        assert!(ui_surface
+            .get("graph_mermaid")
+            .and_then(Value::as_str)
+            .map(|v| v.contains("Captcha Dialog WebView") && v.contains("flow_obs"))
+            .unwrap_or(false));
+        assert_eq!(
+            ui_surface
+                .get("manual_input")
+                .and_then(|v| v.get("rid"))
+                .and_then(Value::as_str),
+            Some("RID123")
+        );
+    }
+
+    #[test]
+    fn default_manual_rid_uses_manual_prefix() {
+        let rid = default_manual_rid();
+        assert!(rid.starts_with("manual"));
+        assert!(rid.len() > "manual".len());
+    }
+
+    #[test]
+    fn parse_json_like_with_boa_normalizes_object_literal() {
+        let parsed = parse_json_like_with_boa("{rid:'RID123',pass:true}")
+            .expect("boa should normalize js object literal");
+        assert_eq!(parsed.get("rid").and_then(Value::as_str), Some("RID123"));
+        assert_eq!(parsed.get("pass").and_then(Value::as_bool), Some(true));
+    }
+
+    #[test]
+    fn build_captcha_ui_sdk_html_injects_bridge_and_mode() {
+        let src = r#"<html><body><span id='shumei_form_captcha_wrapper'>加载中...</span></body><script>initSMCaptcha({mode:'xxxxxxxxxxxxxxxxxxxx'},smCaptchaCallback);</script></html>"#;
+        let stage1 = json!({ "mobile": "15390455973" });
+        let html = build_captcha_ui_sdk_html(src, &stage1, "select", true)
+            .expect("sdk html build should succeed");
+        assert!(html.contains("mode:'select'"));
+        assert!(html.contains("window.jsBridge"));
+        assert!(html.contains("/bridge"));
     }
 }
