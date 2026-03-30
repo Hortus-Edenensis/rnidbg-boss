@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boss Lab"
+  short_description: "Run the BossYzwg lab, trace, and bridge flows"
+  default_prompt: "Use $rnidbg-boss-lab to run or debug the BossYzwg lab, trace native calls, replay samples, or start the HTTP bridge."

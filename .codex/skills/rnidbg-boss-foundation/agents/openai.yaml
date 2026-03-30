@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boss Foundation"
+  short_description: "Boss session, config, and runtime setup"
+  default_prompt: "Use $rnidbg-boss-foundation to choose the right session, config, transport, and fingerprint setup for this rnidbg Boss workflow."

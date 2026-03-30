@@ -1,0 +1,176 @@
+{
+  "attempts": [
+    {
+      "request": {
+        "request_headers": {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept-Language": "zh-CN,zh;q=0.9",
+          "Connection": "keep-alive",
+          "Content-Type": "application/json",
+          "Cookie": "wt2=D8dyWD…wA~~; zp_at=XD_M5V…Z3k~",
+          "Host": "api-and.zhipin.com",
+          "User-Agent": "Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36 BossZhipin/14.010",
+          "b-cat-b": "1",
+          "t2": "D8dyWD…wA~~",
+          "traceid": "A-c6197944-30ed-46f2-56cd-47600bb8ed4f",
+          "x-brand": "realme",
+          "x-channel": "15",
+          "x-client-type": "android",
+          "x-client-ver": "14.010",
+          "x-device-id": "DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU",
+          "x-model": "RMX3560",
+          "x-os": "Android",
+          "x-request-id": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8_1774167364391",
+          "x-tinker-id": "Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42",
+          "x-uniqid": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8",
+          "zp-at": "XD_M5V…Z3k~",
+          "zp-os-ver": "34",
+          "zp-tag": "zwp_NCTRJTSwi3Den8LkHNaFvU0WAIbyceirooFuVFbaf_Qx_WMCO3Ao035Ve4ocSL7inNRoeXj66LAbYJ9IjA~~"
+        },
+        "traceid": "A-c6197944-30ed-46f2-56cd-47600bb8ed4f",
+        "url": "https://api-and.zhipin.com/api/zprelation/interaction/geekGetInfo?client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774167363004%22%2C%22resume_time%22%3A%221774167363004%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774167363004&sig=V3.0ff0bc2f14ce69df68f61ec55c1cf2e38&sp=fRBb-c196tgJNbDKk0Oxk_VPsdrjfyx_i87F3694vkP0QXNTT2L-mBvC225z-lWeeU0hD1d0bTigQHYqhgnkauHTNfotH5qzlrOxL4Mkcb78mz6kQSSDik8W5VbPN3IAvwwYWCNA9loDax0mINkazRWqSaxUyrSDhzQN08lR3H8yhNuClUXeSJfrvYAJt4dD234yWjYgHwZu8G8_0d4TIbpGcw435tKTGO85vps5AQmCKzpFtb5IZjd6nLDfnMikwaKbXMGjzaCNITHLxzKUrYZiTgHPKioOfsf38EDUk1ESN73DQ64UTBwBNUiUjMPTI17-Vj6ujl76dTIZSewuydLV58hbd92b88s6E2eKjIzbJ58ke3r9-bCoZZg3WieEPxyXZQ38W5OpUhM_S9v57E5eihC3RoVjXFewRjJHw9SJcrXdCdhW5NESmOR3AR3sJIjwHqcks8bBArHpRADgRlfVuNPIsmZhHYkM0rCAI37ZYVQCHP996r9RxKQFCGTt_v3x9-bX9IJNBLyMX399gBehAHmYG9Ldro90YiFmiz6iLkJqsFjyvEgFMTfQjXo9ebz68Xx8y60HY0jyxVqiS0InD-2XdQAxJxfyqrp8dVk14RH-D76o1DloZp7jb6QeMYGshYyWAi9wluG6_QiGuSepTj4kKYUrc7RoXqpznqWjRWBTg0a7gN5Loe2zXQir0dXdSsPQ8Rmna7lJdPva8lUTcVeXGRxuM2ccn14d_6ntb3yBcA53ugodoA7EFZ6n8xbmnzdZ4_q6YS_ZSLTW84m6KXsHSxrN5BtLJPERGHJvENNxXMjX2czFK4ULcWWSCYyOtke_nPl2dLzeXPrdAw%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010&app_id=1003"
+      },
+      "request_contract": {
+        "clear_exempt_query_keys": [
+          "app_id"
+        ],
+        "host": "https://api-and.zhipin.com",
+        "path": "/api/zprelation/interaction/geekGetInfo",
+        "route": "direct_host_unsigned_app_id",
+        "signed_query_keys": [
+          "client_info",
+          "curidentity",
+          "req_time",
+          "sig",
+          "sp",
+          "uniqid",
+          "v"
+        ],
+        "type": "signed_get"
+      },
+      "response": {
+        "code": 32,
+        "message": "您的账户存在异常行为，已暂时被禁止使用.",
+        "transport": {
+          "final_url": "https://api-and.zhipin.com/api/zprelation/interaction/geekGetInfo?client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774167363004%22%2C%22resume_time%22%3A%221774167363004%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774167363004&sig=V3.0ff0bc2f14ce69df68f61ec55c1cf2e38&sp=fRBb-c196tgJNbDKk0Oxk_VPsdrjfyx_i87F3694vkP0QXNTT2L-mBvC225z-lWeeU0hD1d0bTigQHYqhgnkauHTNfotH5qzlrOxL4Mkcb78mz6kQSSDik8W5VbPN3IAvwwYWCNA9loDax0mINkazRWqSaxUyrSDhzQN08lR3H8yhNuClUXeSJfrvYAJt4dD234yWjYgHwZu8G8_0d4TIbpGcw435tKTGO85vps5AQmCKzpFtb5IZjd6nLDfnMikwaKbXMGjzaCNITHLxzKUrYZiTgHPKioOfsf38EDUk1ESN73DQ64UTBwBNUiUjMPTI17-Vj6ujl76dTIZSewuydLV58hbd92b88s6E2eKjIzbJ58ke3r9-bCoZZg3WieEPxyXZQ38W5OpUhM_S9v57E5eihC3RoVjXFewRjJHw9SJcrXdCdhW5NESmOR3AR3sJIjwHqcks8bBArHpRADgRlfVuNPIsmZhHYkM0rCAI37ZYVQCHP996r9RxKQFCGTt_v3x9-bX9IJNBLyMX399gBehAHmYG9Ldro90YiFmiz6iLkJqsFjyvEgFMTfQjXo9ebz68Xx8y60HY0jyxVqiS0InD-2XdQAxJxfyqrp8dVk14RH-D76o1DloZp7jb6QeMYGshYyWAi9wluG6_QiGuSepTj4kKYUrc7RoXqpznqWjRWBTg0a7gN5Loe2zXQir0dXdSsPQ8Rmna7lJdPva8lUTcVeXGRxuM2ccn14d_6ntb3yBcA53ugodoA7EFZ6n8xbmnzdZ4_q6YS_ZSLTW84m6KXsHSxrN5BtLJPERGHJvENNxXMjX2czFK4ULcWWSCYyOtke_nPl2dLzeXPrdAw%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010&app_id=1003",
+          "http_status": 200,
+          "http_version": "HTTP/1.1",
+          "proxy": null,
+          "response_headers": {
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+            "content-encrypt": "no",
+            "content-length": "94",
+            "content-type": "application/json;charset=UTF-8",
+            "date": "Sun, 22 Mar 2026 08:16:05 GMT",
+            "process-stage": "Stage-Inbound",
+            "server-info": "boss-alb",
+            "zp-compressing": "0",
+            "zp-encoding": "0",
+            "zp-encrypting": "0"
+          }
+        },
+        "zpData": {}
+      }
+    }
+  ],
+  "interaction": {
+    "request": {
+      "request_headers": {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Cookie": "wt2=D8dyWD…wA~~; zp_at=XD_M5V…Z3k~",
+        "Host": "api-and.zhipin.com",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36 BossZhipin/14.010",
+        "b-cat-b": "1",
+        "t2": "D8dyWD…wA~~",
+        "traceid": "A-c6197944-30ed-46f2-56cd-47600bb8ed4f",
+        "x-brand": "realme",
+        "x-channel": "15",
+        "x-client-type": "android",
+        "x-client-ver": "14.010",
+        "x-device-id": "DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU",
+        "x-model": "RMX3560",
+        "x-os": "Android",
+        "x-request-id": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8_1774167364391",
+        "x-tinker-id": "Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42",
+        "x-uniqid": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8",
+        "zp-at": "XD_M5V…Z3k~",
+        "zp-os-ver": "34",
+        "zp-tag": "zwp_NCTRJTSwi3Den8LkHNaFvU0WAIbyceirooFuVFbaf_Qx_WMCO3Ao035Ve4ocSL7inNRoeXj66LAbYJ9IjA~~"
+      },
+      "traceid": "A-c6197944-30ed-46f2-56cd-47600bb8ed4f",
+      "url": "https://api-and.zhipin.com/api/zprelation/interaction/geekGetInfo?client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774167363004%22%2C%22resume_time%22%3A%221774167363004%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774167363004&sig=V3.0ff0bc2f14ce69df68f61ec55c1cf2e38&sp=fRBb-c196tgJNbDKk0Oxk_VPsdrjfyx_i87F3694vkP0QXNTT2L-mBvC225z-lWeeU0hD1d0bTigQHYqhgnkauHTNfotH5qzlrOxL4Mkcb78mz6kQSSDik8W5VbPN3IAvwwYWCNA9loDax0mINkazRWqSaxUyrSDhzQN08lR3H8yhNuClUXeSJfrvYAJt4dD234yWjYgHwZu8G8_0d4TIbpGcw435tKTGO85vps5AQmCKzpFtb5IZjd6nLDfnMikwaKbXMGjzaCNITHLxzKUrYZiTgHPKioOfsf38EDUk1ESN73DQ64UTBwBNUiUjMPTI17-Vj6ujl76dTIZSewuydLV58hbd92b88s6E2eKjIzbJ58ke3r9-bCoZZg3WieEPxyXZQ38W5OpUhM_S9v57E5eihC3RoVjXFewRjJHw9SJcrXdCdhW5NESmOR3AR3sJIjwHqcks8bBArHpRADgRlfVuNPIsmZhHYkM0rCAI37ZYVQCHP996r9RxKQFCGTt_v3x9-bX9IJNBLyMX399gBehAHmYG9Ldro90YiFmiz6iLkJqsFjyvEgFMTfQjXo9ebz68Xx8y60HY0jyxVqiS0InD-2XdQAxJxfyqrp8dVk14RH-D76o1DloZp7jb6QeMYGshYyWAi9wluG6_QiGuSepTj4kKYUrc7RoXqpznqWjRWBTg0a7gN5Loe2zXQir0dXdSsPQ8Rmna7lJdPva8lUTcVeXGRxuM2ccn14d_6ntb3yBcA53ugodoA7EFZ6n8xbmnzdZ4_q6YS_ZSLTW84m6KXsHSxrN5BtLJPERGHJvENNxXMjX2czFK4ULcWWSCYyOtke_nPl2dLzeXPrdAw%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010&app_id=1003"
+    },
+    "request_contract": {
+      "clear_exempt_query_keys": [
+        "app_id"
+      ],
+      "host": "https://api-and.zhipin.com",
+      "path": "/api/zprelation/interaction/geekGetInfo",
+      "route": "direct_host_unsigned_app_id",
+      "signed_query_keys": [
+        "client_info",
+        "curidentity",
+        "req_time",
+        "sig",
+        "sp",
+        "uniqid",
+        "v"
+      ],
+      "type": "signed_get"
+    },
+    "response": {
+      "code": 32,
+      "message": "您的账户存在异常行为，已暂时被禁止使用.",
+      "transport": {
+        "final_url": "https://api-and.zhipin.com/api/zprelation/interaction/geekGetInfo?client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774167363004%22%2C%22resume_time%22%3A%221774167363004%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774167363004&sig=V3.0ff0bc2f14ce69df68f61ec55c1cf2e38&sp=fRBb-c196tgJNbDKk0Oxk_VPsdrjfyx_i87F3694vkP0QXNTT2L-mBvC225z-lWeeU0hD1d0bTigQHYqhgnkauHTNfotH5qzlrOxL4Mkcb78mz6kQSSDik8W5VbPN3IAvwwYWCNA9loDax0mINkazRWqSaxUyrSDhzQN08lR3H8yhNuClUXeSJfrvYAJt4dD234yWjYgHwZu8G8_0d4TIbpGcw435tKTGO85vps5AQmCKzpFtb5IZjd6nLDfnMikwaKbXMGjzaCNITHLxzKUrYZiTgHPKioOfsf38EDUk1ESN73DQ64UTBwBNUiUjMPTI17-Vj6ujl76dTIZSewuydLV58hbd92b88s6E2eKjIzbJ58ke3r9-bCoZZg3WieEPxyXZQ38W5OpUhM_S9v57E5eihC3RoVjXFewRjJHw9SJcrXdCdhW5NESmOR3AR3sJIjwHqcks8bBArHpRADgRlfVuNPIsmZhHYkM0rCAI37ZYVQCHP996r9RxKQFCGTt_v3x9-bX9IJNBLyMX399gBehAHmYG9Ldro90YiFmiz6iLkJqsFjyvEgFMTfQjXo9ebz68Xx8y60HY0jyxVqiS0InD-2XdQAxJxfyqrp8dVk14RH-D76o1DloZp7jb6QeMYGshYyWAi9wluG6_QiGuSepTj4kKYUrc7RoXqpznqWjRWBTg0a7gN5Loe2zXQir0dXdSsPQ8Rmna7lJdPva8lUTcVeXGRxuM2ccn14d_6ntb3yBcA53ugodoA7EFZ6n8xbmnzdZ4_q6YS_ZSLTW84m6KXsHSxrN5BtLJPERGHJvENNxXMjX2czFK4ULcWWSCYyOtke_nPl2dLzeXPrdAw%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010&app_id=1003",
+        "http_status": 200,
+        "http_version": "HTTP/1.1",
+        "proxy": null,
+        "response_headers": {
+          "cache-control": "no-cache",
+          "connection": "keep-alive",
+          "content-encrypt": "no",
+          "content-length": "94",
+          "content-type": "application/json;charset=UTF-8",
+          "date": "Sun, 22 Mar 2026 08:16:05 GMT",
+          "process-stage": "Stage-Inbound",
+          "server-info": "boss-alb",
+          "zp-compressing": "0",
+          "zp-encoding": "0",
+          "zp-encrypting": "0"
+        }
+      },
+      "zpData": {}
+    }
+  },
+  "native_invoker": {
+    "backend": "dynarmic",
+    "compiled_backends": [
+      "dynarmic"
+    ],
+    "config_path": "/workspace/rnidbg/config/lab-config.container.json",
+    "executable": "/workspace/lab-data/cargo-targets/rnidbg-default/debug/rnidbg",
+    "status": "ready",
+    "strategy": "local_subprocess"
+  },
+  "ok": false,
+  "original_okhttp_available": false,
+  "route": "interaction_info",
+  "session_path": "/workspace/lab-assets/.boss_purecalc/session.json",
+  "summary": {
+    "keys": []
+  },
+  "transport": {
+    "flow": "reqwest_direct",
+    "proxy": null,
+    "status": "ready",
+    "transport_runtime": "direct"
+  },
+  "transport_runtime": "direct"
+}

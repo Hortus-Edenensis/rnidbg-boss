@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boss Chat"
+  short_description: "Read Boss contacts and message flows"
+  default_prompt: "Use $rnidbg-boss-chat to list contacts, pull messages, bootstrap chat context, or inspect Boss chat-side read flows."

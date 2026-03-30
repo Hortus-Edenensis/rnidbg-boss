@@ -1,0 +1,594 @@
+{
+  "host": "https://api-and.zhipin.com",
+  "native_invoker": {
+    "backend": "dynarmic",
+    "compiled_backends": [
+      "dynarmic"
+    ],
+    "config_path": "config/lab-config.container.json",
+    "executable": "/workspace/lab-data/cargo-targets/rnidbg-default/debug/rnidbg",
+    "status": "ready",
+    "strategy": "local_subprocess"
+  },
+  "ok": true,
+  "original_okhttp_available": false,
+  "rate_limit": {
+    "bucket": {
+      "grant_sequence": 425,
+      "observed_at_ms": 1774162531439,
+      "tokens_after_consume": 119.0,
+      "tokens_before_consume": 120.0
+    },
+    "last_observed_lock_holder": null,
+    "limit": {
+      "capacity": 120,
+      "refill_per_minute": 120
+    },
+    "lock_path": "/workspace/lab-data/rate-limit/job-detail-token-bucket.lock",
+    "previous_consumer": {
+      "executable": "rnidbg",
+      "grant_sequence": 424,
+      "granted_at_ms": 1774162530911,
+      "hostname": "41f12b6c22ba",
+      "pid": 70567,
+      "tokens_after_consume": 119.0,
+      "tokens_before_consume": 120.0
+    },
+    "scope": "job_detail_only",
+    "state_path": "/workspace/lab-data/rate-limit/job-detail-token-bucket.json",
+    "strategy": "token_bucket",
+    "wait": {
+      "lock_contention_count": 0,
+      "lock_ms": 0,
+      "throttle_ms": 0,
+      "throttle_sleep_count": 0,
+      "total_ms": 0
+    },
+    "worker": {
+      "executable": "rnidbg",
+      "hostname": "41f12b6c22ba",
+      "pid": 70585
+    }
+  },
+  "raw_response": {
+    "code": 0,
+    "message": "Success",
+    "transport": {
+      "final_url": "https://api-and.zhipin.com/api/batch/requests?app_id=1003&client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774162530490%22%2C%22resume_time%22%3A%221774162530490%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774162530490&sig=V3.055e18a98364c5724b36b4f446200421a&sp=zwp_NCTRJTSwi3De2cDkHJaGvU0QAYbyceqJ44s9CxuyL65jv20XaVYg1XpFLNVaF7LolNJtanuLr-ARNM936qI3RFO3xe8JyDZtt-TQVeh_TOtTgNw-LeFjEs8hx0tJoj7v9ncKmYZWKNui4mO-EM5Aryh-4Ge5L8MQyX1JatkuDl9Ec4gZFqDhg7Z1SBl0Q5IvXAZ6LZ35wd_c_ViiM1jwuE-MABij-TFoIfCmId1xARm59hTKyDZQVJRgyl2VU_gjiAviP5wyjfs3vDvu7824_UFaoGHkOyohaKZxmMynDJuIU13V_fQhMYcmTM_g0ce_0tZQkpatIGBfaSKSksrMSLsuOTy9d5WJ1FH6rO8gNBv6Tmhl5Xm6unqrssGXfyuCmXObi2M9a4ggWAGU-Ees79pDR_ya7hmXRJ1sRw0Ylg5rE2AhDcpAGyxqUjLKMEIICcby15Oi81_2eKNBcXlADS7MNE-FaKlhzt0pUNoKI4GgFUFHiovhFTLbXQtTCW9uuyVtmF8NKHwNvTS6eeLe85Pk6cwO2rCsMunESYSVA8we9FKB7dIgamQDGT81QLSvpG8sMvRusxpYGoi_kW9gxi4AdUB4TJpBgI0x8t2-K96CHMxjO0QnkyBrWo9CiUbp8DXYUSLEXXTiM71wSCbzZInNy2Q_sjjDWzQaJAgVWl2xMl5hr4Ue7VkfQ651FPW57GcyXwvc_kzM05O3VMRsVcf53fBXSqd6ROQ00wgphZVUa0-yHxTraoA6GeToWXDfJwTSsApfdV0tGP3y6mWbWwLjNWIeYY5EH7X579phLYwWzFEYA0Fr8JpLkvfdYsFYg0zohMBSojk_lxB9_eRo0zRogQ%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010",
+      "http_status": 200,
+      "http_version": "HTTP/1.1",
+      "proxy": null,
+      "response_headers": {
+        "cache-control": "no-cache",
+        "connection": "keep-alive",
+        "content-encrypt": "yes",
+        "content-length": "15140",
+        "content-type": "application/json",
+        "date": "Sun, 22 Mar 2026 06:55:32 GMT",
+        "process-stage": "Stage-Outbound",
+        "server-info": "boss-alb"
+      }
+    },
+    "zpData": {
+      "/api/zpgeek/jobapp/geek/job/querydetail": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "appendixInfo": {
+            "canFeedback": 1,
+            "inviteType": 0,
+            "searchBar": 1,
+            "xzatsJobShowGray": 0
+          },
+          "bossBaseInfo": {
+            "activeTimeDesc": "",
+            "avatarStickerId": 0,
+            "bossExtraStatus": 0,
+            "bossId": 631079232,
+            "bossSource": 0,
+            "bossStatus": 0,
+            "brandName": "蚂蚁集团",
+            "certStatus": 3,
+            "comId": 52010179,
+            "dimission": false,
+            "disableBossInfo": false,
+            "dynamicText": {
+              "content": "",
+              "jumpUrl": "bosszp://bosszhipin.app/openwith?type=openhomepage&userId=631079232&identity=1&tabType=0&securityId=wnYG8GyjTycaB-Q1BahyuYyH_t5U8OrdsSBBmUse9zf9-PvcWF0p27me7hi9KLqUnZZodIhuN7rrwH8u3sJcouZt5Wmz29RFl0WGGxHzPUqeu4ikwrH3t18UC275KbqsTWwnG0CPrq6oo646790lvm51CygsGT4YUEWM5h_jTSzHEoLa4ND8eiN0M3E_zUzcyrgFnn2yyHBhOhY1_vvltgh9NF1eGjeI3QvD9EoF5w0bC4E3fGghBWxh7lF6M-BQAXM84hl4-uXclPLM31y-LbAxT_VrWwc6ToErmm97swrGURcDDf-KgiSOz3Jq-LhsvgWrSw2dhzvX740Ge_dduEGi5OExubsrQ22J-LIBC_Tzb9OT0L35HtifBiul34IjxHvBrRCMDuq1VLI-x1mp41ZvJzsAdVSWhlvvssaDyc8pEmZT0VkeHv0pDGf_8XemrTH83no1ty-8brE99GrQlxRh2Bvfkn4MaJGUcF17sT2LWNE821oLqaTgMj_sP7pnUHAyQpzFMdDeQQe6Ow~~&source=detailboss&sourceType=detailboss&text=&popTab=1"
+            },
+            "headDynamicText": {
+              "content": "查看 TA 的更多职位",
+              "jumpUrl": "bosszp://bosszhipin.app/openwith?type=openhomepage&userId=631079232&identity=1&tabType=0&securityId=w9iBlIlGafyGy-E1A6eKk1rZx8Xv-eS1cmdYroJ19RPEti1YPgDC00-GXE7sq_v-WS9R3Ec8Z0XG3CHjU1lcriYF2mv_9BiUAxHF__hr7NBH62J2c3grxnGdfhpVxqRB772hvLyeDp_J07tCHFVqe1PIgvlnkDzVi2Il3G8ISJ582DJ5xK8m2x6IWg_Ck1g_Q2bVUd643ovUlTERZuiMohs2Su5Ndkauc2XHW_ICB6KKSWox3uOuk6heKDHBGpt0P43Jbok-Z1HOS8TUafZqDYxQuIwSaYaFTy1wqseDs0ZZm2pRfxeDfWmmvKpiD1C6lOwtJJPMnUb9m9jCXVe-ZkQqg2WJKhtXbRs1sG_7MAnKXAwadAszYWaartAM7Hii5QvkAT5k_8dGhkwDzvciqueaghpMlh6Q-o-YiKlzMfgrHrXt3DN4NY-OSaiZHBT31ZQqXC2QElkY8R3KtePHEJ64jVAsB9ViNnbfrqyxBVzWImhCO3yqwgBnk5R6RgF14NeJnbfIj5z96j7IUQ~~&source=detailboss_head&sourceType=detailboss_head&text=查看 TA 的更多职位&popTab=1"
+            },
+            "jobPageInvalid": false,
+            "jobPageInvalidDesc": "",
+            "largeAvatar": "https://img.bosszhipin.com/boss/avatar/avatar_6.png",
+            "name": "付春红",
+            "tinyAvatar": "https://img.bosszhipin.com/boss/avatar/avatar_6.png",
+            "title": "高级安全技术专家"
+          },
+          "bossCommonBizInfo": {
+            "shareCopyLinkUrl": "https://m.zhipin.com/mpa/html/weijd/weijd-job/0d443b31e6e4fd9303B93NW_FVVU?date8=20260322&sid=tosee_jd_211f979b5f1ca57a0HBz3N67EFNU&openWeapp=1&fromSource=2",
+            "shareFriendMomentUrl": "https://m.zhipin.com/mpa/html/weijd/weijd-job/0d443b31e6e4fd9303B93NW_FVVU?date8=20260322&sid=tosee_jd_211f979b5f1ca57a0HBz3N67EFNU&openWeapp=1&fromSource=1",
+            "shareText": "{\"picShareJobDesc\":\"职位描述：\\n1、挖掘蚂蚁资金业务的脆弱性和潜在攻击面，推动业务修复风险并验证上线；\\n2、结合流量行为和业务逻辑，分析账户&资金业务流量攻击行为，还原攻击手法，并沉淀攻击物料和手法；\\n3、检测机器流量和黑灰产攻击行为，并布控策略进行有效对抗\\n4、联动产研建设脆弱性风险检测和流量对抗能力体系，沉淀风险检测&策略对抗组件；\\n\\n职位要求：\\n1、掌握web安全技术，熟练使用工具链Burp Suite、Nmap、SQLmap、Metasploit等工具，能独立完成黑盒/白盒测试\\n2、熟悉安卓、iOS端安全对抗技术，掌握常见的静态分析、动态调试、协议抓包、HOOK等技术原理和框架应用，熟练使用IDA等工具，熟悉逆向分析Smali语法；\\n3、拥有良好的编码经验，熟练掌握Python/Go/Java/JS等至少一种编程语言；\",\"picShareJobName\":\"流量安全策略攻防工程师\",\"picShareSalaryDesc\":\"杭州/25-50K·16薪/3-5年/本科\",\"picShareTime\":\"Mar.2026\",\"picShareTimeDay\":\"22\",\"picShareTitle\":\"蚂蚁集团\",\"qqShareDesc\":\"25-50K·16薪 杭州 3-5年 本科 支付宝（杭州）数字服务技术有限公司\",\"qqShareIcon\":\"https://img.bosszhipin.com/beijin/mcs/banner/b10345f203d9c0270a26df28e9c00429cfcd208495d565ef66e7dff9f98764da.jpg\",\"qqShareTitle\":\"蚂蚁集团·流量安全策略攻防工程师\",\"showQQShare\":true,\"smsShareTitle\":\"#招聘# 蚂蚁集团 正在@Boss直聘  招聘流量安全策略攻防工程师职位，薪金25-50K·16薪 CXO直招，速来应聘！点此应聘：https://m.zhipin.com/download?from=duanxin\",\"wbShareTitle\":\"#招聘# 蚂蚁集团 正在@Boss直聘  招聘 流量安全策略攻防工程师职位，薪金25-50K·16薪 CXO直招，速来应聘！点此应聘：https://m.zhipin.com/download?from=weibo\",\"wxShareDesc\":\"招聘变得更轻松更有效率~\",\"wxShareIcon\":\"https://img.bosszhipin.com/boss/avatar/avatar_6.png\",\"wxShareTitle\":\"【Boss直聘】强烈推荐！蚂蚁集团正在招聘流量安全策略攻防工程师，建议你试试~\"}",
+            "shareUrl": "https://m.zhipin.com/mpa/html/weijd/weijd-job/0d443b31e6e4fd9303B93NW_FVVU?date8=20260322&sid=tosee_jd_211f979b5f1ca57a0HBz3N67EFNU&openWeapp=1"
+          },
+          "brandComInfo": {
+            "brandCertificate": true,
+            "brandId": 11272518,
+            "brandName": "蚂蚁集团",
+            "brandPictureList": [
+              {
+                "auditStatus": 1,
+                "encryptId": "8704355f6e0f7f891Xd42t-4E1Q~",
+                "id": 23212536,
+                "sort": 0,
+                "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e9ba8c75c6c5f05caed13874a80b4fa906f313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+              },
+              {
+                "auditStatus": 1,
+                "encryptId": "2ae734a42b8b71dd1Xd42t-4E1U~",
+                "id": 23212537,
+                "sort": 0,
+                "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e9345bc38dcf76491a1eeb39f61ffc317cf313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+              },
+              {
+                "auditStatus": 1,
+                "encryptId": "b1d01ab005ef17e51Xd42t-4E1Y~",
+                "id": 23212534,
+                "sort": 0,
+                "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e9fe277a6f256cd2dc9cf97f1001a93622f313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+              },
+              {
+                "auditStatus": 1,
+                "encryptId": "4fd7a6ab7d66de511Xd42t-4E1c~",
+                "id": 23212535,
+                "sort": 0,
+                "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e948ecf91df7431bfbb69edd286e8655a5f313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+              }
+            ],
+            "canJumpToBrandPage": true,
+            "comId": 52010179,
+            "comName": "支付宝（杭州）数字服务技术有限公司",
+            "encryptBrandId": "4685d74590e9bc881nV43N-4EVo~",
+            "focusBrand": false,
+            "industryName": "互联网",
+            "jumpBrandPageUrl": "bosszp://bosszhipin.app/openwith?type=openCompanyHomepage&securityId=k1jSAOrsTdOXl-Q1WxhHuWoyyuF50Ozxbsb5rojOTgIZMUtOMDnxtyvWGTuC5Zy7XNIBwJ3CYMplpFLE6BQHZT5OByBIQ0jszuJ_hVnwfDYmoy6LIdI6gjLaHpekffL5NZsWrosxF4y0voenGezi5DtyD7QnHiyC&sf=1&lid=&brandId=11272518",
+            "logo": "https://img.bosszhipin.com/beijin/mcs/banner/b10345f203d9c0270a26df28e9c00429cfcd208495d565ef66e7dff9f98764da.jpg",
+            "scaleName": "10000人以上",
+            "stageName": "D轮及以上",
+            "top100HunterCom": false
+          },
+          "geekHomeAddressInfo": {
+            "addType": 0,
+            "cityCode": 0,
+            "commuteShowType": 0,
+            "distance": 0.0,
+            "distanceDesc": "设置家庭住址，通勤距离一目了然",
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "multiDesc": [
+              "设置家庭住址，通勤距离一目了然",
+              "按距离展示职位，推荐给附近BOSS"
+            ],
+            "showHomeAddress": false,
+            "status": 0
+          },
+          "geekInfoRightInfo": {
+            "callGeekText": "",
+            "redAmount": 0,
+            "usedId": 0,
+            "usingGeekInfoRight": false
+          },
+          "jobBaseInfo": {
+            "address": "杭州西湖区蚂蚁A空间(1号楼)2号门",
+            "addressShowType": 0,
+            "afterNameIcons": [],
+            "anonymous": 0,
+            "areaDistrict": "西湖区",
+            "baiduStaticMapUrl": "https://img.bosszhipin.com/beijin/upload/amap_proxy/20241220/48ba41acc9cef1bf30bcde00df28c2fca8d3a41acb168b176bb61e3b7bce0931da574d19d1d82c88.png.webp",
+            "brandId": 11272518,
+            "businessDistrict": "西溪",
+            "degree": 203,
+            "degreeName": "本科",
+            "experience": 105,
+            "experienceName": "3-5年",
+            "geoId": "B0HRVDUGQC",
+            "highSalary": 50,
+            "jobAddressCount": 1,
+            "jobDesc": "职位描述：\n1、挖掘蚂蚁资金业务的脆弱性和潜在攻击面，推动业务修复风险并验证上线；\n2、结合流量行为和业务逻辑，分析账户&资金业务流量攻击行为，还原攻击手法，并沉淀攻击物料和手法；\n3、检测机器流量和黑灰产攻击行为，并布控策略进行有效对抗\n4、联动产研建设脆弱性风险检测和流量对抗能力体系，沉淀风险检测&策略对抗组件；\n\n职位要求：\n1、掌握web安全技术，熟练使用工具链Burp Suite、Nmap、SQLmap、Metasploit等工具，能独立完成黑盒/白盒测试\n2、熟悉安卓、iOS端安全对抗技术，掌握常见的静态分析、动态调试、协议抓包、HOOK等技术原理和框架应用，熟练使用IDA等工具，熟悉逆向分析Smali语法；\n3、拥有良好的编码经验，熟练掌握Python/Go/Java/JS等至少一种编程语言；",
+            "jobId": 447782574,
+            "jobType": 0,
+            "jobValidStatus": 1,
+            "latitude": 30.262229,
+            "location": 101210100,
+            "locationDesc": "杭州·西湖区·西溪",
+            "locationName": "杭州",
+            "locationWithSubway": 0,
+            "longitude": 120.104163,
+            "lowSalary": 25,
+            "performance": "",
+            "position": 100407,
+            "positionCategory": "网络安全",
+            "positionName": "流量安全策略攻防工程师",
+            "proxyJob": 0,
+            "proxyType": 0,
+            "requiredSkillsExposureAction": [],
+            "requiredSkillsHighlights": [],
+            "salaryDesc": "25-50K·16薪",
+            "securityId": "Mhswv6azsUgrk-c1zEoA5nqpmc8caouiSu1ep4rlSsy0WSSKkF4dAeltudYnbvYSzPS7n1OZ",
+            "showHunterJob": 0,
+            "source": 0,
+            "staticMapUrl": "https://img.bosszhipin.com/beijin/upload/amap_proxy/20230612/48ba41acc9cef1bf5f089152dd23deb74e8a1e9b2d1fdec76bb61e3b7bce0931da574d19d1d82c88.jpg",
+            "trafficDescV2": ""
+          },
+          "matchInfo": {
+            "expectId": 0,
+            "positionCode": 0
+          },
+          "oneKeyResumeInfo": {
+            "alreadySend": 0,
+            "inviteType": 0,
+            "oneKeyType": 0
+          },
+          "pageType": 0,
+          "relationInfo": {
+            "applyJobDirectly": 1,
+            "expectId": 0,
+            "interested": false,
+            "isFriend": false,
+            "isFriendEver": false,
+            "jobId": 0,
+            "markType": 0,
+            "startChatProcessType": 0
+          },
+          "safeTipInfo": {
+            "safeReport": {
+              "code": "BOSS直聘严禁用人单位和招聘者用户做出任何损害求职者合法权益的违法违规行为，包括但不限于扣押求职者证件、收取求职者财物、向求职者集资、让求职者入股、诱导求职者异地入职、异地参加培训、违法违规使用求职者简历等，您一旦发现此类行为，",
+              "highlightList": [
+                {
+                  "endIndex": 120,
+                  "startIndex": 115
+                }
+              ],
+              "hlname": "请立即举报",
+              "name": "BOSS直聘严禁用人单位和招聘者用户做出任何损害求职者合法权益的违法违规行为，包括但不限于扣押求职者证件、收取求职者财物、向求职者集资、让求职者入股、诱导求职者异地入职、异地参加培训、违法违规使用求职者简历等，您一旦发现此类行为，请立即举报"
+            },
+            "title": "BOSS安全提示"
+          },
+          "securityId": "TppgiaISeWfEV-y1hCYBBEmia2GgzaXn2O6lBSY4nbpGdPBmsR4ebupnrrzf7Y9G-AZHzyqvbnHr5Jz9O8QXCxtaNhAhR3AxDpo996qfyjU9crL_D8gll710F5zvwDcgwGswiciHc6U5-badBQBqbCJ5SxMXjTqfSkrZOHUkZjhwT4aiy4oKxZSx63E4cmLXfz1wk7e4SV8o5pggWZ0qwR5Ye6OMT6pe661eEAHtCqS34yIEixxd8H_bQtdp4Morr0cc-c8oG8NgjhuRKtFoNeuhJLRJ_yCAKg0IBZIZxWAm"
+        }
+      }
+    }
+  },
+  "request": {
+    "body_json": "{\"subReqs\":[{\"method\":\"GET\",\"path\":\"/api/zpgeek/jobapp/geek/job/querydetail\",\"query\":\"jobType\\u003d-1\\u0026keyword\\u003d\\u0026lid\\u003d\\u0026needRelatedJob\\u003dfalse\\u0026page\\u003d0\\u0026query\\u003d\\u0026requestSource\\u003d0\\u0026securityId\\u003dOA71BlpCJmGuD-y1S5Hr9_aH9VSSebfkTWFYtToab8izpVYZLlqdeLwjJF1yLn_2ElPmkqFumYZ1yqzFy1SecjqI12-hz-tCL9gJuAQDhm0k_LhXVxw-0CQNKkA_G1fvm6qCz0SwpkIZtOsKwaHf0rC_\\u0026sourceType\\u003d0\\u0026wayType\\u003d0\"}]}",
+    "body_len": 406,
+    "request_headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "Accept-Language": "zh-CN,zh;q=0.9",
+      "Connection": "keep-alive",
+      "Content-Type": "application/octet-stream",
+      "Cookie": "wt2=D8dyWD…wA~~; zp_at=XD_M5V…Z3k~",
+      "Host": "api-and.zhipin.com",
+      "User-Agent": "Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36 BossZhipin/14.010",
+      "b-cat-b": "1",
+      "t2": "D8dyWD…wA~~",
+      "traceid": "A-8ac278f2-461e-6aac-584e-9cf516cc2473",
+      "x-brand": "realme",
+      "x-channel": "15",
+      "x-client-type": "android",
+      "x-client-ver": "14.010",
+      "x-device-id": "DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU",
+      "x-model": "RMX3560",
+      "x-os": "Android",
+      "x-request-id": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8_1774162531439",
+      "x-tinker-id": "Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42",
+      "x-uniqid": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8",
+      "zp-at": "XD_M5V…Z3k~",
+      "zp-os-ver": "34",
+      "zp-tag": "zwp_NCTRJTSwi3Den8LkHNaFvU0WAIbyceiroto5Bl3afqY3_WQEb3Eo0SlSKoocRunjnNk8KX37vLFAN89L2Q~~"
+    },
+    "security_id": "OA71BlpCJmGuD-y1S5Hr9_aH9VSSebfkTWFYtToab8izpVYZLlqdeLwjJF1yLn_2ElPmkqFumYZ1yqzFy1SecjqI12-hz-tCL9gJuAQDhm0k_LhXVxw-0CQNKkA_G1fvm6qCz0SwpkIZtOsKwaHf0rC_",
+    "traceid": "A-8ac278f2-461e-6aac-584e-9cf516cc2473",
+    "url": "https://api-and.zhipin.com/api/batch/requests?app_id=1003&client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774162530490%22%2C%22resume_time%22%3A%221774162530490%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774162530490&sig=V3.055e18a98364c5724b36b4f446200421a&sp=zwp_NCTRJTSwi3De2cDkHJaGvU0QAYbyceqJ44s9CxuyL65jv20XaVYg1XpFLNVaF7LolNJtanuLr-ARNM936qI3RFO3xe8JyDZtt-TQVeh_TOtTgNw-LeFjEs8hx0tJoj7v9ncKmYZWKNui4mO-EM5Aryh-4Ge5L8MQyX1JatkuDl9Ec4gZFqDhg7Z1SBl0Q5IvXAZ6LZ35wd_c_ViiM1jwuE-MABij-TFoIfCmId1xARm59hTKyDZQVJRgyl2VU_gjiAviP5wyjfs3vDvu7824_UFaoGHkOyohaKZxmMynDJuIU13V_fQhMYcmTM_g0ce_0tZQkpatIGBfaSKSksrMSLsuOTy9d5WJ1FH6rO8gNBv6Tmhl5Xm6unqrssGXfyuCmXObi2M9a4ggWAGU-Ees79pDR_ya7hmXRJ1sRw0Ylg5rE2AhDcpAGyxqUjLKMEIICcby15Oi81_2eKNBcXlADS7MNE-FaKlhzt0pUNoKI4GgFUFHiovhFTLbXQtTCW9uuyVtmF8NKHwNvTS6eeLe85Pk6cwO2rCsMunESYSVA8we9FKB7dIgamQDGT81QLSvpG8sMvRusxpYGoi_kW9gxi4AdUB4TJpBgI0x8t2-K96CHMxjO0QnkyBrWo9CiUbp8DXYUSLEXXTiM71wSCbzZInNy2Q_sjjDWzQaJAgVWl2xMl5hr4Ue7VkfQ651FPW57GcyXwvc_kzM05O3VMRsVcf53fBXSqd6ROQ00wgphZVUa0-yHxTraoA6GeToWXDfJwTSsApfdV0tGP3y6mWbWwLjNWIeYY5EH7X579phLYwWzFEYA0Fr8JpLkvfdYsFYg0zohMBSojk_lxB9_eRo0zRogQ%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010"
+  },
+  "request_contract": {
+    "clear_exempt_query_keys": [
+      "app_id"
+    ],
+    "endpoint": "/api/batch/requests",
+    "host": "https://api-and.zhipin.com",
+    "query_keys": [
+      "app_id",
+      "client_info",
+      "curidentity",
+      "req_time",
+      "sig",
+      "sp",
+      "uniqid",
+      "v"
+    ],
+    "signed_query_keys": [
+      "client_info",
+      "curidentity",
+      "req_time",
+      "uniqid",
+      "v"
+    ],
+    "sub_request": {
+      "method": "GET",
+      "path": "/api/zpgeek/jobapp/geek/job/querydetail",
+      "query": [
+        [
+          "jobType",
+          "-1"
+        ],
+        [
+          "keyword",
+          ""
+        ],
+        [
+          "lid",
+          ""
+        ],
+        [
+          "needRelatedJob",
+          "false"
+        ],
+        [
+          "page",
+          "0"
+        ],
+        [
+          "query",
+          ""
+        ],
+        [
+          "requestSource",
+          "0"
+        ],
+        [
+          "securityId",
+          "OA71BlpCJmGuD-y1S5Hr9_aH9VSSebfkTWFYtToab8izpVYZLlqdeLwjJF1yLn_2ElPmkqFumYZ1yqzFy1SecjqI12-hz-tCL9gJuAQDhm0k_LhXVxw-0CQNKkA_G1fvm6qCz0SwpkIZtOsKwaHf0rC_"
+        ],
+        [
+          "sourceType",
+          "0"
+        ],
+        [
+          "wayType",
+          "0"
+        ]
+      ]
+    },
+    "type": "batch_requests_job_detail"
+  },
+  "response": {
+    "batch": {
+      "request_path": "/api/batch/requests",
+      "response_key": "/api/zpgeek/jobapp/geek/job/querydetail"
+    },
+    "code": 0,
+    "message": "Success",
+    "transport": {
+      "final_url": "https://api-and.zhipin.com/api/batch/requests?app_id=1003&client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221774162530490%22%2C%22resume_time%22%3A%221774162530490%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1774162530490&sig=V3.055e18a98364c5724b36b4f446200421a&sp=zwp_NCTRJTSwi3De2cDkHJaGvU0QAYbyceqJ44s9CxuyL65jv20XaVYg1XpFLNVaF7LolNJtanuLr-ARNM936qI3RFO3xe8JyDZtt-TQVeh_TOtTgNw-LeFjEs8hx0tJoj7v9ncKmYZWKNui4mO-EM5Aryh-4Ge5L8MQyX1JatkuDl9Ec4gZFqDhg7Z1SBl0Q5IvXAZ6LZ35wd_c_ViiM1jwuE-MABij-TFoIfCmId1xARm59hTKyDZQVJRgyl2VU_gjiAviP5wyjfs3vDvu7824_UFaoGHkOyohaKZxmMynDJuIU13V_fQhMYcmTM_g0ce_0tZQkpatIGBfaSKSksrMSLsuOTy9d5WJ1FH6rO8gNBv6Tmhl5Xm6unqrssGXfyuCmXObi2M9a4ggWAGU-Ees79pDR_ya7hmXRJ1sRw0Ylg5rE2AhDcpAGyxqUjLKMEIICcby15Oi81_2eKNBcXlADS7MNE-FaKlhzt0pUNoKI4GgFUFHiovhFTLbXQtTCW9uuyVtmF8NKHwNvTS6eeLe85Pk6cwO2rCsMunESYSVA8we9FKB7dIgamQDGT81QLSvpG8sMvRusxpYGoi_kW9gxi4AdUB4TJpBgI0x8t2-K96CHMxjO0QnkyBrWo9CiUbp8DXYUSLEXXTiM71wSCbzZInNy2Q_sjjDWzQaJAgVWl2xMl5hr4Ue7VkfQ651FPW57GcyXwvc_kzM05O3VMRsVcf53fBXSqd6ROQ00wgphZVUa0-yHxTraoA6GeToWXDfJwTSsApfdV0tGP3y6mWbWwLjNWIeYY5EH7X579phLYwWzFEYA0Fr8JpLkvfdYsFYg0zohMBSojk_lxB9_eRo0zRogQ%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010",
+      "http_status": 200,
+      "http_version": "HTTP/1.1",
+      "proxy": null,
+      "response_headers": {
+        "cache-control": "no-cache",
+        "connection": "keep-alive",
+        "content-encrypt": "yes",
+        "content-length": "15140",
+        "content-type": "application/json",
+        "date": "Sun, 22 Mar 2026 06:55:32 GMT",
+        "process-stage": "Stage-Outbound",
+        "server-info": "boss-alb"
+      }
+    },
+    "zpData": {
+      "appendixInfo": {
+        "canFeedback": 1,
+        "inviteType": 0,
+        "searchBar": 1,
+        "xzatsJobShowGray": 0
+      },
+      "bossBaseInfo": {
+        "activeTimeDesc": "",
+        "avatarStickerId": 0,
+        "bossExtraStatus": 0,
+        "bossId": 631079232,
+        "bossSource": 0,
+        "bossStatus": 0,
+        "brandName": "蚂蚁集团",
+        "certStatus": 3,
+        "comId": 52010179,
+        "dimission": false,
+        "disableBossInfo": false,
+        "dynamicText": {
+          "content": "",
+          "jumpUrl": "bosszp://bosszhipin.app/openwith?type=openhomepage&userId=631079232&identity=1&tabType=0&securityId=wnYG8GyjTycaB-Q1BahyuYyH_t5U8OrdsSBBmUse9zf9-PvcWF0p27me7hi9KLqUnZZodIhuN7rrwH8u3sJcouZt5Wmz29RFl0WGGxHzPUqeu4ikwrH3t18UC275KbqsTWwnG0CPrq6oo646790lvm51CygsGT4YUEWM5h_jTSzHEoLa4ND8eiN0M3E_zUzcyrgFnn2yyHBhOhY1_vvltgh9NF1eGjeI3QvD9EoF5w0bC4E3fGghBWxh7lF6M-BQAXM84hl4-uXclPLM31y-LbAxT_VrWwc6ToErmm97swrGURcDDf-KgiSOz3Jq-LhsvgWrSw2dhzvX740Ge_dduEGi5OExubsrQ22J-LIBC_Tzb9OT0L35HtifBiul34IjxHvBrRCMDuq1VLI-x1mp41ZvJzsAdVSWhlvvssaDyc8pEmZT0VkeHv0pDGf_8XemrTH83no1ty-8brE99GrQlxRh2Bvfkn4MaJGUcF17sT2LWNE821oLqaTgMj_sP7pnUHAyQpzFMdDeQQe6Ow~~&source=detailboss&sourceType=detailboss&text=&popTab=1"
+        },
+        "headDynamicText": {
+          "content": "查看 TA 的更多职位",
+          "jumpUrl": "bosszp://bosszhipin.app/openwith?type=openhomepage&userId=631079232&identity=1&tabType=0&securityId=w9iBlIlGafyGy-E1A6eKk1rZx8Xv-eS1cmdYroJ19RPEti1YPgDC00-GXE7sq_v-WS9R3Ec8Z0XG3CHjU1lcriYF2mv_9BiUAxHF__hr7NBH62J2c3grxnGdfhpVxqRB772hvLyeDp_J07tCHFVqe1PIgvlnkDzVi2Il3G8ISJ582DJ5xK8m2x6IWg_Ck1g_Q2bVUd643ovUlTERZuiMohs2Su5Ndkauc2XHW_ICB6KKSWox3uOuk6heKDHBGpt0P43Jbok-Z1HOS8TUafZqDYxQuIwSaYaFTy1wqseDs0ZZm2pRfxeDfWmmvKpiD1C6lOwtJJPMnUb9m9jCXVe-ZkQqg2WJKhtXbRs1sG_7MAnKXAwadAszYWaartAM7Hii5QvkAT5k_8dGhkwDzvciqueaghpMlh6Q-o-YiKlzMfgrHrXt3DN4NY-OSaiZHBT31ZQqXC2QElkY8R3KtePHEJ64jVAsB9ViNnbfrqyxBVzWImhCO3yqwgBnk5R6RgF14NeJnbfIj5z96j7IUQ~~&source=detailboss_head&sourceType=detailboss_head&text=查看 TA 的更多职位&popTab=1"
+        },
+        "jobPageInvalid": false,
+        "jobPageInvalidDesc": "",
+        "largeAvatar": "https://img.bosszhipin.com/boss/avatar/avatar_6.png",
+        "name": "付春红",
+        "tinyAvatar": "https://img.bosszhipin.com/boss/avatar/avatar_6.png",
+        "title": "高级安全技术专家"
+      },
+      "bossCommonBizInfo": {
+        "shareCopyLinkUrl": "https://m.zhipin.com/mpa/html/weijd/weijd-job/0d443b31e6e4fd9303B93NW_FVVU?date8=20260322&sid=tosee_jd_211f979b5f1ca57a0HBz3N67EFNU&openWeapp=1&fromSource=2",
+        "shareFriendMomentUrl": "https://m.zhipin.com/mpa/html/weijd/weijd-job/0d443b31e6e4fd9303B93NW_FVVU?date8=20260322&sid=tosee_jd_211f979b5f1ca57a0HBz3N67EFNU&openWeapp=1&fromSource=1",
+        "shareText": "{\"picShareJobDesc\":\"职位描述：\\n1、挖掘蚂蚁资金业务的脆弱性和潜在攻击面，推动业务修复风险并验证上线；\\n2、结合流量行为和业务逻辑，分析账户&资金业务流量攻击行为，还原攻击手法，并沉淀攻击物料和手法；\\n3、检测机器流量和黑灰产攻击行为，并布控策略进行有效对抗\\n4、联动产研建设脆弱性风险检测和流量对抗能力体系，沉淀风险检测&策略对抗组件；\\n\\n职位要求：\\n1、掌握web安全技术，熟练使用工具链Burp Suite、Nmap、SQLmap、Metasploit等工具，能独立完成黑盒/白盒测试\\n2、熟悉安卓、iOS端安全对抗技术，掌握常见的静态分析、动态调试、协议抓包、HOOK等技术原理和框架应用，熟练使用IDA等工具，熟悉逆向分析Smali语法；\\n3、拥有良好的编码经验，熟练掌握Python/Go/Java/JS等至少一种编程语言；\",\"picShareJobName\":\"流量安全策略攻防工程师\",\"picShareSalaryDesc\":\"杭州/25-50K·16薪/3-5年/本科\",\"picShareTime\":\"Mar.2026\",\"picShareTimeDay\":\"22\",\"picShareTitle\":\"蚂蚁集团\",\"qqShareDesc\":\"25-50K·16薪 杭州 3-5年 本科 支付宝（杭州）数字服务技术有限公司\",\"qqShareIcon\":\"https://img.bosszhipin.com/beijin/mcs/banner/b10345f203d9c0270a26df28e9c00429cfcd208495d565ef66e7dff9f98764da.jpg\",\"qqShareTitle\":\"蚂蚁集团·流量安全策略攻防工程师\",\"showQQShare\":true,\"smsShareTitle\":\"#招聘# 蚂蚁集团 正在@Boss直聘  招聘流量安全策略攻防工程师职位，薪金25-50K·16薪 CXO直招，速来应聘！点此应聘：https://m.zhipin.com/download?from=duanxin\",\"wbShareTitle\":\"#招聘# 蚂蚁集团 正在@Boss直聘  招聘 流量安全策略攻防工程师职位，薪金25-50K·16薪 CXO直招，速来应聘！点此应聘：https://m.zhipin.com/download?from=weibo\",\"wxShareDesc\":\"招聘变得更轻松更有效率~\",\"wxShareIcon\":\"https://img.bosszhipin.com/boss/avatar/avatar_6.png\",\"wxShareTitle\":\"【Boss直聘】强烈推荐！蚂蚁集团正在招聘流量安全策略攻防工程师，建议你试试~\"}",
+        "shareUrl": "https://m.zhipin.com/mpa/html/weijd/weijd-job/0d443b31e6e4fd9303B93NW_FVVU?date8=20260322&sid=tosee_jd_211f979b5f1ca57a0HBz3N67EFNU&openWeapp=1"
+      },
+      "brandComInfo": {
+        "brandCertificate": true,
+        "brandId": 11272518,
+        "brandName": "蚂蚁集团",
+        "brandPictureList": [
+          {
+            "auditStatus": 1,
+            "encryptId": "8704355f6e0f7f891Xd42t-4E1Q~",
+            "id": 23212536,
+            "sort": 0,
+            "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e9ba8c75c6c5f05caed13874a80b4fa906f313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+          },
+          {
+            "auditStatus": 1,
+            "encryptId": "2ae734a42b8b71dd1Xd42t-4E1U~",
+            "id": 23212537,
+            "sort": 0,
+            "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e9345bc38dcf76491a1eeb39f61ffc317cf313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+          },
+          {
+            "auditStatus": 1,
+            "encryptId": "b1d01ab005ef17e51Xd42t-4E1Y~",
+            "id": 23212534,
+            "sort": 0,
+            "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e9fe277a6f256cd2dc9cf97f1001a93622f313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+          },
+          {
+            "auditStatus": 1,
+            "encryptId": "4fd7a6ab7d66de511Xd42t-4E1c~",
+            "id": 23212535,
+            "sort": 0,
+            "url": "https://img.bosszhipin.com/beijin/upload/com/workfeel/20220526/7bf6f160950405e948ecf91df7431bfbb69edd286e8655a5f313c3a695fc068cb3ee7b713db1d8f0.jpg?x-oss-process=image/auto-orient,1/watermark,size_18,t_50,color_FFFFFF,text_QOacrOWbvueUseivpeWFrOWPuOazqOWGjOeUqOaIt-S4iuS8oA==,type_ZHJvaWRzYW5zZmFsbGJhY2s"
+          }
+        ],
+        "canJumpToBrandPage": true,
+        "comId": 52010179,
+        "comName": "支付宝（杭州）数字服务技术有限公司",
+        "encryptBrandId": "4685d74590e9bc881nV43N-4EVo~",
+        "focusBrand": false,
+        "industryName": "互联网",
+        "jumpBrandPageUrl": "bosszp://bosszhipin.app/openwith?type=openCompanyHomepage&securityId=k1jSAOrsTdOXl-Q1WxhHuWoyyuF50Ozxbsb5rojOTgIZMUtOMDnxtyvWGTuC5Zy7XNIBwJ3CYMplpFLE6BQHZT5OByBIQ0jszuJ_hVnwfDYmoy6LIdI6gjLaHpekffL5NZsWrosxF4y0voenGezi5DtyD7QnHiyC&sf=1&lid=&brandId=11272518",
+        "logo": "https://img.bosszhipin.com/beijin/mcs/banner/b10345f203d9c0270a26df28e9c00429cfcd208495d565ef66e7dff9f98764da.jpg",
+        "scaleName": "10000人以上",
+        "stageName": "D轮及以上",
+        "top100HunterCom": false
+      },
+      "geekHomeAddressInfo": {
+        "addType": 0,
+        "cityCode": 0,
+        "commuteShowType": 0,
+        "distance": 0.0,
+        "distanceDesc": "设置家庭住址，通勤距离一目了然",
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "multiDesc": [
+          "设置家庭住址，通勤距离一目了然",
+          "按距离展示职位，推荐给附近BOSS"
+        ],
+        "showHomeAddress": false,
+        "status": 0
+      },
+      "geekInfoRightInfo": {
+        "callGeekText": "",
+        "redAmount": 0,
+        "usedId": 0,
+        "usingGeekInfoRight": false
+      },
+      "jobBaseInfo": {
+        "address": "杭州西湖区蚂蚁A空间(1号楼)2号门",
+        "addressShowType": 0,
+        "afterNameIcons": [],
+        "anonymous": 0,
+        "areaDistrict": "西湖区",
+        "baiduStaticMapUrl": "https://img.bosszhipin.com/beijin/upload/amap_proxy/20241220/48ba41acc9cef1bf30bcde00df28c2fca8d3a41acb168b176bb61e3b7bce0931da574d19d1d82c88.png.webp",
+        "brandId": 11272518,
+        "businessDistrict": "西溪",
+        "degree": 203,
+        "degreeName": "本科",
+        "experience": 105,
+        "experienceName": "3-5年",
+        "geoId": "B0HRVDUGQC",
+        "highSalary": 50,
+        "jobAddressCount": 1,
+        "jobDesc": "职位描述：\n1、挖掘蚂蚁资金业务的脆弱性和潜在攻击面，推动业务修复风险并验证上线；\n2、结合流量行为和业务逻辑，分析账户&资金业务流量攻击行为，还原攻击手法，并沉淀攻击物料和手法；\n3、检测机器流量和黑灰产攻击行为，并布控策略进行有效对抗\n4、联动产研建设脆弱性风险检测和流量对抗能力体系，沉淀风险检测&策略对抗组件；\n\n职位要求：\n1、掌握web安全技术，熟练使用工具链Burp Suite、Nmap、SQLmap、Metasploit等工具，能独立完成黑盒/白盒测试\n2、熟悉安卓、iOS端安全对抗技术，掌握常见的静态分析、动态调试、协议抓包、HOOK等技术原理和框架应用，熟练使用IDA等工具，熟悉逆向分析Smali语法；\n3、拥有良好的编码经验，熟练掌握Python/Go/Java/JS等至少一种编程语言；",
+        "jobId": 447782574,
+        "jobType": 0,
+        "jobValidStatus": 1,
+        "latitude": 30.262229,
+        "location": 101210100,
+        "locationDesc": "杭州·西湖区·西溪",
+        "locationName": "杭州",
+        "locationWithSubway": 0,
+        "longitude": 120.104163,
+        "lowSalary": 25,
+        "performance": "",
+        "position": 100407,
+        "positionCategory": "网络安全",
+        "positionName": "流量安全策略攻防工程师",
+        "proxyJob": 0,
+        "proxyType": 0,
+        "requiredSkillsExposureAction": [],
+        "requiredSkillsHighlights": [],
+        "salaryDesc": "25-50K·16薪",
+        "securityId": "Mhswv6azsUgrk-c1zEoA5nqpmc8caouiSu1ep4rlSsy0WSSKkF4dAeltudYnbvYSzPS7n1OZ",
+        "showHunterJob": 0,
+        "source": 0,
+        "staticMapUrl": "https://img.bosszhipin.com/beijin/upload/amap_proxy/20230612/48ba41acc9cef1bf5f089152dd23deb74e8a1e9b2d1fdec76bb61e3b7bce0931da574d19d1d82c88.jpg",
+        "trafficDescV2": ""
+      },
+      "matchInfo": {
+        "expectId": 0,
+        "positionCode": 0
+      },
+      "oneKeyResumeInfo": {
+        "alreadySend": 0,
+        "inviteType": 0,
+        "oneKeyType": 0
+      },
+      "pageType": 0,
+      "relationInfo": {
+        "applyJobDirectly": 1,
+        "expectId": 0,
+        "interested": false,
+        "isFriend": false,
+        "isFriendEver": false,
+        "jobId": 0,
+        "markType": 0,
+        "startChatProcessType": 0
+      },
+      "safeTipInfo": {
+        "safeReport": {
+          "code": "BOSS直聘严禁用人单位和招聘者用户做出任何损害求职者合法权益的违法违规行为，包括但不限于扣押求职者证件、收取求职者财物、向求职者集资、让求职者入股、诱导求职者异地入职、异地参加培训、违法违规使用求职者简历等，您一旦发现此类行为，",
+          "highlightList": [
+            {
+              "endIndex": 120,
+              "startIndex": 115
+            }
+          ],
+          "hlname": "请立即举报",
+          "name": "BOSS直聘严禁用人单位和招聘者用户做出任何损害求职者合法权益的违法违规行为，包括但不限于扣押求职者证件、收取求职者财物、向求职者集资、让求职者入股、诱导求职者异地入职、异地参加培训、违法违规使用求职者简历等，您一旦发现此类行为，请立即举报"
+        },
+        "title": "BOSS安全提示"
+      },
+      "securityId": "TppgiaISeWfEV-y1hCYBBEmia2GgzaXn2O6lBSY4nbpGdPBmsR4ebupnrrzf7Y9G-AZHzyqvbnHr5Jz9O8QXCxtaNhAhR3AxDpo996qfyjU9crL_D8gll710F5zvwDcgwGswiciHc6U5-badBQBqbCJ5SxMXjTqfSkrZOHUkZjhwT4aiy4oKxZSx63E4cmLXfz1wk7e4SV8o5pggWZ0qwR5Ye6OMT6pe661eEAHtCqS34yIEixxd8H_bQtdp4Morr0cc-c8oG8NgjhuRKtFoNeuhJLRJ_yCAKg0IBZIZxWAm"
+    }
+  },
+  "route": "security_id_batch",
+  "session_path": "/workspace/lab-assets/.boss_purecalc/session.json",
+  "summary": {
+    "company_name": "蚂蚁集团",
+    "job_id": "447782574",
+    "location": "杭州",
+    "position_name": "流量安全策略攻防工程师",
+    "salary_desc": "25-50K·16薪",
+    "security_id": "TppgiaISeWfEV-y1hCYBBEmia2GgzaXn2O6lBSY4nbpGdPBmsR4ebupnrrzf7Y9G-AZHzyqvbnHr5Jz9O8QXCxtaNhAhR3AxDpo996qfyjU9crL_D8gll710F5zvwDcgwGswiciHc6U5-badBQBqbCJ5SxMXjTqfSkrZOHUkZjhwT4aiy4oKxZSx63E4cmLXfz1wk7e4SV8o5pggWZ0qwR5Ye6OMT6pe661eEAHtCqS34yIEixxd8H_bQtdp4Morr0cc-c8oG8NgjhuRKtFoNeuhJLRJ_yCAKg0IBZIZxWAm"
+  },
+  "transport": {
+    "flow": "reqwest_direct",
+    "proxy": null,
+    "status": "ready",
+    "transport_runtime": "direct"
+  },
+  "transport_runtime": "direct"
+}

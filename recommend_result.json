@@ -1,0 +1,1209 @@
+{
+  "attempts": [
+    {
+      "expect_context": null,
+      "host": "https://api-and.zhipin.com",
+      "phase": "bootstrap_expect_context",
+      "profile": "bootstrap",
+      "request": {
+        "body_form": "app_id=1003&batch_method_feed=%5B%22method%3DzpCommon.config.getInnerLinkRuleList%22%2C+%22method%3DzpCommon.common.config%22%2C+%22method%3Dzpchat.config.getInnerLinkRuleList%22%2C+%22method%3DzpCommon.h5.domain.mapping%22%5D&client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221773926672996%22%2C%22resume_time%22%3A%221773926672996%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1773926672996&sig=V3.0689514108c3bbb009dd4d40eb9f955c2&sp=zwp_NCTRJTSwi3DeWMDkHLmBvU2-Bobyc-qL_5IHDAvQd_A143ZQP2BmjxdeLNNBEbnZ14U6K3Xvv5AGN8lu6i0aIkXBjfA5rFsBzoqOd-l1WO1dyqtbWLMN3Nkn6lBTlhjz93dV8PQBDTmh8GbJCs9ynhxw1FGgOcFegxVHbOJdXsMgMb0mAqzkg7F1AxgvM-AWMnRP1p_NwPmI_F6jRCxZ0lOPDknrq8VfEqP0EPxVNkSswAv5uXcYEpNU826kUYEGw1XiL8hC6Z8jzDj15damXyVLyGAPLu4wLqNhjqKwSJSPeWv56pbFZZ1wSca0ysmxgdYNl-aZQ3k5PhD34O-hCv5PEkwoL8Ojj3KloNgWUC3YSiUmpnmPulWHkO2iuxzGvlOz30JaGY1EWwb38C_bm9Q1XMT6z1PQAZduMnlmoUkxPTY7RRkyO3pvFW3gKkIO0Q2x88mQM0uSCrwtExB0bgesVnMlRYpnb7jxBKhvNIHCbWcxvd-wTT2zZGpxYS130mh2gFFa7SdNsjCkC5Ww6vC_gaoww7iIX5nARrviQrhHt3Sa7IYlRlIUPW0gJoDKuS5jAKw4mToad5OHVX908HZTbmA_ZJTDrftfk6OTJt2JEhYGVVAhjyBbarFetXbTxQTsDBLw-ETYZh5djCuaBcqukbURjjTGCwcFGSZeODBRekVlvohd1RgfIOU0aYbKwiMDW1yLhGaH5buVYOlhD7JJtrF2IqYiM8wDtVh84fZjeyeYaEHjZt1fWYj2aH_6dK6_hHhYa1F8CdCFjgS1iWePQAOcAZQxDfi8rIMredZSlBVQDi59s8wKGMTycjlivF70yN__7UhxZVFUsrAt7wRcPgm0HhcXqnhHXY6QO0fCtIQOSLst867agwHcjI551rBx2iIg5P9KzWYGOlMj_tzCTBDyM-m-oayUxWoIeupms_T0lPDMx5k76ZJA6G8SryEz6nsJqi4WzA8we4kUzBPRCJemnc6txaJlN9OrNkqG4PMirp34x6FiHQs1EhqM3kXfJw%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010",
+        "request_headers": {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept-Language": "zh-CN,zh;q=0.9",
+          "Connection": "keep-alive",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cookie": "wt2=D8dyWD…wA~~; zp_at=XD_M5V…Z3k~",
+          "Host": "api-and.zhipin.com",
+          "User-Agent": "Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36 BossZhipin/14.010",
+          "b-cat-b": "1",
+          "t2": "D8dyWD…wA~~",
+          "traceid": "A-4fc4ea99-ea8b-6758-f04e-757bdc451fdc",
+          "x-brand": "realme",
+          "x-channel": "15",
+          "x-client-type": "android",
+          "x-client-ver": "14.010",
+          "x-device-id": "DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU",
+          "x-model": "RMX3560",
+          "x-os": "Android",
+          "x-request-id": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8_1773926673702",
+          "x-tinker-id": "Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42",
+          "x-uniqid": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8",
+          "zp-at": "XD_M5V…Z3k~",
+          "zp-os-ver": "34",
+          "zp-tag": "zwp_NCTRJTSwi3Den8LkHNaFvU0WAIbyceirotY-BluIJ_k8_TVTZnYo0X8GcYpPTunjnNdqeCqu6eYWNJ0YiQ~~"
+        },
+        "traceid": "A-4fc4ea99-ea8b-6758-f04e-757bdc451fdc",
+        "url": "https://api-and.zhipin.com/api/batch/batchRunV2"
+      },
+      "request_contract": {
+        "app_id": "1003",
+        "city_code": "101210900",
+        "endpoint": "/api/batch/batchRunV2",
+        "host": "https://api-and.zhipin.com",
+        "keyword": "",
+        "method_count": 4,
+        "page": "1",
+        "page_size": "15",
+        "profile": "bootstrap",
+        "type": "batchRunV2_search_stage1"
+      },
+      "response": {
+        "code": 0,
+        "message": "Success",
+        "transport": {
+          "final_url": "https://api-and.zhipin.com/api/batch/batchRunV2",
+          "http_status": 200,
+          "http_version": "HTTP/1.1",
+          "proxy": null,
+          "response_headers": {
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+            "content-encrypt": "yes",
+            "content-length": "2992",
+            "content-type": "application/json",
+            "date": "Thu, 19 Mar 2026 13:24:34 GMT",
+            "process-stage": "Stage-Outbound",
+            "server-info": "boss-alb"
+          }
+        },
+        "zpData": {
+          "zpCommon.common.config": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "android_config": {
+                "close_hook_loc": 0,
+                "http_connect_timeout": 30,
+                "support_vivo_store": 1,
+                "use_kernel": 1,
+                "use_system_ui": 1
+              },
+              "ctr_config": {
+                "ctr_close": 1
+              },
+              "eduDegreeConfigList": [
+                {
+                  "degreeName": "大专",
+                  "degreeType": 202,
+                  "maxInterval": 8,
+                  "minInterval": 1
+                },
+                {
+                  "degreeName": "本科",
+                  "degreeType": 203,
+                  "maxInterval": 10,
+                  "minInterval": 1
+                },
+                {
+                  "degreeName": "硕士",
+                  "degreeType": 204,
+                  "maxInterval": 8,
+                  "minInterval": 1
+                },
+                {
+                  "degreeName": "博士",
+                  "degreeType": 205,
+                  "maxInterval": 20,
+                  "minInterval": 1
+                },
+                {
+                  "degreeName": "高中",
+                  "degreeType": 206,
+                  "maxInterval": 8,
+                  "minInterval": 1
+                },
+                {
+                  "degreeName": "中专/中技",
+                  "degreeType": 208,
+                  "maxInterval": 8,
+                  "minInterval": 1
+                },
+                {
+                  "degreeName": "初中及以下",
+                  "degreeType": 209,
+                  "maxInterval": 8,
+                  "minInterval": 1
+                }
+              ],
+              "f1_location": {
+                "boss": 0,
+                "geek": 0
+              },
+              "hunter_config": {
+                "intent_myorder_drawer_default_url": "bosszp://bosszhipin.app/openwith?type=bossIntentionPage&tab=1&subTab=13&from=2",
+                "intent_recommend_geek_drawer_default_url": "bosszp://bosszhipin.app/openwith?type=bossIntentionPage&tab=0&subTab=0&from=2"
+              },
+              "ios_config": {
+                "address": "39.96.105.64",
+                "f1_cache": 10,
+                "iscloseapm": 0,
+                "isopenfarm": 1,
+                "isopensdk": "0,1",
+                "uid": "6",
+                "url_cache": 1
+              },
+              "list_exposure": {
+                "item_limit": 10,
+                "time_limit": 30
+              },
+              "moment_config": {
+                "open_course": 1
+              },
+              "relation_config": {
+                "blue_interview_open": 1,
+                "media_interview_open": 1
+              },
+              "rta_config": {
+                "baidu_show": 1
+              }
+            }
+          },
+          "zpCommon.config.getInnerLinkRuleList": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "ruleList": [
+                {
+                  "ruleType": 1,
+                  "valueList": [
+                    "ekyc-h5.pingan.com"
+                  ]
+                }
+              ]
+            }
+          },
+          "zpCommon.h5.domain.mapping": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "mappings": [
+                {
+                  "bakDomain": "maif.zhipin.com",
+                  "mainDomain": "m.zhipin.com",
+                  "scene": 1
+                }
+              ],
+              "mappings_reveal": [
+                {
+                  "bakDomain": "m.zhipin.com",
+                  "mainDomain": "boss-m-qa.weizhipin.com",
+                  "scene": 2
+                },
+                {
+                  "bakDomain": "m.zhipin.com",
+                  "mainDomain": "pre-www.zhipin.com",
+                  "scene": 2
+                }
+              ]
+            }
+          },
+          "zpchat.config.getInnerLinkRuleList": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "ruleList": [
+                {
+                  "ruleType": 1,
+                  "valueList": [
+                    "zpurl.cn",
+                    "zhipin.com",
+                    "kanzhun.com",
+                    "dianzhangzhipin.com",
+                    "weizhipin.com",
+                    "sona.zhipin.com",
+                    "themarryapp.com"
+                  ]
+                },
+                {
+                  "ruleType": 2,
+                  "valueList": [
+                    ".zpurl.cn",
+                    ".zhipin.com",
+                    ".kanzhun.com",
+                    ".dianzhangzhipin.com",
+                    ".weizhipin.com",
+                    ".themarryapp.com"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "expect_context": null,
+      "host": "https://api-and.zhipin.com",
+      "phase": "bootstrap_expect_context",
+      "profile": "state",
+      "request": {
+        "body_form": "app_id=1003&batch_method_feed=%5B%22method%3Dzpgeek.app.bluecollar.topic.banner.v2%22%2C+%22method%3Dzpuser.user.getBottomBtns%22%2C+%22method%3Dzpuser.dynamicBar.get%22%2C+%22method%3Dzpgeek.cvapp.f1.tab.config%22%2C+%22method%3Dzpgeek.app.geek.common.config%22%2C+%22method%3Dzpgeek.cvapp.geek.baseinfo.query%26subLocation%3D0%26userId%3D0%22%2C+%22method%3Dzpp.app.user.unBzbOrderList%22%2C+%22method%3DzpitemGeek.geek.vip.info%22%2C+%22method%3Dzpuser.user.check%22%2C+%22method%3Dzpgeek.app.interaction.query%22%2C+%22method%3DzpitemGeek.geek.getItemMallF4%22%2C+%22method%3Dzpapptips.app.tip.f4.query%22%2C+%22method%3Dzpgeek.app.geek.expectposition.suggest.reddot.query%22%2C+%22method%3Dcertification.security.get%22%2C+%22method%3Dzpgeek.app.student.feature.query%22%2C+%22method%3Dzpgeek.app.studentparttime.topic.banner.v2%22%2C+%22method%3Dzpgeek.cvapp.identity.switch.entrance%22%2C+%22method%3Dzpchat.wechat.get.WxNotify.commonSetting%22%5D&client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221773926674561%22%2C%22resume_time%22%3A%221773926674561%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1773926674561&sig=V3.061f025b9abb63f3140dc25810763bb68&sp=zwp_NCTRJTSwi3De2sbkHNGCvU1UA4byc-qL_5IHDAvQd_A143ZQP2BmjxdeLNNBEbnZ14U6K3Xvv5AGN8lu6iglIkXBjfAdplMHj4XQZKh5UvFfh6NSQJsRnMg61lBe0yjn9Xx866kDGi6h53G4YtNKmko7pzv7F8YRPxpDbP4yD0ZONMp8CLCl4t-KSQwgIv0WP1QuFJ33rN_pkbvGCjtwNT02B0Xg6HU9TLb-DOlVPgeMx3vh-FAcIP0PlQO7DfIj_2XQXMJw6Hk33hjo5M2nUC51uRRxXDdmaPRgj5-ITpqLHgKXp7MmEJpiSMlZ_N3P1-I0rvOYQkFJaWOStpozb_o6bX4xJe2_hXK71rFndAPIfX5P01niylXp9YqiDm7dqxyhsihULsxjP0Wl3Ha3zYpgFa__qyukRqVdjEksyFcpNycFVstAH7FqDsGiXyYZoBnWl9XZtzubJe8lHTRxPSrMRStjGMpsK64-ZfErO9zUMjJV2eTT9V-CC1KQBFRXtyxtkQQpcoN6GXaXX8TirbCnwf4S5JW5LK6Ed56yBf0d519bqSBPd3IxCSsNY7zR_2RbuZ3_2AxeMLPaCj8e0iQFLFR4RMx1q_yvk_P_Tj2XHM1yYhx-2P9YeKCpvXTmwhSBfhL18kQwAvgqEGq9OJXmpYAkoAnCWSNpQwhkMjlmHVtqzfGq5U4Aefl9f6j_8mgthwS9r1m58Iq8x6e4eIIqv6h7HY07Lbpy1AA_hwgRbgj9bUYaCiUIGfKaKa_sFu1-4RQcKw4lUf7yoGXqumyHVw2GADgAqfO-r8BxKZAW-vlhPmJNg9w65cTzaDtjo1zwsetasgo4BzciwLoumHcs3G3scGNDvn87Mor8cWLy1vN3G9kg8umqtTvDjeUYV6wCSkJ4zKgrzxNlSSdEgLHFP2PzM-m-pLS5xmoIeuumsodA-dLM0ZAoNJBEoG9Tek9arrD4rnFSGnkha9IUyx-UAs69wse9mvN2pLSfarW0lPg0leP8hZAVuU9zSRP48HS-F_Ux2cRIWQrjbT4SDQqg7jDsAhkg0UARzkImLvwH6HY0KXPcXJ9xIjndSKMb1ovy9lhPlRXsLFOVp-AORf-cvu_PCsgeyU__lDYiPvT9Q9k4_6APZaqLNHHEAC2ANubppdSmO2S7QygxHrimZ_tPCNJyBjzpklIxHMK9y2DxqkRFbQ9oMLRPpWiFV7Mncn851itlBhan7kbkYI02JsmQIG8MYWDG4Sy6k7PIAfM5ifz86hZzyeX35Je-huc6wukZad3xOjttYjtZZG9_3wjFshi0fe9IY1LBDGCUqiiYBM9xIEafXf1Hb77UYoFJAi36SiRJA_cjLWsO5kE27YzJ5aOy2ILfraNBGvecvNUy9X8pS2ADg1CT-v1rL6ai0-SPafyqLcufGCBcMorrUQl1hxnd8p93Ac_UpyzOMwMpW4_ht7utwu7z_I6ueKp2zqImGuCLQHQ0N13KD7YPSMGW9AdBHXY3fju1v7zcHCkHw8UJRZ4U6Fc8CmmvIJ0ScNA%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010",
+        "request_headers": {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept-Language": "zh-CN,zh;q=0.9",
+          "Connection": "keep-alive",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cookie": "wt2=D8dyWD…wA~~; zp_at=XD_M5V…Z3k~",
+          "Host": "api-and.zhipin.com",
+          "User-Agent": "Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36 BossZhipin/14.010",
+          "b-cat-b": "1",
+          "t2": "D8dyWD…wA~~",
+          "traceid": "A-6167eb18-2cce-8120-34eb-b99fbe752ab1",
+          "x-brand": "realme",
+          "x-channel": "15",
+          "x-client-type": "android",
+          "x-client-ver": "14.010",
+          "x-device-id": "DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU",
+          "x-model": "RMX3560",
+          "x-os": "Android",
+          "x-request-id": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8_1773926675206",
+          "x-tinker-id": "Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42",
+          "x-uniqid": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8",
+          "zp-at": "XD_M5V…Z3k~",
+          "zp-os-ver": "34",
+          "zp-tag": "zwp_NCTRJTSwi3Den8LkHNaFvU0WAIbyceirotRpU1iIJPE9_WJRPXEo33kBeYoaSrjknIJmdi6o7-UWN5oe2w~~"
+        },
+        "traceid": "A-6167eb18-2cce-8120-34eb-b99fbe752ab1",
+        "url": "https://api-and.zhipin.com/api/batch/batchRunV2"
+      },
+      "request_contract": {
+        "app_id": "1003",
+        "city_code": "101210900",
+        "endpoint": "/api/batch/batchRunV2",
+        "host": "https://api-and.zhipin.com",
+        "keyword": "",
+        "method_count": 18,
+        "page": "1",
+        "page_size": "15",
+        "profile": "state",
+        "type": "batchRunV2_search_stage1"
+      },
+      "response": {
+        "code": 0,
+        "message": "Success",
+        "transport": {
+          "final_url": "https://api-and.zhipin.com/api/batch/batchRunV2",
+          "http_status": 200,
+          "http_version": "HTTP/1.1",
+          "proxy": null,
+          "response_headers": {
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+            "content-encrypt": "yes",
+            "content-length": "23240",
+            "content-type": "application/json",
+            "date": "Thu, 19 Mar 2026 13:24:35 GMT",
+            "process-stage": "Stage-Outbound",
+            "server-info": "boss-alb"
+          }
+        },
+        "zpData": {
+          "certification.security.get": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "securityUrl": ""
+            }
+          },
+          "zpapptips.app.tip.f4.query": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zpchat.wechat.get.WxNotify.commonSetting": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "wxNotify": false,
+              "wxNotifyGrayGuide": false,
+              "wxNotifyGuide": false,
+              "wxNotifySetting": {
+                "wxNotifyGuide": false
+              }
+            }
+          },
+          "zpgeek.app.bluecollar.topic.banner.v2": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "list": [
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef0a4eef20c67c769d1b28e2e25161e30edf7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "闪电日结",
+                  "type": 10
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240905/b0d69dde1b861aefd07ed7216fce213f851ff6778482e68ddf7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "长期兼职",
+                  "type": 30
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef2c2951774b4b6dfe787fef87be70dd27df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "周末兼职",
+                  "type": 9
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef36c2ee58c2cee6af2aa92189eb158bbfdf7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "夜班兼职",
+                  "type": 11
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aefc86baffb683603d6b9b81a9bd4b48cc1df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "工作日兼职",
+                  "type": 8
+                }
+              ],
+              "listV2": [
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef1630c86b59d41af5fcc71c83bfc722c8df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "热门餐饮",
+                  "type": 3
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aefde8bab9a5c3e48b73bebde6d5b525765df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "体力零工",
+                  "type": 2
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef20795d26b959c2213b594589d8108160df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "手艺人",
+                  "type": 103
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aefc86baffb683603d6b9b81a9bd4b48cc1df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "工作日兼职",
+                  "type": 8
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef2c2951774b4b6dfe787fef87be70dd27df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "周末兼职",
+                  "type": 9
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef36c2ee58c2cee6af2aa92189eb158bbfdf7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "夜班兼职",
+                  "type": 11
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef36a04e9974e9534bfae627119b29a63fdf7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "老师专场",
+                  "type": 109
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef560a4660c03ecd7173bf9dd7185d4528df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "生活配送",
+                  "type": 111
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aefeff295445822f52bccf5a9d50cace6b3df7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "普工维修",
+                  "type": 112
+                },
+                {
+                  "icon": "https://img.bosszhipin.com/beijin/icon/20240826/b0d69dde1b861aef70e54f9007f0ad7cdf5cf555a8630b2adf7057d7d2336142c8dca7d7e5177b62.png",
+                  "supportSort": 0,
+                  "title": "更多兼职",
+                  "type": -1
+                }
+              ]
+            }
+          },
+          "zpgeek.app.geek.common.config": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "aiSearchExp": 0
+            }
+          },
+          "zpgeek.app.geek.expectposition.suggest.reddot.query": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "dataSource": 0,
+              "showRedDot": false,
+              "sugContent": ""
+            }
+          },
+          "zpgeek.app.interaction.query": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "canAcceptCount": 0,
+              "contactBossCount": 0,
+              "favourJobCount": 0,
+              "interviewCount": 0,
+              "resumeDirectCount": 0
+            }
+          },
+          "zpgeek.app.student.feature.query": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zpgeek.app.studentparttime.topic.banner.v2": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zpgeek.cvapp.f1.tab.config": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zpgeek.cvapp.geek.baseinfo.query": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "geekDetail": {
+                "activeTimeDesc": "刚刚活跃",
+                "applyStatus": -1,
+                "applyStatusContent": "",
+                "certificationList": [],
+                "clubExpList": [],
+                "completeStatus": 2,
+                "completeType": 0,
+                "couponListUrl": [
+                  "https://m.zhipin.com/mpa/html/scattered_page/discount_coupon_detail?tab=0",
+                  "https://m.zhipin.com/mpa/html/scattered_page/discount_coupon_detail?tab=1",
+                  "https://m.zhipin.com/mpa/html/scattered_page/discount_coupon_detail?tab=2"
+                ],
+                "degree": 0,
+                "eduExperienceList": [],
+                "expectInternList": [],
+                "expectPositionList": [],
+                "f1TabsConfig": [],
+                "freshGraduate": -1,
+                "garbage": {
+                  "reasonCode": 0,
+                  "resumeDetailStatus": 0,
+                  "status": 0
+                },
+                "geekAffiliation": {
+                  "canAcceptCount": 0,
+                  "collectionTab": 1,
+                  "contactBossCount": 0,
+                  "favourJobCount": 0,
+                  "favourJobRedPoint": 0,
+                  "interviewCount": 0,
+                  "resumeDirectCount": 0
+                },
+                "geekCharacterLabelList": [],
+                "geekFeature": {
+                  "activeInfoPixel": 800,
+                  "addressManagerGroup": 0,
+                  "careerExpectManagerOptimize": 0,
+                  "certificateShowUrl": "bosszp://bosszhipin.app/openwith?type=webview&noheader=0&url=https://m.zhipin.com/mpa/v3/html/cert/credentials/tip&fullScreen=1",
+                  "changeExpectCityGroup": 0,
+                  "changeExpectCityGroup4Search": 0,
+                  "checkSuggestPosition": 0,
+                  "completeAdvantageImprovementExp": 0,
+                  "completeBaseInfoExp": 0,
+                  "completeProcessVersion": 2,
+                  "completeStyle1108": 0,
+                  "createNewAttachmentPlan": 0,
+                  "expectAddTraitLabel": 1,
+                  "expectInterestCombine": 0,
+                  "expectLocationInterestCombine": 0,
+                  "expectOtherPositionShowCategory": 0,
+                  "expectPositionAutoKeyboard": 1,
+                  "exportResumeUrl": "https://m.zhipin.com/mpa/html/resume-detail/resume-export/select?from=7",
+                  "f1ActiveRcdGroup": 0,
+                  "f1ExpectTab": 0,
+                  "f1ExpectTabClick": 0,
+                  "gptExpectSugEntrance": 0,
+                  "mapAddAddressExp": 0,
+                  "multiAddressFilter": 1,
+                  "pictureReadInput": 1,
+                  "positionSelectorRollOverStyle": 0,
+                  "resumeBot": 0,
+                  "resumeCopyLinkSwitch": 1,
+                  "resumePostExpUpgrade": 1,
+                  "resumeSuggestSkillWords": 2,
+                  "salaryShowStyle": 0,
+                  "searchButtonStyle": 1,
+                  "showAvatarDiagnosis": 0,
+                  "showF3Optimize": 1,
+                  "showHandicappedModule": 0,
+                  "showHonor": 0,
+                  "showPositionTitle": 0,
+                  "showPostExpModule": 0,
+                  "showReadWebDesignWorks": 0,
+                  "showResumeFillHelper": 1,
+                  "showResumeImportBtn": 1,
+                  "showScreenBrandGuide": 0,
+                  "showStuF1NewestTab": 1,
+                  "showStuMixF1Filter": 1,
+                  "showTrainingExpModule": 0,
+                  "stuMultiExpectChoose": 0,
+                  "supportVoiceInput": 0,
+                  "supportVoiceSearch": 0,
+                  "useNewModuleOrder": 1,
+                  "voiceSearchStyle": 0,
+                  "webResumeLabelModule": 0,
+                  "webResumePageHeadImgWarn": 0
+                },
+                "geekSkillLabelList": [],
+                "gender": -1,
+                "hasResume": 0,
+                "honorList": [],
+                "isCompleted": false,
+                "projectExperienceList": [],
+                "resumeCount": 0,
+                "resumeStatus": 0,
+                "shareUrl": "https://m.zhipin.com/mpa/html/resume-detail?sid=self&securityId=EyNeXRbUyloIh-u1Sx6_tMko4yBXn9O8FHYq5zDNEh29Cy8giaTQuBzSRxQIBCPCgjv0YOoCdwlGMIL93HmhD0zj_s9mrEGuLnl1cPD_bM7vCDxiXaTEO4Lb0DMhOZ7Lfrn_jUgWtRtd",
+                "socialContactList": [],
+                "supportAnnexType": false,
+                "trainingExpList": [],
+                "userDescription": "",
+                "userInfo": {
+                  "activeStatus": 1,
+                  "encryptGeekId": "211f979b5f1ca57a0HBz3N67EFNU",
+                  "handicappedPeople": false,
+                  "headImg": 0,
+                  "hometown": 0,
+                  "large": "",
+                  "name": "",
+                  "registerDate": 1773924180000,
+                  "tiny": "",
+                  "userId": 749736014,
+                  "weiXinSecurityUid": "38b2ff1158de6e1bJ6QgMlRgsds1pVBUD-YDMA~~",
+                  "weixin": ""
+                },
+                "volunteerList": [],
+                "workDate8": 0,
+                "workEduDesc": "",
+                "workExperienceList": []
+              }
+            }
+          },
+          "zpgeek.cvapp.identity.switch.entrance": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "hitShowTipStrategy": false,
+              "showEntrance": true,
+              "showTip": false,
+              "tipText": "点击这里可以“切换身份”啦～"
+            }
+          },
+          "zpitemGeek.geek.getItemMallF4": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "itemList": [
+                {
+                  "highLightList": [],
+                  "itemType": 76,
+                  "layerGray": 0,
+                  "picUrl": "https://img.bosszhipin.com/beijin/item/icon/20240130/32d6005a049d267bacf983927a1943f8728bc86fed5bf14e169e10884dfc4ab645a70fac5caa8065.png.webp",
+                  "subTitle": "求职方向",
+                  "title": "16型测评",
+                  "url": "https://m.zhipin.com/mpa/html/mix/assessRoute?assessId=789dbc3d4a7929a80XR-&scene=5"
+                },
+                {
+                  "itemType": 11,
+                  "layerGray": 0,
+                  "picUrl": "https://img.bosszhipin.com/beijin/upload/item/20210930/e84be512208dcc09e0dbe0906a9db85b70bc18e761ad5ef80beed307a2ec30ae417492a35e8a8499.png",
+                  "subTitle": "洞悉竞争",
+                  "title": "竞争力分析",
+                  "url": "https://m.zhipin.com/mpa/v3/html/props/competitive-analyze/product?itemTypeStr=bf0aaab5053fa3e71nU~&appIdStr=56b5aedd5f90546b1nR62A~~&source=competition-analysis-1&styleGray=1&simpleGray=1"
+                }
+              ]
+            }
+          },
+          "zpitemGeek.geek.vip.info": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "geekVipInfo": {
+                "appStoreUrl": "https://m.zhipin.com/wapi/zpitem/geek/vip?source=11&reportPoint=1",
+                "buttonText": "去升级",
+                "buttonUrl": "bosszp://bosszhipin.app/openwith?type=webview&fullScreen=1&url=https%3A%2F%2Fm.zhipin.com%2Fwapi%2Fzpitem%2Fgeek%2Fvip%3Fsource%3D1%26reportPoint%3D1",
+                "bzbTime": null,
+                "encryptBagId": null,
+                "encryptPriceId": null,
+                "endDate": null,
+                "jumpUrl": "bosszp://bosszhipin.app/openwith?type=webview&fullScreen=1&url=https%3A%2F%2Fm.zhipin.com%2Fwapi%2Fzpitem%2Fgeek%2Fvip%3Fsource%3D1%26reportPoint%3D1",
+                "newPurchaseGray": 0,
+                "popWindowInfo": null,
+                "privilegeCount": 0,
+                "renewVipType": 0,
+                "showVipType": 0,
+                "tag": null,
+                "vipDesc": "今日10万人加速中，再不追就晚啦",
+                "vipStatus": 0,
+                "vipTitle": "想快点找到工作？快升级VIP"
+              }
+            }
+          },
+          "zpp.app.user.unBzbOrderList": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "list": []
+            }
+          },
+          "zpuser.dynamicBar.get": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "barGroupList": [
+                {
+                  "groupId": 5,
+                  "name": "分组5"
+                },
+                {
+                  "groupId": 6,
+                  "name": "分组6"
+                },
+                {
+                  "groupId": 7,
+                  "name": "分组7"
+                }
+              ],
+              "barList": [
+                {
+                  "bannerImgUrl": "",
+                  "barId": 173,
+                  "bubbleCount": 0,
+                  "clickUrl": "bosszp://bosszhipin.app/openwith?type=editresume&from=1",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 6,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e388889e689b08c85f85f67f783e09be85e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0ec9b31c812bc45f3e037b36695d9d098f5e2a882d935370fbac9c3f4d4b0fa06f.png.webp?darkmode=https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e388889e689b08c85f85f67f783e09be85e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": true,
+                  "noticeImgUrl": "",
+                  "styleType": 6,
+                  "subTitle": "优化增加推荐",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "在线简历"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 175,
+                  "bubbleCount": 0,
+                  "clickUrl": "bosszp://bosszhipin.app/openwith?type=openattachmentresume",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 6,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e05d461093d49fbfcbcba5b214f401d1e5e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e80223ea2a4ffd1f3f73314c76536fcc35e2a882d935370fbac9c3f4d4b0fa06f.png.webp?darkmode=https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e05d461093d49fbfcbcba5b214f401d1e5e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": true,
+                  "noticeImgUrl": "https://img.bosszhipin.com/beijin/icon/ec856f35b876ac287f542fefe3b5f79864b716fe3226fbda52411895132fff56.png",
+                  "styleType": 6,
+                  "subTitle": "上传/制作简历",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "附件简历"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 176,
+                  "bubbleCount": 0,
+                  "clickUrl": "bosszp://bosszhipin.app/openwith?type=openexpectmanager",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 6,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e0d843d71caba61565a085c334257b3585e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e5c4e2e16133da532af1543b5905ece6f5e2a882d935370fbac9c3f4d4b0fa06f.png.webp?darkmode=https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e0d843d71caba61565a085c334257b3585e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": false,
+                  "noticeImgUrl": "",
+                  "styleType": 6,
+                  "subTitle": "",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "求职意向"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 200,
+                  "bubbleCount": 0,
+                  "clickUrl": "bosszp://bosszhipin.app/openwith?type=newwebview&fullScreen=1&bgColor=37c2bb&bgColorDark=000000&delayProgress=1000&delayPush=150&url=https%3A%2F%2Fm.zhipin.com%2Fmpa%2Fv3%2Fhtml%2Fprops%2Fmall-geek",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 6,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e1ae870565b31c43cf8736fe82a30b8c65e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e3403fcdf7be1cfceba40af735f3c98f45e2a882d935370fbac9c3f4d4b0fa06f.png.webp?darkmode=https://img.bosszhipin.com/beijin/upload/admin/20250718/7a57a5a743894a0e1ae870565b31c43cf8736fe82a30b8c65e2a882d935370fbac9c3f4d4b0fa06f.png.webp",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": false,
+                  "noticeImgUrl": "",
+                  "styleType": 6,
+                  "subTitle": "提升求职效率",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "求职道具"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 285,
+                  "bubbleCount": 0,
+                  "clickUrl": "https://m.zhipin.com/mpa/v3/html/assess/chara-test/choose-type?scene=2",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 7,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/item/icon/20231124/32d6005a049d267b15594ff1e79cddb40608e18c7327ada4169e10884dfc4ab645a70fac5caa8065.png.webp",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/item/icon/20231110/32d6005a049d267b1a3b8469575bfc2747f47aaee2ad742f169e10884dfc4ab645a70fac5caa8065.png.webp?darkmode=https://img.bosszhipin.com/beijin/item/icon/20231124/32d6005a049d267b15594ff1e79cddb40608e18c7327ada4169e10884dfc4ab645a70fac5caa8065.png.webp",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": true,
+                  "noticeImgUrl": "https://img.bosszhipin.com/beijin/icon/f15dc28b6d28b62b1569b30ed970a24fafa57f1b9e07a647f8c4bb919f5863fe.png",
+                  "styleType": 7,
+                  "subTitle": "",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "职业测评"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 259,
+                  "bubbleCount": 0,
+                  "clickUrl": "bosszp://bosszhipin.app/openwith?type=customerServiceGuide&identityType=0&query=&source=4",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 7,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/icon/60182af50d4efd9c36d893680ba04fbce69b608f7fd7820f673e5ea6f77ed1e4.png",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/icon/1048c9091f7bb6fae1becbdc67259d55e69b608f7fd7820f673e5ea6f77ed1e4.png?darkmode=https://img.bosszhipin.com/beijin/icon/60182af50d4efd9c36d893680ba04fbce69b608f7fd7820f673e5ea6f77ed1e4.png",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": false,
+                  "noticeImgUrl": "",
+                  "styleType": 7,
+                  "subTitle": "",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "我的客服"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 221,
+                  "bubbleCount": 0,
+                  "clickUrl": "https://m.zhipin.com/activity/html/antelope-plan-new/home",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 7,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/icon/bc806f9ca392deed96be4e83ea64e4bc8749e18e6e1c966d823429c837d1fa08.png",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/icon/278fd694fd9b8a4e17c5587e9c6844d78749e18e6e1c966d823429c837d1fa08.png?darkmode=https://img.bosszhipin.com/beijin/icon/bc806f9ca392deed96be4e83ea64e4bc8749e18e6e1c966d823429c837d1fa08.png",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": false,
+                  "noticeImgUrl": "",
+                  "styleType": 7,
+                  "subTitle": "",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "就业指导"
+                },
+                {
+                  "bannerImgUrl": "",
+                  "barId": 217,
+                  "bubbleCount": 0,
+                  "clickUrl": "bosszp://bosszhipin.app/openwith?type=openhomepage&tabType=0&ba=%7B%22action%22%3A%22extension-get-mine-click%22%7D",
+                  "color": null,
+                  "drag": 0,
+                  "groupId": 7,
+                  "iconDarkImgUrl": "https://img.bosszhipin.com/beijin/icon/97f07bd7cb4f8bfd84e997b21545b6a88749e18e6e1c966d823429c837d1fa08.png",
+                  "iconImgUrl": "https://img.bosszhipin.com/beijin/icon/42be5f0ecdf3e2c2b691dbe027f8334a8749e18e6e1c966d823429c837d1fa08.png?darkmode=https://img.bosszhipin.com/beijin/icon/97f07bd7cb4f8bfd84e997b21545b6a88749e18e6e1c966d823429c837d1fa08.png",
+                  "ignoreRed": "0",
+                  "noticeClickDisappear": false,
+                  "noticeImgUrl": "",
+                  "styleType": 7,
+                  "subTitle": "",
+                  "sysUserIds": "",
+                  "tagImgUrl": "",
+                  "title": "个人主页"
+                }
+              ],
+              "newDynamic": true
+            }
+          },
+          "zpuser.user.check": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "birthInfo": {
+                "infoAudit": 0,
+                "status": 1
+              },
+              "cert": false,
+              "certUrl": "https://m.zhipin.com/mpa/html/certification/geek-real-name-auth",
+              "genderInfo": {
+                "infoAudit": 0,
+                "status": 1
+              },
+              "nameInfo": {
+                "infoAudit": 0,
+                "showType": 0,
+                "status": 1
+              },
+              "unbindCertUrl": "https://m.zhipin.com/mpa/html/certification/faq-certification/unbind/real-name",
+              "unbindInfo": {
+                "buttonText": "我要解除实名绑定",
+                "tip": "完成实名认证后只能通过【解除实名绑定】更名"
+              }
+            }
+          },
+          "zpuser.user.getBottomBtns": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "btnList": [
+                {
+                  "name": "客服电话 400-065-5799  工作时间 8:00-22:00",
+                  "newline": true,
+                  "url": ""
+                },
+                {
+                  "name": "老年人直连热线 400-661-6030 工作时间 8:00-22:00",
+                  "newline": true,
+                  "url": ""
+                },
+                {
+                  "name": "算法举报与未成年人举报渠道同上",
+                  "newline": true,
+                  "url": ""
+                },
+                {
+                  "name": "人力资源服务许可证",
+                  "newline": false,
+                  "url": "https://www.zhipin.com/web/common/protocol/hr-service.html?ka=link-hr-service"
+                },
+                {
+                  "name": "营业执照",
+                  "newline": false,
+                  "url": "https://m.zhipin.com/H5/html/aboutUs/businesslicense.html?ka=link-businesslicense"
+                },
+                {
+                  "name": "朝阳区人社局监督电话",
+                  "newline": false,
+                  "url": "bosszp://bosszhipin.app/openwith?type=chaoyangHumanPhone&title=%E6%9C%9D%E9%98%B3%E5%8C%BA%E4%BA%BA%E7%A4%BE%E5%B1%80%E7%9B%91%E7%9D%A3%E7%94%B5%E8%AF%9D&phoneNumbers=(010)57596212%2C(010)65099938"
+                },
+                {
+                  "name": "京ICP备14013441号-23A",
+                  "newline": false,
+                  "url": "https://beian.miit.gov.cn"
+                },
+                {
+                  "name": "京ICP证150923号",
+                  "newline": false,
+                  "url": ""
+                },
+                {
+                  "name": "算法备案信息",
+                  "newline": true,
+                  "url": "https://m.zhipin.com/mpa/html/mix/agreement-detail?agreementId=b9f73536711c4928bde84337cb53aa91"
+                }
+              ],
+              "showBtns": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "expect_context": null,
+      "host": "https://api-and.zhipin.com",
+      "phase": "bootstrap_expect_context",
+      "profile": "f1",
+      "request": {
+        "body_form": "app_id=1003&batch_method_feed=%5B%22method%3Dcertification.violate.rule.prompt.dialog%22%2C+%22method%3Dzpdac.safeTip%22%2C+%22method%3Dzppassport.user.checkPhoneStatus%22%2C+%22method%3Dzpitem.pop.geek.f1window%22%2C+%22method%3Dzpitem.searchChatCard.guideViewMsg%22%2C+%22method%3Dzpinterview.geek.interview.question.get2%26bossId%3D%26encryptInterviewId%3D%26geekClick%3D0%26inquireResult%3D0%22%2C+%22method%3Dzpgeek.cvapp.useractive.query%22%2C+%22method%3Dzpgeek.app.agreement.update.tip%22%2C+%22method%3Dpushengine.nps.investigate%22%5D&client_info=%7B%22version%22%3A%2214%22%2C%22os%22%3A%22Android%22%2C%22start_time%22%3A%221773926675752%22%2C%22resume_time%22%3A%221773926675752%22%2C%22channel%22%3A%2215%22%2C%22model%22%3A%22realme%7C%7CRMX3560%22%2C%22dzt%22%3A0%2C%22loc_per%22%3A0%2C%22uniqid%22%3A%22db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8%22%2C%22oaid%22%3A%227D5F36744621FCBE57BCF55136BAD9DBEFA4D1E0DA8F18AE02D814DD776A5E80%22%2C%22oaid_honor%22%3A%2200000000-0000-0000-0000-000000000000%22%2C%22did%22%3A%22DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU%22%2C%22tinker_id%22%3A%22Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42%22%2C%22is_bg_req%22%3A0%2C%22network%22%3A%22wifi%22%2C%22operator%22%3A%224E2D56FD75354FE1%22%2C%22abi%22%3A1%2C%22version_flag%22%3A%221401010%22%7D&curidentity=0&req_time=1773926675752&sig=V3.0aabd2facf546349a27b495183c3c062e&sp=zwp_NCTRJTSwi3DeaMHkHHeAvU1ABobyc-qL_5IHDAvQd_A143ZQP2BmjxdeLNNBEbnZ14U6K3Xvv5AGN8lu6iomIkXBlOUIt18KyIfBYO90UKpMjaNSTY4GnM4gylwTjTjp9mJtt-McSWf8snG4E91A2TB11IHzSadwg1NVedo4L1tReYgKmcz5g6toXRo8N74KL3M9CP6Q4byAwF-pRD1Vz1ydFAf9nBagZbzlB-ISKUX87hyvnTkERpMXkQCwDLUI8WByV7AniftA1Drz4NCKVzM_5gZhRyomDKt2jbC3kvnp-AKWvfNnIsMiDZ6G-vCG8p5BxIOdQ6Q1Ngfmob_-WbYgcE8CI4f-pTL7rL16Y1-xD1pvmzyLlTjoUPRQRFvYslG0lxQ7HutTWizLzAKB3IdXE7eux12xAKprcklclzk8fDYSVAwwA3ulYA7WNloCjrfEl9Pp817xaKBJoRMif0-rWS99HJBwK7l7ZIErKq34pAV4rJ--HDHkazxUT0JXoWFwjx2AG1cdl3GHZ6N33PHNlfga6Z-jHvHra5u4SqxDjjSr3toTd349EnlkZ_a72F1pd6kL2B4YBvKNViSYtUByWFRLT8gHwpJtiPBdPcaGD8tZYhx-5BBbSaGmjEHv8z3aOCTCW3P6MKJdFmy7I87urt5W0BfCVAoGLxxrYFgQYywf__ppg6J0YMNqVd6LbgomU2ewkVnos6D3EeZKAJ4_6fIiUuN_FtgE6D0og-AiFH7hc1rpV8ZfWcOpKv-wTa0b4FRRGcxfWZ_B0gf6ymHORwDWUpQ0W-LpsNIzeIRPnRwABxV-5MtYBZP8HwhbwWrh6b5VhM0eMHI-huZqyjBthzr3NjEhmCICdNnWflfBtcUlb5YZt-7vxBeYrc1dkuwxF2UlmYxLyGIERlUiia3BPWOCLKynds6ik1hoZLPz3JiFlvK2k8dqFZBRmWcRBCQz23n4qo9S_QjQCRVF7SjUTLme57HY0PB4_YntUuHssZxlxva81fRA5loIHnP5sSzDQL8E74YS5VuMbk0YR37jn26vVHIj_0M6iCQBC-tlrBJeH0bpccheBQ7EVpepxJ6w3X1asla5WyKI45xXWbm9lr2ZT-wGvUNnpAdEEJaWG4dmoTlQFr6KNmz0NhCcBsvWrNYyUBfht095CEjX8s4O_qItMhjaqm4kQLrQ4xqa-ltvQg8PRM8L8wyeRYp3XiZ5egcGLn60oyroReJEU7DdJF54IRWD2gvh0u-IEael2ahVvQ4s2P3_hfjaqLhmYho6DK9vWyFINjUaIittggecqQmhJb4ddBqBn0y9ptG0J91vE2mTS6BmzquScoFLASzzVw%7E%7E&uniqid=db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8&v=14.010",
+        "request_headers": {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Accept-Language": "zh-CN,zh;q=0.9",
+          "Connection": "keep-alive",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cookie": "wt2=D8dyWD…wA~~; zp_at=XD_M5V…Z3k~",
+          "Host": "api-and.zhipin.com",
+          "User-Agent": "Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36 BossZhipin/14.010",
+          "b-cat-b": "1",
+          "t2": "D8dyWD…wA~~",
+          "traceid": "A-9b2837f1-2483-bb94-5474-e768c44c4aea",
+          "x-brand": "realme",
+          "x-channel": "15",
+          "x-client-type": "android",
+          "x-client-ver": "14.010",
+          "x-device-id": "DUq-ZAGOSg7lmX_YbhCIijty4W3kwK1XAAY-WmZWxZJaXGFLyBtEjudZEmAnsQefQWqU",
+          "x-model": "RMX3560",
+          "x-os": "Android",
+          "x-request-id": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8_1773926676386",
+          "x-tinker-id": "Prod-arm64-v8a-release-14.010.1401010_0130-16-18-42",
+          "x-uniqid": "db2dbb1c-bb96-4b4e-a60f-89a9d3f4b0f8",
+          "zp-at": "XD_M5V…Z3k~",
+          "zp-os-ver": "34",
+          "zp-tag": "zwp_NCTRJTSwi3Den8LkHNaFvU0WAIbyceirots6V1fecaY0_WIGZicohSoKfYocSuqynIVoeXCpvuZAMZoZiw~~"
+        },
+        "traceid": "A-9b2837f1-2483-bb94-5474-e768c44c4aea",
+        "url": "https://api-and.zhipin.com/api/batch/batchRunV2"
+      },
+      "request_contract": {
+        "app_id": "1003",
+        "city_code": "101210900",
+        "endpoint": "/api/batch/batchRunV2",
+        "host": "https://api-and.zhipin.com",
+        "keyword": "",
+        "method_count": 9,
+        "page": "1",
+        "page_size": "15",
+        "profile": "f1",
+        "type": "batchRunV2_search_stage1"
+      },
+      "response": {
+        "code": 0,
+        "message": "Success",
+        "transport": {
+          "final_url": "https://api-and.zhipin.com/api/batch/batchRunV2",
+          "http_status": 200,
+          "http_version": "HTTP/1.1",
+          "proxy": null,
+          "response_headers": {
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+            "content-encrypt": "yes",
+            "content-length": "1476",
+            "content-type": "application/json",
+            "date": "Thu, 19 Mar 2026 13:24:36 GMT",
+            "process-stage": "Stage-Outbound",
+            "server-info": "boss-alb"
+          }
+        },
+        "zpData": {
+          "certification.violate.rule.prompt.dialog": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "dialog": null,
+              "show": false
+            }
+          },
+          "pushengine.nps.investigate": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zpdac.safeTip": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "bizId": 0,
+              "content": null,
+              "deal": 0,
+              "height": 0,
+              "img": null,
+              "jumpUrl": null,
+              "popType": 0,
+              "pushStrategyId": 0,
+              "sendInvalidTime": 0,
+              "show": false,
+              "size": null,
+              "userId": 0,
+              "width": 0
+            }
+          },
+          "zpgeek.app.agreement.update.tip": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zpgeek.cvapp.useractive.query": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "applyStatus": 0,
+              "certName": false,
+              "days": 0,
+              "status": 0
+            }
+          },
+          "zpinterview.geek.interview.question.get2": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "exist": 0
+            }
+          },
+          "zpitem.pop.geek.f1window": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "businessType": 8,
+              "canShowExit": true,
+              "display": 0,
+              "height": 0,
+              "imgUrl": null,
+              "interaction": 0,
+              "jumpUrl": null,
+              "width": 0
+            }
+          },
+          "zpitem.searchChatCard.guideViewMsg": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {}
+          },
+          "zppassport.user.checkPhoneStatus": {
+            "code": 0,
+            "message": "Success",
+            "zpData": {
+              "isShow": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "city_code": "101210900",
+  "native_invoker": {
+    "backend": "dynarmic",
+    "compiled_backends": [
+      "dynarmic"
+    ],
+    "config_path": "config/lab-config.container.json",
+    "executable": "/workspace/lab-data/cargo-targets/rnidbg-default/debug/rnidbg",
+    "status": "ready",
+    "strategy": "local_subprocess"
+  },
+  "ok": false,
+  "original_okhttp_available": false,
+  "page": "1",
+  "page_size": "20",
+  "response": {
+    "code": 0,
+    "message": "Success",
+    "transport": {
+      "final_url": "https://api-and.zhipin.com/api/batch/batchRunV2",
+      "http_status": 200,
+      "http_version": "HTTP/1.1",
+      "proxy": null,
+      "response_headers": {
+        "cache-control": "no-cache",
+        "connection": "keep-alive",
+        "content-encrypt": "yes",
+        "content-length": "1476",
+        "content-type": "application/json",
+        "date": "Thu, 19 Mar 2026 13:24:36 GMT",
+        "process-stage": "Stage-Outbound",
+        "server-info": "boss-alb"
+      }
+    },
+    "zpData": {
+      "certification.violate.rule.prompt.dialog": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "dialog": null,
+          "show": false
+        }
+      },
+      "pushengine.nps.investigate": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {}
+      },
+      "zpdac.safeTip": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "bizId": 0,
+          "content": null,
+          "deal": 0,
+          "height": 0,
+          "img": null,
+          "jumpUrl": null,
+          "popType": 0,
+          "pushStrategyId": 0,
+          "sendInvalidTime": 0,
+          "show": false,
+          "size": null,
+          "userId": 0,
+          "width": 0
+        }
+      },
+      "zpgeek.app.agreement.update.tip": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {}
+      },
+      "zpgeek.cvapp.useractive.query": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "applyStatus": 0,
+          "certName": false,
+          "days": 0,
+          "status": 0
+        }
+      },
+      "zpinterview.geek.interview.question.get2": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "exist": 0
+        }
+      },
+      "zpitem.pop.geek.f1window": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "businessType": 8,
+          "canShowExit": true,
+          "display": 0,
+          "height": 0,
+          "imgUrl": null,
+          "interaction": 0,
+          "jumpUrl": null,
+          "width": 0
+        }
+      },
+      "zpitem.searchChatCard.guideViewMsg": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {}
+      },
+      "zppassport.user.checkPhoneStatus": {
+        "code": 0,
+        "message": "Success",
+        "zpData": {
+          "isShow": false
+        }
+      }
+    }
+  },
+  "route": "recommend_pool_complex_single_route",
+  "session_path": "/workspace/lab-assets/.boss_purecalc/session.json",
+  "sort_type": "2",
+  "summary": {
+    "first_job": {
+      "brandName": null,
+      "encryptJobId": null,
+      "jobName": null,
+      "salaryDesc": null,
+      "securityId": null
+    },
+    "job_count": 0
+  },
+  "transport": {
+    "flow": "reqwest_direct",
+    "proxy": null,
+    "status": "ready",
+    "transport_runtime": "direct"
+  },
+  "transport_runtime": "direct"
+}

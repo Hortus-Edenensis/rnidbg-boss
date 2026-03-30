@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boss QR"
+  short_description: "Decode and authorize Boss QR login flows"
+  default_prompt: "Use $rnidbg-boss-qr to decode a Boss QR image, run QR authorize/login steps, or bring up the QR web service."

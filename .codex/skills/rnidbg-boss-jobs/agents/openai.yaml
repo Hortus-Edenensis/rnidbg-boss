@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boss Jobs"
+  short_description: "Search and inspect Boss job APIs safely"
+  default_prompt: "Use $rnidbg-boss-jobs to search Boss jobs, fetch job detail by securityId, or inspect private-info endpoints with the right fallback path."
