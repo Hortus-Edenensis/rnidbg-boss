@@ -35,12 +35,41 @@ use unicorn_engine::unicorn_const::HookType;
 
 const PID: u32 = 2667;
 const PPID: u32 = 2427;
+const V7_FINGERPRINT_KEYS: &[&str] = &[
+    "mobile",
+    "countryCode",
+    "captcha",
+    "paramNum",
+    "verifyStatus",
+    "modeType",
+    "rid",
+    "diffTime",
+    "dfp",
+    "appList",
+    "ipInfo",
+    "sdid",
+    "oaid",
+    "androidId",
+    "appId",
+    "local_smid",
+    "channelId",
+    "did",
+    "oneId",
+    "device_id",
+];
+const V7_CAPTCHA_BRIDGE_KEYS: &[&str] = &["verifyStatus", "rid", "modeType", "diffTime", "captcha"];
 
 #[derive(Clone, Debug, Deserialize)]
 struct PalmchatConfig {
     #[serde(rename = "package")]
     package_name: String,
     apk_path: PathBuf,
+    #[serde(default)]
+    app_version_code: Option<String>,
+    #[serde(default)]
+    app_version_name: Option<String>,
+    #[serde(default)]
+    app_manifest_path: Option<PathBuf>,
     so_path: PathBuf,
     #[serde(default)]
     hash_key_fast: Option<String>,
@@ -60,9 +89,78 @@ struct PalmchatConfig {
     system_lib_overrides: HashMap<String, PathBuf>,
     #[serde(default)]
     target_sdk: Option<i32>,
+    #[serde(default)]
+    identity_probe: PalmchatIdentityProbeConfig,
     trace_out_dir: PathBuf,
     android_api: i32,
     backend: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct PalmchatIdentityProbeConfig {
+    #[serde(default)]
+    privacy_agree: Option<bool>,
+    #[serde(default)]
+    read_phone_state_granted: Option<bool>,
+    #[serde(default)]
+    priv_info_initialized: Option<bool>,
+    #[serde(default)]
+    android_id: Option<String>,
+    #[serde(default)]
+    imei: Option<String>,
+    #[serde(default)]
+    mac: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct PalmchatIdentityRuntimeState {
+    privacy_agree: Option<bool>,
+    read_phone_state_granted: Option<bool>,
+    priv_info_initialized: bool,
+    android_id: String,
+    imei: String,
+    mac: String,
+}
+
+impl PalmchatIdentityRuntimeState {
+    fn from_config(config: &PalmchatIdentityProbeConfig) -> Self {
+        Self {
+            privacy_agree: config.privacy_agree,
+            read_phone_state_granted: config.read_phone_state_granted,
+            priv_info_initialized: config.priv_info_initialized.unwrap_or(false),
+            android_id: config.android_id.clone().unwrap_or_default(),
+            imei: config.imei.clone().unwrap_or_default(),
+            mac: config.mac.clone().unwrap_or_default(),
+        }
+    }
+
+    fn effective_privacy_agree(&self) -> bool {
+        self.privacy_agree.unwrap_or(false)
+    }
+
+    fn effective_read_phone_state(&self) -> bool {
+        self.read_phone_state_granted.unwrap_or(false)
+    }
+
+    fn effective_android_id(&self) -> String {
+        if self.android_id.trim().is_empty() {
+            "unknown".to_string()
+        } else {
+            self.android_id.clone()
+        }
+    }
+
+    fn effective_imei(&self) -> String {
+        if self.effective_read_phone_state() {
+            self.imei.clone()
+        } else {
+            String::new()
+        }
+    }
+
+    fn effective_mac(&self) -> String {
+        self.mac.clone()
+    }
 }
 
 impl PalmchatConfig {
@@ -73,10 +171,32 @@ impl PalmchatConfig {
         let mut config: PalmchatConfig = serde_json::from_str(&raw)
             .with_context(|| format!("failed to parse config json: {}", path.display()))?;
         config.apk_path = normalize(config.apk_path);
+        config.app_version_code = config
+            .app_version_code
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        config.app_version_name = config
+            .app_version_name
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        config.app_manifest_path = config.app_manifest_path.map(normalize);
         config.so_path = normalize(config.so_path);
         config.hash_key_fast = config
             .hash_key_fast
             .map(|value| value.trim().to_ascii_uppercase());
+        config.identity_probe.android_id = config
+            .identity_probe
+            .android_id
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        config.identity_probe.imei = config
+            .identity_probe
+            .imei
+            .map(|value| value.trim().to_string());
+        config.identity_probe.mac = config
+            .identity_probe
+            .mac
+            .map(|value| value.trim().to_string());
         config.wksec_so_path = config.wksec_so_path.map(normalize);
         config.got_seed_path = config.got_seed_path.map(normalize);
         config.runtime_page_patches = config
@@ -125,6 +245,13 @@ impl PalmchatConfig {
         BackendKind::parse(&self.backend)
             .ok_or_else(|| anyhow!("unsupported backend: {}", self.backend))
     }
+}
+
+#[derive(Clone, Debug, Default)]
+struct PalmchatAppVersionInfo {
+    version_code: Option<String>,
+    version_name: Option<String>,
+    source: Option<String>,
 }
 
 fn maybe_inject_device_core_syslibs(path: &Path, config: &mut PalmchatConfig) -> Result<()> {
@@ -185,6 +312,95 @@ fn maybe_inject_device_core_syslibs(path: &Path, config: &mut PalmchatConfig) ->
     }
 
     Ok(())
+}
+
+fn resolve_app_version_info(
+    config: &PalmchatConfig,
+    shared: Rc<RefCell<SharedState>>,
+) -> PalmchatAppVersionInfo {
+    if config.app_version_code.is_some() || config.app_version_name.is_some() {
+        let info = PalmchatAppVersionInfo {
+            version_code: config.app_version_code.clone(),
+            version_name: config.app_version_name.clone(),
+            source: Some("config.app_version_*".to_string()),
+        };
+        shared.borrow_mut().native(&format!(
+            "app version source=config code={:?} name={:?}",
+            info.version_code, info.version_name
+        ));
+        return info;
+    }
+
+    if let Some(manifest_path) = &config.app_manifest_path {
+        match parse_manifest_version_info(manifest_path) {
+            Ok(mut info) => {
+                if info.version_code.is_some() || info.version_name.is_some() {
+                    info.source = Some(format!("manifest:{}", manifest_path.display()));
+                    shared.borrow_mut().native(&format!(
+                        "app version source=manifest path={} code={:?} name={:?}",
+                        manifest_path.display(),
+                        info.version_code,
+                        info.version_name
+                    ));
+                    return info;
+                }
+                shared.borrow_mut().native(&format!(
+                    "app version source=manifest path={} code/name missing",
+                    manifest_path.display()
+                ));
+            }
+            Err(err) => {
+                shared.borrow_mut().native(&format!(
+                    "app version source=manifest path={} failed err={}",
+                    manifest_path.display(),
+                    err
+                ));
+            }
+        }
+    }
+
+    shared
+        .borrow_mut()
+        .native("app version source unavailable; keeping input version fields as-is");
+    PalmchatAppVersionInfo::default()
+}
+
+fn parse_manifest_version_info(path: &Path) -> Result<PalmchatAppVersionInfo> {
+    let raw = fs::read_to_string(path).with_context(|| {
+        format!(
+            "failed to read manifest for app version: {}",
+            path.display()
+        )
+    })?;
+    let version_code = extract_xml_attr(&raw, "android:versionCode")
+        .or_else(|| extract_xml_attr(&raw, "versionCode"));
+    let version_name = extract_xml_attr(&raw, "android:versionName")
+        .or_else(|| extract_xml_attr(&raw, "versionName"));
+    Ok(PalmchatAppVersionInfo {
+        version_code,
+        version_name,
+        source: None,
+    })
+}
+
+fn extract_xml_attr(raw: &str, attr: &str) -> Option<String> {
+    let double_quoted = format!("{attr}=\"");
+    if let Some(start) = raw.find(&double_quoted) {
+        let rest = &raw[start + double_quoted.len()..];
+        if let Some(end) = rest.find('"') {
+            return Some(rest[..end].to_string());
+        }
+    }
+
+    let single_quoted = format!("{attr}='");
+    if let Some(start) = raw.find(&single_quoted) {
+        let rest = &raw[start + single_quoted.len()..];
+        if let Some(end) = rest.find('\'') {
+            return Some(rest[..end].to_string());
+        }
+    }
+
+    None
 }
 
 struct SharedState {
@@ -312,10 +528,13 @@ impl SharedState {
 
 pub struct PalmchatLab {
     config: PalmchatConfig,
+    app_version_info: PalmchatAppVersionInfo,
     emulator: AndroidEmulator<'static, ()>,
     encrypt_utils_class: Rc<DvmClass>,
     messaging_service_class: Rc<DvmClass>,
     shared: Rc<RefCell<SharedState>>,
+    identity_seed: PalmchatIdentityRuntimeState,
+    identity_state: Rc<RefCell<PalmchatIdentityRuntimeState>>,
     module_base: u64,
     module_size: u64,
 }
@@ -328,6 +547,9 @@ impl PalmchatLab {
         let config = PalmchatConfig::load(config_path)?.with_backend_override(backend_override)?;
         validate_config(&config)?;
         let shared = Rc::new(RefCell::new(SharedState::new(&config.trace_out_dir)?));
+        let identity_seed = PalmchatIdentityRuntimeState::from_config(&config.identity_probe);
+        let identity_state = Rc::new(RefCell::new(identity_seed.clone()));
+        let app_version_info = resolve_app_version_info(&config, shared.clone());
         let runtime_base_path = prepare_runtime_base_path(&config, shared.clone())?;
         std::env::set_var("BASE_PATH", &runtime_base_path);
         std::env::set_var(
@@ -350,6 +572,7 @@ impl PalmchatLab {
             shared.clone(),
             config.package_name.clone(),
             config.apk_path.clone(),
+            identity_state.clone(),
         )));
         let run_init_during_load = run_init_during_load();
         shared.borrow_mut().native(&format!(
@@ -462,10 +685,13 @@ impl PalmchatLab {
         ));
         Ok(Self {
             config,
+            app_version_info,
             emulator,
             encrypt_utils_class,
             messaging_service_class,
             shared,
+            identity_seed,
+            identity_state,
             module_base: module.base,
             module_size: module.size as u64,
         })
@@ -531,6 +757,101 @@ impl PalmchatLab {
             signature,
             args,
         ))
+    }
+
+    fn ensure_java_method(
+        &self,
+        class_name: &str,
+        method_name: &str,
+        signature: &str,
+    ) -> Result<Rc<DvmClass>> {
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let (_, class) = vm
+            .resolve_class(class_name)
+            .ok_or_else(|| anyhow!("failed to resolve class: {class_name}"))?;
+        vm.register_native_method(class.id, method_name, signature, 0)?;
+        Ok(class)
+    }
+
+    fn call_java_static(
+        &self,
+        class_name: &str,
+        method_name: &str,
+        signature: &str,
+        args: Vec<JniValue>,
+    ) -> Result<JniValue> {
+        let emulator = self.emulator.clone();
+        let class = self.ensure_java_method(class_name, method_name, signature)?;
+        let vm = emulator.get_dalvik_vm();
+        Ok(class.call_static_method(&emulator, vm, method_name, signature, args))
+    }
+
+    fn call_java_instance(
+        &self,
+        class_name: &str,
+        method_name: &str,
+        signature: &str,
+        args: Vec<JniValue>,
+    ) -> Result<JniValue> {
+        let emulator = self.emulator.clone();
+        let class = self.ensure_java_method(class_name, method_name, signature)?;
+        let vm = emulator.get_dalvik_vm();
+        let instance = class.new_simple_instance(vm);
+        Ok(instance.call_method(&emulator, vm, method_name, signature, args))
+    }
+
+    fn app_context_object(&self) -> Result<DvmObject> {
+        match self.call_java_static(
+            "com/zenmen/palmchat/AppContext",
+            "getContext",
+            "()Lcom/zenmen/palmchat/AppContext;",
+            vec![],
+        )? {
+            JniValue::Object(object) => Ok(object),
+            other => Err(anyhow!(
+                "unexpected AppContext.getContext return: {}",
+                describe_jni_value(&other)
+            )),
+        }
+    }
+
+    fn make_string_array(&self, values: &[&str]) -> Result<DvmObject> {
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let (_, string_class) = vm
+            .resolve_class("java/lang/String")
+            .ok_or_else(|| anyhow!("failed to resolve java/lang/String"))?;
+        Ok(DvmObject::ObjectArray(
+            string_class,
+            values
+                .iter()
+                .map(|value| Some(DvmObject::String((*value).to_string())))
+                .collect(),
+        ))
+    }
+
+    fn reset_identity_probe_state(&mut self, opts: &HashMap<String, String>) {
+        let mut state = self.identity_seed.clone();
+        if let Some(value) = opts.get("--privacy-agree") {
+            state.privacy_agree = Some(parse_bool_like(value));
+        }
+        if let Some(value) = opts.get("--read-phone-state") {
+            state.read_phone_state_granted = Some(parse_bool_like(value));
+        }
+        if let Some(value) = opts.get("--priv-info-init") {
+            state.priv_info_initialized = parse_bool_like(value);
+        }
+        if let Some(value) = opts.get("--android-id") {
+            state.android_id = value.clone();
+        }
+        if let Some(value) = opts.get("--imei") {
+            state.imei = value.clone();
+        }
+        if let Some(value) = opts.get("--mac") {
+            state.mac = value.clone();
+        }
+        *self.identity_state.borrow_mut() = state;
     }
 
     fn bind_hidden_encrypt_utils_method(
@@ -611,13 +932,18 @@ impl PalmchatLab {
             return Ok(false);
         };
         let fn_ptr = self.module_base + offset;
-        vm.register_native_method(self.messaging_service_class.id, method_name, signature, fn_ptr)
-            .with_context(|| {
-                format!(
-                    "failed to register hidden native method: {}{} symbol={} fn_ptr=0x{:x}",
-                    method_name, signature, symbol_name, fn_ptr
-                )
-            })?;
+        vm.register_native_method(
+            self.messaging_service_class.id,
+            method_name,
+            signature,
+            fn_ptr,
+        )
+        .with_context(|| {
+            format!(
+                "failed to register hidden native method: {}{} symbol={} fn_ptr=0x{:x}",
+                method_name, signature, symbol_name, fn_ptr
+            )
+        })?;
         let fn_head_hex = self
             .emulator
             .backend
@@ -697,10 +1023,15 @@ impl PalmchatLab {
         let slots_before = slot_snapshot(&self.emulator, self.module_base);
 
         let set_lx_data = if let Some(raw) = raw {
-            self.shared.borrow_mut().native("ckdiag step=setLxData start");
+            self.shared
+                .borrow_mut()
+                .native("ckdiag step=setLxData start");
             let json_obj = self.make_json_object(raw)?;
-            let value =
-                self.call_static("setLxData", "(Lorg/json/JSONObject;)V", vec![json_obj.into()])?;
+            let value = self.call_static(
+                "setLxData",
+                "(Lorg/json/JSONObject;)V",
+                vec![json_obj.into()],
+            )?;
             let return_debug = describe_jni_value(&value);
             self.shared.borrow_mut().native(&format!(
                 "ckdiag step=setLxData done raw_len={} return_debug={}",
@@ -715,10 +1046,14 @@ impl PalmchatLab {
             None
         };
 
-        self.shared.borrow_mut().native("ckdiag step=createCKey start");
+        self.shared
+            .borrow_mut()
+            .native("ckdiag step=createCKey start");
         let create_value = self.call_static("createCKey", "()V", vec![])?;
         let create_debug = describe_jni_value(&create_value);
-        self.shared.borrow_mut().native("ckdiag step=createCKey done");
+        self.shared
+            .borrow_mut()
+            .native("ckdiag step=createCKey done");
 
         let after_skey = self.call_static("skeyAvailable", "()Z", vec![])?;
         let after_ck = self.call_static("getCkVersion", "()Ljava/lang/String;", vec![])?;
@@ -763,6 +1098,146 @@ impl PalmchatLab {
                 "ck_version_debug": after_ck_debug,
                 "slots": slots_after,
             },
+        }))
+    }
+
+    fn run_gate_probe(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        self.reset_identity_probe_state(opts);
+        let app_context = self.app_context_object()?;
+        let before_state = self.identity_state.borrow().clone();
+
+        let privacy_gate =
+            jni_value_to_bool(self.call_java_static("defpackage/r75", "l", "()Z", vec![])?)?;
+        let read_phone_permissions =
+            self.make_string_array(&["android.permission.READ_PHONE_STATE"])?;
+        let phone_gate = jni_value_to_bool(self.call_java_static(
+            "defpackage/tg4",
+            "b",
+            "(Landroid/content/Context;[Ljava/lang/String;)Z",
+            vec![app_context.clone().into(), read_phone_permissions.into()],
+        )?)?;
+
+        let before_android_id = jni_value_to_string(self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "getAndroidID",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+        let before_imei = jni_value_to_string(self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "getIMEI",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+        let before_mac = jni_value_to_string(self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "getMac",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+
+        let _ = self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "init",
+            "(Landroid/content/Context;)V",
+            vec![app_context.clone().into()],
+        )?;
+
+        let after_android_id = jni_value_to_string(self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "getAndroidID",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+        let after_imei = jni_value_to_string(self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "getIMEI",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+        let after_mac = jni_value_to_string(self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "getMac",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+
+        let wm4_android_id = jni_value_to_string(self.call_java_instance(
+            "defpackage/wm4",
+            "h",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+        let wm4_imei = jni_value_to_string(self.call_java_instance(
+            "defpackage/wm4",
+            "k",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+        let wm4_mac = jni_value_to_string(self.call_java_instance(
+            "defpackage/wm4",
+            "n",
+            "()Ljava/lang/String;",
+            vec![],
+        )?)?;
+
+        let after_state = self.identity_state.borrow().clone();
+        self.shared.borrow_mut().native(&format!(
+            "gate_probe privacy_agree={} read_phone_state={} before_init={} after_init={} before_android_id={} after_android_id={} after_imei_len={} after_mac_len={}",
+            privacy_gate,
+            phone_gate,
+            before_state.priv_info_initialized,
+            after_state.priv_info_initialized,
+            before_android_id,
+            after_android_id,
+            after_imei.len(),
+            after_mac.len(),
+        ));
+
+        Ok(json!({
+            "status": "ok",
+            "method": "gateProbe",
+            "requested_backend": self.config.backend,
+            "active_backend": self.emulator.backend.name(),
+            "native_log": self.config.trace_out_dir.join("palmchat_native.log"),
+            "jni_log": self.config.trace_out_dir.join("palmchat_jni.log"),
+            "runtime_state_seed": before_state,
+            "gates": {
+                "privacy_agree_gate": {
+                    "call": "r75.l()",
+                    "result": privacy_gate,
+                    "shared_pref_key": "sp_privacy_agree",
+                },
+                "phone_state_permission_gate": {
+                    "call": "tg4.b(context, [android.permission.READ_PHONE_STATE])",
+                    "result": phone_gate,
+                    "permission": "android.permission.READ_PHONE_STATE",
+                }
+            },
+            "priv_info": {
+                "before_init": {
+                    "is_init": before_state.priv_info_initialized,
+                    "android_id": before_android_id,
+                    "imei": before_imei,
+                    "mac": before_mac,
+                },
+                "after_init": {
+                    "is_init": after_state.priv_info_initialized,
+                    "android_id": after_android_id,
+                    "imei": after_imei,
+                    "mac": after_mac,
+                }
+            },
+            "wm4": {
+                "android_id": wm4_android_id,
+                "imei": wm4_imei,
+                "mac": wm4_mac,
+            },
+            "evidence": {
+                "privacy_agree_device_pref": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/device_20260326_203005/extracted2/palmchat_pull/shared_prefs/wifi_social.xml:22",
+                "app_init_callsite": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/AppContext.java:607",
+                "read_phone_state_runtime_check": "adb shell dumpsys package com.zenmen.palmchat | rg READ_PHONE_STATE",
+            }
         }))
     }
 
@@ -811,6 +1286,7 @@ impl PalmchatLab {
                 let raw = arg1.trim();
                 self.run_ckdiag((!raw.is_empty()).then_some(raw))?
             }
+            "gateProbe" => self.run_gate_probe(opts)?,
             "getEncryptedCKey" => {
                 let use_new_key = parse_bool_like(&arg1);
                 let value =
@@ -942,6 +1418,57 @@ impl PalmchatLab {
         Ok(output)
     }
 
+    fn normalize_flow_arg1_json(&self, raw: &str, phase: &str) -> (String, Value) {
+        let mut value =
+            serde_json::from_str::<Value>(raw).unwrap_or(Value::String(raw.to_string()));
+        let mut changed_fields = Vec::new();
+
+        if let Value::Object(map) = &mut value {
+            if let Some(version_code) = self.app_version_info.version_code.as_ref() {
+                let normalized = version_code
+                    .parse::<i64>()
+                    .ok()
+                    .map(|parsed| Value::Number(parsed.into()))
+                    .unwrap_or_else(|| Value::String(version_code.clone()));
+                let previous = map.get("versionCode").cloned().unwrap_or(Value::Null);
+                if previous != normalized {
+                    map.insert("versionCode".to_string(), normalized.clone());
+                    changed_fields.push(format!("versionCode:{}=>{}", previous, normalized));
+                }
+            }
+
+            if let Some(version_name) = self.app_version_info.version_name.as_ref() {
+                let normalized = Value::String(version_name.clone());
+                let previous = map.get("versionName").cloned().unwrap_or(Value::Null);
+                if previous != normalized {
+                    map.insert("versionName".to_string(), normalized.clone());
+                    changed_fields.push(format!("versionName:{}=>{}", previous, normalized));
+                }
+            }
+        } else if self.app_version_info.version_code.is_some()
+            || self.app_version_info.version_name.is_some()
+        {
+            self.shared.borrow_mut().native(&format!(
+                "{phase} app version normalize skipped reason=non_object_json source={}",
+                self.app_version_info.source.as_deref().unwrap_or("unknown")
+            ));
+        }
+
+        if !changed_fields.is_empty() {
+            self.shared.borrow_mut().native(&format!(
+                "{phase} app version normalized source={} changes=[{}]",
+                self.app_version_info.source.as_deref().unwrap_or("unknown"),
+                changed_fields.join(", ")
+            ));
+        }
+
+        let normalized_raw = match &value {
+            Value::Object(_) => value.to_string(),
+            _ => raw.to_string(),
+        };
+        (normalized_raw, value)
+    }
+
     fn run_flow(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
         let raw = opts
             .get("--arg1")
@@ -957,8 +1484,20 @@ impl PalmchatLab {
             .map(|value| parse_bool_like(value))
             .unwrap_or(false);
 
-        let json_value = serde_json::from_str::<Value>(&raw).unwrap_or(Value::String(raw.clone()));
-        let json_obj = self.make_json_object(&raw)?;
+        let (normalized_raw, json_value) = self.normalize_flow_arg1_json(&raw, "flow");
+        let bridge_stage1_value = opts
+            .get("--bridge-stage1-json")
+            .map(|value| self.normalize_flow_arg1_json(value, "flow.bridge_stage1").1);
+        let v7_captcha_bridge_surface =
+            build_v7_captcha_bridge_surface(bridge_stage1_value.as_ref(), &json_value);
+        let v7_base_field_production = build_v7_base_field_production(&json_value);
+        let v7_identity_dependency_graph = build_v7_identity_dependency_graph(&json_value);
+        let v7_identity_gate_diagnostics = build_v7_identity_gate_diagnostics();
+        let v7_captcha_upstream_production =
+            build_v7_captcha_upstream_production(bridge_stage1_value.as_ref(), &json_value);
+        let v7_retry_payload_views =
+            build_v7_retry_payload_views(bridge_stage1_value.as_ref(), &json_value);
+        let json_obj = self.make_json_object(&normalized_raw)?;
         self.shared.borrow_mut().native("flow step=setLxData start");
         let _ = self.call_static(
             "setLxData",
@@ -1016,6 +1555,18 @@ impl PalmchatLab {
         let output = json!({
             "flow": "setLxData->createCKey->getEncryptedCKey->cipherWithHashKey",
             "arg1_json": json_value,
+            "bridge_stage1_json": bridge_stage1_value,
+            "v7_captcha_bridge_surface": v7_captcha_bridge_surface,
+            "v7_base_field_production": v7_base_field_production,
+            "v7_identity_dependency_graph": v7_identity_dependency_graph,
+            "v7_identity_gate_diagnostics": v7_identity_gate_diagnostics,
+            "v7_captcha_upstream_production": v7_captcha_upstream_production,
+            "v7_retry_payload_views": v7_retry_payload_views,
+            "app_version_from_original": {
+                "versionCode": self.app_version_info.version_code,
+                "versionName": self.app_version_info.version_name,
+                "source": self.app_version_info.source,
+            },
             "arg2_mode": cipher_mode,
             "arg3_bool": use_new_key,
             "setLxData": "ok",
@@ -1035,6 +1586,369 @@ impl PalmchatLab {
             .native(&format!("flow result={}", output));
         Ok(output)
     }
+
+    fn run_decrypt_trace(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        let skip_flow = opts
+            .get("--skip-flow")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false);
+        let flow_raw = opts
+            .get("--flow-json")
+            .cloned()
+            .or_else(|| opts.get("--arg1").cloned())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "{}".to_string());
+        let (flow_raw_normalized, flow_seed_value) =
+            self.normalize_flow_arg1_json(&flow_raw, "decrypt_trace.flow");
+        let bridge_stage1_value = opts.get("--bridge-stage1-json").map(|value| {
+            self.normalize_flow_arg1_json(value, "decrypt_trace.bridge_stage1")
+                .1
+        });
+        let v7_input_fields =
+            extract_known_fields_from_value(&flow_seed_value, V7_FINGERPRINT_KEYS);
+        let v7_input_missing = missing_known_keys(&v7_input_fields, V7_FINGERPRINT_KEYS);
+        let v7_captcha_bridge_surface =
+            build_v7_captcha_bridge_surface(bridge_stage1_value.as_ref(), &flow_seed_value);
+        let v7_base_field_production = build_v7_base_field_production(&flow_seed_value);
+        let v7_identity_dependency_graph = build_v7_identity_dependency_graph(&flow_seed_value);
+        let v7_identity_gate_diagnostics = build_v7_identity_gate_diagnostics();
+        let v7_captcha_upstream_production =
+            build_v7_captcha_upstream_production(bridge_stage1_value.as_ref(), &flow_seed_value);
+        let v7_retry_payload_views =
+            build_v7_retry_payload_views(bridge_stage1_value.as_ref(), &flow_seed_value);
+        let flow_cipher_mode = opts
+            .get("--flow-mode")
+            .or_else(|| opts.get("--arg2"))
+            .and_then(|value| value.parse::<i32>().ok())
+            .unwrap_or(2);
+        let flow_use_new_key = opts
+            .get("--flow-use-new-key")
+            .or_else(|| opts.get("--arg3"))
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false);
+
+        let type_input = opts
+            .get("--type-input")
+            .cloned()
+            .unwrap_or_else(|| "{\"birthday\":\"2000-01-01\",\"sex\":0}".to_string());
+        let type_encrypt_mode = opts
+            .get("--type-encrypt-mode")
+            .and_then(|value| value.parse::<i32>().ok())
+            .unwrap_or(4);
+        let type_decrypt_mode = opts
+            .get("--type-decrypt-mode")
+            .and_then(|value| value.parse::<i32>().ok())
+            .unwrap_or(5);
+        let type_encrypt_use_new_key = opts
+            .get("--type-encrypt-use-new-key")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(true);
+        let type_decrypt_use_new_key = opts
+            .get("--type-decrypt-use-new-key")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false);
+
+        let secret_key = opts.get("--secret-key").cloned();
+        let secret_iv = opts.get("--secret-iv").cloned();
+        if secret_key.is_some() ^ secret_iv.is_some() {
+            return Err(anyhow!(
+                "--secret-key and --secret-iv must be provided together for decrypt-trace"
+            ));
+        }
+        let type_input_bytes = parse_arg_bytes(&type_input)?;
+
+        let mut events = Vec::<Value>::new();
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "begin",
+            "backend_requested": self.config.backend,
+            "backend_active": self.emulator.backend.name(),
+            "trace_out_dir": self.config.trace_out_dir,
+            "skip_flow": skip_flow,
+            "flow_cipher_mode": flow_cipher_mode,
+            "flow_use_new_key": flow_use_new_key,
+            "type_encrypt_mode": type_encrypt_mode,
+            "type_encrypt_use_new_key": type_encrypt_use_new_key,
+            "type_decrypt_mode": type_decrypt_mode,
+            "type_decrypt_use_new_key": type_decrypt_use_new_key,
+            "type_input_len": type_input_bytes.len(),
+            "type_input_hex": hex::encode(&type_input_bytes),
+            "v7_fingerprint_keys": V7_FINGERPRINT_KEYS,
+            "v7_input_fields": v7_input_fields.clone(),
+            "v7_input_missing": v7_input_missing.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_fp_produce_input",
+            "v7_fields": v7_input_fields.clone(),
+            "v7_missing": v7_input_missing.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_captcha_bridge_surface",
+            "surface": v7_captcha_bridge_surface.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_base_field_production",
+            "surface": v7_base_field_production.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_identity_dependency_graph",
+            "surface": v7_identity_dependency_graph.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_identity_gate_diagnostics",
+            "surface": v7_identity_gate_diagnostics.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_captcha_upstream_production",
+            "surface": v7_captcha_upstream_production.clone(),
+        }));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_retry_payload_views",
+            "surface": v7_retry_payload_views.clone(),
+        }));
+
+        let mut v7_consume_fields = Map::new();
+        let mut v7_consume_missing: Vec<String> = V7_FINGERPRINT_KEYS
+            .iter()
+            .map(|key| (*key).to_string())
+            .collect();
+        let mut v7_stable_fields = Vec::new();
+        let mut v7_changed_fields = Map::new();
+        let mut v7_consume_artifacts = json!({});
+
+        if let (Some(secret_key), Some(secret_iv)) = (secret_key.as_ref(), secret_iv.as_ref()) {
+            self.shared
+                .borrow_mut()
+                .native("decrypt_trace step=setSecretKeys start");
+            self.call_messaging_static(
+                "setSecretKeys",
+                "(Ljava/lang/String;Ljava/lang/String;)V",
+                vec![secret_key.clone().into(), secret_iv.clone().into()],
+            )?;
+            self.shared
+                .borrow_mut()
+                .native("decrypt_trace step=setSecretKeys done");
+            events.push(json!({
+                "ts": iso_now(),
+                "phase": "setSecretKeys",
+                "secret_key_len": secret_key.len(),
+                "secret_iv_len": secret_iv.len(),
+            }));
+        }
+
+        let flow_result = if skip_flow {
+            None
+        } else {
+            self.shared
+                .borrow_mut()
+                .native("decrypt_trace step=flow start");
+            let mut flow_opts = HashMap::new();
+            flow_opts.insert("--arg1".to_string(), flow_raw_normalized.clone());
+            flow_opts.insert("--arg2".to_string(), flow_cipher_mode.to_string());
+            flow_opts.insert("--arg3".to_string(), flow_use_new_key.to_string());
+            let output = self.run_flow(&flow_opts)?;
+            self.shared
+                .borrow_mut()
+                .native("decrypt_trace step=flow done");
+            events.push(json!({
+                "ts": iso_now(),
+                "phase": "flow",
+                "result": output.clone(),
+            }));
+            if let Some(arg1_json) = output.get("arg1_json") {
+                v7_consume_fields = extract_known_fields_from_value(arg1_json, V7_FINGERPRINT_KEYS);
+                v7_consume_missing = missing_known_keys(&v7_consume_fields, V7_FINGERPRINT_KEYS);
+                let (stable_fields, changed_fields) =
+                    compare_field_alignment(&v7_input_fields, &v7_consume_fields);
+                v7_stable_fields = stable_fields;
+                v7_changed_fields = changed_fields;
+            }
+            let encrypted_ckey_len = output
+                .get("encrypted_ckey_hex")
+                .and_then(Value::as_str)
+                .map(|hex| hex.len() / 2);
+            let cipher_len = output
+                .get("cipher_hex")
+                .and_then(Value::as_str)
+                .map(|hex| hex.len() / 2);
+            v7_consume_artifacts = json!({
+                "flow": output.get("flow").cloned(),
+                "encrypted_ckey_bytes_len": encrypted_ckey_len,
+                "cipher_bytes_len": cipher_len,
+                "cipher_return_debug": output.get("cipher_return_debug").cloned(),
+            });
+            events.push(json!({
+                "ts": iso_now(),
+                "phase": "v7_fp_consume_flow",
+                "v7_fields": v7_consume_fields.clone(),
+                "v7_missing": v7_consume_missing.clone(),
+                "v7_stable_fields": v7_stable_fields.clone(),
+                "v7_changed_fields": v7_changed_fields.clone(),
+                "consume_artifacts": v7_consume_artifacts.clone(),
+            }));
+            Some(output)
+        };
+
+        self.shared
+            .borrow_mut()
+            .native("decrypt_trace step=cipherWithType_encrypt start");
+        let encrypt_value = self.call_static(
+            "cipherWithType",
+            "([BIZ)[B",
+            vec![
+                JniValue::Object(DvmObject::ByteArray(type_input_bytes.clone())),
+                type_encrypt_mode.into(),
+                type_encrypt_use_new_key.into(),
+            ],
+        )?;
+        let encrypt_return_debug = describe_jni_value(&encrypt_value);
+        let encrypted_bytes = jni_value_to_bytes(encrypt_value)?;
+        self.shared.borrow_mut().native(&format!(
+            "decrypt_trace step=cipherWithType_encrypt done bytes_len={}",
+            encrypted_bytes.len()
+        ));
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "cipherWithType_encrypt",
+            "input_len": type_input_bytes.len(),
+            "input_hex": hex::encode(&type_input_bytes),
+            "mode": type_encrypt_mode,
+            "use_new_key": type_encrypt_use_new_key,
+            "return_debug": encrypt_return_debug,
+            "output_len": encrypted_bytes.len(),
+            "output_hex": hex::encode(&encrypted_bytes),
+        }));
+
+        self.shared
+            .borrow_mut()
+            .native("decrypt_trace step=cipherWithType_decrypt start");
+        let decrypt_value = self.call_static(
+            "cipherWithType",
+            "([BIZ)[B",
+            vec![
+                JniValue::Object(DvmObject::ByteArray(encrypted_bytes.clone())),
+                type_decrypt_mode.into(),
+                type_decrypt_use_new_key.into(),
+            ],
+        )?;
+        let decrypt_return_debug = describe_jni_value(&decrypt_value);
+        let decrypted_bytes = jni_value_to_bytes(decrypt_value)?;
+        self.shared.borrow_mut().native(&format!(
+            "decrypt_trace step=cipherWithType_decrypt done bytes_len={}",
+            decrypted_bytes.len()
+        ));
+        let decrypted_utf8 = std::str::from_utf8(&decrypted_bytes)
+            .ok()
+            .map(ToString::to_string);
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "cipherWithType_decrypt",
+            "input_len": encrypted_bytes.len(),
+            "input_hex": hex::encode(&encrypted_bytes),
+            "mode": type_decrypt_mode,
+            "use_new_key": type_decrypt_use_new_key,
+            "return_debug": decrypt_return_debug,
+            "output_len": decrypted_bytes.len(),
+            "output_hex": hex::encode(&decrypted_bytes),
+            "output_utf8": decrypted_utf8,
+        }));
+
+        let native_log_path = self.config.trace_out_dir.join("palmchat_native.log");
+        let jni_log_path = self.config.trace_out_dir.join("palmchat_jni.log");
+        let report = parse_palmchat_flow_report(
+            &native_log_path,
+            None,
+            Some(self.config.trace_out_dir.as_path()),
+        )?;
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "flow_report",
+            "status": report.status.clone(),
+            "steps": report.steps.clone(),
+            "cipher_evidence": report.cipher_evidence.clone(),
+        }));
+        let mut step_duration_ms = Map::new();
+        for (name, step) in &report.steps {
+            if let Some(duration_ms) = step.duration_ms {
+                step_duration_ms.insert(name.clone(), json!(duration_ms));
+            }
+        }
+        let v7_surface = json!({
+            "keys": V7_FINGERPRINT_KEYS,
+            "produce_input_fields": v7_input_fields,
+            "produce_input_missing": v7_input_missing,
+            "consume_flow_fields": v7_consume_fields,
+            "consume_flow_missing": v7_consume_missing,
+            "stable_fields": v7_stable_fields,
+            "changed_fields": v7_changed_fields,
+            "consume_artifacts": v7_consume_artifacts,
+            "native_step_duration_ms": step_duration_ms,
+            "captcha_bridge_surface": v7_captcha_bridge_surface.clone(),
+            "base_field_production": v7_base_field_production.clone(),
+            "identity_dependency_graph": v7_identity_dependency_graph.clone(),
+            "identity_gate_diagnostics": v7_identity_gate_diagnostics.clone(),
+            "captcha_upstream_production": v7_captcha_upstream_production.clone(),
+            "retry_payload_views": v7_retry_payload_views.clone(),
+        });
+        events.push(json!({
+            "ts": iso_now(),
+            "phase": "v7_fp_surface_summary",
+            "surface": v7_surface.clone(),
+        }));
+
+        let jsonl_path = opts
+            .get("--jsonl-out")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                self.config
+                    .trace_out_dir
+                    .join("palmchat_decrypt_trace.jsonl")
+            });
+        write_jsonl_file(&jsonl_path, &events)?;
+
+        if let Some(path) = opts.get("--report-json").map(PathBuf::from) {
+            write_json_file(&path, &serde_json::to_value(&report)?)?;
+        }
+        if let Some(path) = opts.get("--report-md").map(PathBuf::from) {
+            write_text_file(&path, &render_palmchat_flow_report_markdown(&report))?;
+        }
+
+        Ok(json!({
+            "status": "ok",
+            "command": "decrypt-trace",
+            "requested_backend": self.config.backend,
+            "active_backend": self.emulator.backend.name(),
+            "trace_jsonl": jsonl_path,
+            "native_log": native_log_path,
+            "jni_log": jni_log_path,
+            "flow_result": flow_result,
+            "cipher_with_type": {
+                "encrypt_mode": type_encrypt_mode,
+                "encrypt_use_new_key": type_encrypt_use_new_key,
+                "decrypt_mode": type_decrypt_mode,
+                "decrypt_use_new_key": type_decrypt_use_new_key,
+                "encrypt_output_hex": hex::encode(&encrypted_bytes),
+                "decrypt_output_hex": hex::encode(&decrypted_bytes),
+                "decrypt_output_utf8": decrypted_utf8,
+            },
+            "v7_fingerprint_surface": v7_surface,
+            "v7_captcha_bridge_surface": v7_captcha_bridge_surface,
+            "v7_base_field_production": v7_base_field_production,
+            "v7_identity_dependency_graph": v7_identity_dependency_graph,
+            "v7_identity_gate_diagnostics": v7_identity_gate_diagnostics,
+            "v7_captcha_upstream_production": v7_captcha_upstream_production,
+            "v7_retry_payload_views": v7_retry_payload_views,
+            "report_status": report.status,
+            "event_count": events.len(),
+        }))
+    }
 }
 
 impl Drop for PalmchatLab {
@@ -1047,14 +1961,21 @@ struct PalmchatJni {
     shared: Rc<RefCell<SharedState>>,
     package_name: String,
     apk_path: String,
+    identity_state: Rc<RefCell<PalmchatIdentityRuntimeState>>,
 }
 
 impl PalmchatJni {
-    fn new(shared: Rc<RefCell<SharedState>>, package_name: String, apk_path: PathBuf) -> Self {
+    fn new(
+        shared: Rc<RefCell<SharedState>>,
+        package_name: String,
+        apk_path: PathBuf,
+        identity_state: Rc<RefCell<PalmchatIdentityRuntimeState>>,
+    ) -> Self {
         Self {
             shared,
             package_name,
             apk_path: apk_path.to_string_lossy().to_string(),
+            identity_state,
         }
     }
 
@@ -1159,6 +2080,74 @@ impl Jni<()> for PalmchatJni {
                     },
                 )
                 .into();
+            }
+            "defpackage/r75->l()Z" => {
+                let result = self.identity_state.borrow().effective_privacy_agree();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe r75.l -> {}", result));
+                return result.into();
+            }
+            "defpackage/tg4->b(Landroid/content/Context;[Ljava/lang/String;)Z" => {
+                let _context = args.get::<DvmObject>(vm);
+                let permissions = args.get::<DvmObject>(vm);
+                let requested = string_array_from_object(&permissions);
+                let state = self.identity_state.borrow();
+                let result = requested
+                    .iter()
+                    .all(|permission| permission_granted(&state, permission));
+                self.shared.borrow_mut().jni(&format!(
+                    "probe tg4.b permissions={:?} -> {}",
+                    requested, result
+                ));
+                return result.into();
+            }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->init(Landroid/content/Context;)V" => {
+                let _context = args.get::<DvmObject>(vm);
+                self.identity_state.borrow_mut().priv_info_initialized = true;
+                self.shared
+                    .borrow_mut()
+                    .jni("probe PrivInfoManager.init -> isInit=true");
+                return JniValue::Void;
+            }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->getAndroidID()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if state.priv_info_initialized {
+                    state.effective_android_id()
+                } else {
+                    "none".to_string()
+                };
+                return result.into();
+            }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->getIMEI()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if state.priv_info_initialized {
+                    state.effective_imei()
+                } else {
+                    String::new()
+                };
+                return result.into();
+            }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->getMac()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if state.priv_info_initialized {
+                    state.effective_mac()
+                } else {
+                    String::new()
+                };
+                return result.into();
+            }
+            "defpackage/wm4->h()Ljava/lang/String;" => {
+                let result = self.identity_state.borrow().effective_android_id();
+                return result.into();
+            }
+            "defpackage/wm4->k()Ljava/lang/String;" => {
+                let result = self.identity_state.borrow().effective_imei();
+                return result.into();
+            }
+            "defpackage/wm4->n()Ljava/lang/String;" => {
+                let result = self.identity_state.borrow().effective_mac();
+                return result.into();
             }
             "java/lang/String->getBytes()[B" => {
                 let value = instance
@@ -1435,7 +2424,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&report)?);
             Ok(())
         }
-        "smoke" | "invoke" | "flow" => {
+        "smoke" | "invoke" | "flow" | "decrypt-trace" => {
             let config_path = PathBuf::from(
                 opts.get("--config")
                     .cloned()
@@ -1449,9 +2438,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 "smoke" => lab.run_smoke()?,
                 "invoke" => lab.run_invoke(&opts)?,
                 "flow" => lab.run_flow(&opts)?,
+                "decrypt-trace" => lab.run_decrypt_trace(&opts)?,
                 _ => unreachable!(),
             };
-            if opts.contains_key("--report-json") || opts.contains_key("--report-md") {
+            if command != "decrypt-trace"
+                && (opts.contains_key("--report-json") || opts.contains_key("--report-md"))
+            {
                 let report = parse_palmchat_flow_report(
                     &lab.config.trace_out_dir.join("palmchat_native.log"),
                     Some(&config_path),
@@ -1496,11 +2488,15 @@ fn print_usage() {
     eprintln!("palmchat commands:");
     eprintln!("  smoke  [--config <path>] [--backend <auto|dynarmic|unicorn>]");
     eprintln!("  invoke [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> [--arg1 <v>] [--arg2 <v>] [--arg3 <v>] [--secret-key <k>] [--secret-iv <iv>]");
-    eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("         gateProbe overrides: [--privacy-agree <bool>] [--read-phone-state <bool>] [--priv-info-init <bool>] [--android-id <str>] [--imei <str>] [--mac <str>]");
+    eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--bridge-stage1-json <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("  decrypt-trace [--config <path>] [--backend <auto|dynarmic|unicorn>] [--flow-json <json>] [--flow-mode <cipher_mode>] [--flow-use-new-key <bool>] [--skip-flow]");
+    eprintln!("                [--bridge-stage1-json <json>] [--type-input <bytes_or_hex>] [--type-encrypt-mode <int>] [--type-encrypt-use-new-key <bool>] [--type-decrypt-mode <int>] [--type-decrypt-use-new-key <bool>]");
+    eprintln!("                [--secret-key <k> --secret-iv <iv>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
     eprintln!(
         "  report [--config <path>] [--native-log <path>] [--json-out <path>] [--md-out <path>]"
     );
-    eprintln!("    methods: skeyAvailable, createCKey, setSecretKeys, getCkVersion, ckDiag, getEncryptedCKey, setLxData, cipherWithHashKey, cipherWithType");
+    eprintln!("    methods: skeyAvailable, createCKey, setSecretKeys, getCkVersion, ckDiag, gateProbe, getEncryptedCKey, setLxData, cipherWithHashKey, cipherWithType");
 }
 
 fn default_config_path() -> String {
@@ -1524,6 +2520,11 @@ fn validate_config(config: &PalmchatConfig) -> Result<()> {
     if let Some(path) = &config.wksec_so_path {
         if !path.exists() {
             return Err(anyhow!("wksec_so_path not found: {}", path.display()));
+        }
+    }
+    if let Some(path) = &config.app_manifest_path {
+        if !path.exists() {
+            return Err(anyhow!("app_manifest_path not found: {}", path.display()));
         }
     }
     for entry in &config.runtime_page_patches {
@@ -1898,6 +2899,117 @@ fn render_palmchat_flow_report_markdown(report: &PalmchatFlowReport) -> String {
     }
 
     if let Some(flow_result) = &report.flow_result {
+        if let Some(bridge_surface) = flow_result.get("v7_captcha_bridge_surface") {
+            lines.push(String::new());
+            lines.push("## V7 Captcha Bridge".to_string());
+            if let Some(branch_type) = bridge_surface.get("branch_type").and_then(Value::as_str) {
+                lines.push(format!("- branch_type: `{branch_type}`"));
+            }
+            if let Some(key_point) = bridge_surface
+                .get("key_point")
+                .and_then(|value| value.get("name"))
+                .and_then(Value::as_str)
+            {
+                lines.push(format!("- key_point: `{key_point}`"));
+            }
+            if let Some(diff) = bridge_surface.get("retry_patch_diff") {
+                lines.push("- retry_patch_diff:".to_string());
+                lines.push("```json".to_string());
+                lines.push(serde_json::to_string_pretty(diff).unwrap_or_else(|_| "{}".to_string()));
+                lines.push("```".to_string());
+            }
+        }
+        if let Some(upstream) = flow_result.get("v7_captcha_upstream_production") {
+            lines.push(String::new());
+            lines.push("## V7 Captcha Upstream".to_string());
+            if let Some(summary) = upstream.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            if let Some(chain) = upstream.get("production_chain").and_then(Value::as_array) {
+                for item in chain {
+                    let order = item
+                        .get("order")
+                        .and_then(Value::as_u64)
+                        .unwrap_or_default();
+                    let node = item
+                        .get("node")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let kind = item
+                        .get("kind")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let role = item.get("role").and_then(Value::as_str).unwrap_or("");
+                    lines.push(format!("- `{order}` `{node}` [{kind}] {role}"));
+                }
+            }
+        }
+        if let Some(base_field) = flow_result.get("v7_base_field_production") {
+            lines.push(String::new());
+            lines.push("## V7 Base Field Production".to_string());
+            if let Some(summary) = base_field.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            if let Some(field_sources) = base_field.get("field_sources") {
+                lines.push("- field_sources:".to_string());
+                lines.push("```json".to_string());
+                lines.push(
+                    serde_json::to_string_pretty(field_sources)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                );
+                lines.push("```".to_string());
+            }
+        }
+        if let Some(graph) = flow_result.get("v7_identity_dependency_graph") {
+            lines.push(String::new());
+            lines.push("## V7 Identity Dependency Graph".to_string());
+            if let Some(summary) = graph.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            if let Some(observed) = graph.get("observed_values") {
+                lines.push("- observed_values:".to_string());
+                lines.push("```json".to_string());
+                lines.push(
+                    serde_json::to_string_pretty(observed).unwrap_or_else(|_| "{}".to_string()),
+                );
+                lines.push("```".to_string());
+            }
+            if let Some(mermaid) = graph.get("mermaid").and_then(Value::as_str) {
+                lines.push("- graph:".to_string());
+                lines.push("```mermaid".to_string());
+                lines.push(mermaid.to_string());
+                lines.push("```".to_string());
+            }
+        }
+        if let Some(gates) = flow_result.get("v7_identity_gate_diagnostics") {
+            lines.push(String::new());
+            lines.push("## V7 Identity Gate Diagnostics".to_string());
+            if let Some(summary) = gates.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            lines.push("```json".to_string());
+            lines.push(serde_json::to_string_pretty(gates).unwrap_or_else(|_| "{}".to_string()));
+            lines.push("```".to_string());
+        }
+        if let Some(retry_views) = flow_result.get("v7_retry_payload_views") {
+            lines.push(String::new());
+            lines.push("## V7 Retry Payload Views".to_string());
+            for key in [
+                "stage1_candidate_body",
+                "retry_patch_only",
+                "stage1_plus_patch_preview",
+                "stage2_effective_body",
+            ] {
+                if let Some(value) = retry_views.get(key) {
+                    lines.push(format!("- {key}:"));
+                    lines.push("```json".to_string());
+                    lines.push(
+                        serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_string()),
+                    );
+                    lines.push("```".to_string());
+                }
+            }
+        }
         lines.push(String::new());
         lines.push("## Flow Result".to_string());
         lines.push("```json".to_string());
@@ -1915,6 +3027,20 @@ fn write_json_file(path: &Path, value: &Value) -> Result<()> {
     }
     fs::write(path, serde_json::to_vec_pretty(value)?)
         .with_context(|| format!("failed to write json output: {}", path.display()))
+}
+
+fn write_jsonl_file(path: &Path, rows: &[Value]) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create output dir: {}", parent.display()))?;
+    }
+    let mut text = String::new();
+    for row in rows {
+        text.push_str(&serde_json::to_string(row)?);
+        text.push('\n');
+    }
+    fs::write(path, text)
+        .with_context(|| format!("failed to write jsonl output: {}", path.display()))
 }
 
 fn write_text_file(path: &Path, text: &str) -> Result<()> {
@@ -2179,6 +3305,10 @@ fn build_class_resolver() -> ClassResolver {
         "com/zenmen/palmchat/utils/EncryptUtils",
         "com/zenmen/palmchat/messaging/MessagingService",
         "com/zenmen/palmchat/AppContext",
+        "com/zenmen/palmchat/privinfo/PrivInfoManager",
+        "defpackage/r75",
+        "defpackage/tg4",
+        "defpackage/wm4",
         "org/json/JSONObject",
         "android/app/Application",
         "android/content/Context",
@@ -2322,9 +3452,7 @@ fn resolve_fast_hashkey_global_ref(
     let ref_id = vm.add_global_ref(DvmObject::String(value.clone()));
     shared.borrow_mut().native(&format!(
         "fast hashkey enabled source={} ref=0x{:x} value={}",
-        source,
-        ref_id as u64,
-        value
+        source, ref_id as u64, value
     ));
     Some(ref_id)
 }
@@ -2951,8 +4079,7 @@ fn install_unicorn_trace_hooks(
         let verbose_cipher_hooks = std::env::var_os("PALMCHAT_TRACE_CIPHER_VERBOSE").is_some();
         let verbose_plt_hooks = std::env::var_os("PALMCHAT_TRACE_PLT_VERBOSE").is_some();
         let verbose_libc_hooks = std::env::var_os("PALMCHAT_TRACE_LIBC_VERBOSE").is_some();
-        let verbose_dispatch_hooks =
-            std::env::var_os("PALMCHAT_TRACE_DISPATCH_VERBOSE").is_some();
+        let verbose_dispatch_hooks = std::env::var_os("PALMCHAT_TRACE_DISPATCH_VERBOSE").is_some();
 
         if let Some(hashkey_ref) = hashkey_fast_global_ref {
             let hashkey_fast_used = Rc::new(RefCell::new(false));
@@ -3346,10 +4473,10 @@ fn install_unicorn_trace_hooks(
             .map_err(|err| anyhow!("failed to install ck_version slot seed writer unicorn hook: {err:?}"))?;
 
         if verbose_cipher_hooks {
-        let cipher_trace_count = Rc::new(RefCell::new(0usize));
-        let cipher_trace_histogram = Rc::new(RefCell::new(HashMap::<u64, usize>::new()));
-        let cipher_trace_shared = shared.clone();
-        unicorn
+            let cipher_trace_count = Rc::new(RefCell::new(0usize));
+            let cipher_trace_histogram = Rc::new(RefCell::new(HashMap::<u64, usize>::new()));
+            let cipher_trace_shared = shared.clone();
+            unicorn
                 .add_code_hook(
                     module_base + 0x0a5df4,
                     module_base + 0x0a7000,
@@ -3396,11 +4523,11 @@ fn install_unicorn_trace_hooks(
                 )
                 .map_err(|err| anyhow!("failed to install encryptutils_body unicorn code hook: {err:?}"))?;
 
-        let cipher_helper_trace_count = Rc::new(RefCell::new(0usize));
-        let cipher_helper_trace_histogram = Rc::new(RefCell::new(HashMap::<u64, usize>::new()));
-        let cipher_source_trace_count = Rc::new(RefCell::new(0usize));
-        let cipher_helper_trace_shared = shared.clone();
-        unicorn
+            let cipher_helper_trace_count = Rc::new(RefCell::new(0usize));
+            let cipher_helper_trace_histogram = Rc::new(RefCell::new(HashMap::<u64, usize>::new()));
+            let cipher_source_trace_count = Rc::new(RefCell::new(0usize));
+            let cipher_helper_trace_shared = shared.clone();
+            unicorn
                 .add_code_hook(
                     module_base + 0x0a57b0,
                     module_base + 0x0a59a8,
@@ -3562,9 +4689,9 @@ fn install_unicorn_trace_hooks(
                 )
                 .map_err(|err| anyhow!("failed to install cipher helper unicorn code hook: {err:?}"))?;
 
-        let cipher_loop_trace_count = Rc::new(RefCell::new(0usize));
-        let cipher_loop_trace_shared = shared.clone();
-        unicorn
+            let cipher_loop_trace_count = Rc::new(RefCell::new(0usize));
+            let cipher_loop_trace_shared = shared.clone();
+            unicorn
                 .add_code_hook(
                     module_base + 0x0a585c,
                     module_base + 0x0a5864,
@@ -4899,6 +6026,784 @@ fn parse_bool_like(text: &str) -> bool {
     }
 }
 
+fn extract_known_fields_from_value(value: &Value, keys: &[&str]) -> Map<String, Value> {
+    let mut out = Map::new();
+    let Value::Object(obj) = value else {
+        return out;
+    };
+    for key in keys {
+        if let Some(v) = obj.get(*key) {
+            out.insert((*key).to_string(), v.clone());
+        }
+    }
+    out
+}
+
+fn missing_known_keys(fields: &Map<String, Value>, keys: &[&str]) -> Vec<String> {
+    let mut missing = Vec::new();
+    for key in keys {
+        if !fields.contains_key(*key) {
+            missing.push((*key).to_string());
+        }
+    }
+    missing
+}
+
+fn compare_field_alignment(
+    produce_fields: &Map<String, Value>,
+    consume_fields: &Map<String, Value>,
+) -> (Vec<String>, Map<String, Value>) {
+    let mut stable = Vec::new();
+    let mut changed = Map::new();
+    for (key, produce_value) in produce_fields {
+        let Some(consume_value) = consume_fields.get(key) else {
+            continue;
+        };
+        if produce_value == consume_value {
+            stable.push(key.clone());
+        } else {
+            changed.insert(
+                key.clone(),
+                json!({
+                    "produce": produce_value,
+                    "consume": consume_value,
+                }),
+            );
+        }
+    }
+    stable.sort_unstable();
+    (stable, changed)
+}
+
+fn derive_v7_first_stage_candidate(stage2_value: &Value) -> Value {
+    let Value::Object(stage2_obj) = stage2_value else {
+        return json!({});
+    };
+    let mut out = stage2_obj.clone();
+    out.remove("rid");
+    out.remove("modeType");
+    out.remove("diffTime");
+    out.remove("captcha");
+    if stage2_obj.contains_key("verifyStatus")
+        || stage2_obj.contains_key("rid")
+        || stage2_obj.contains_key("modeType")
+        || stage2_obj.contains_key("diffTime")
+    {
+        out.insert("verifyStatus".to_string(), Value::Bool(false));
+    }
+    Value::Object(out)
+}
+
+fn build_field_diff(
+    before_fields: &Map<String, Value>,
+    after_fields: &Map<String, Value>,
+    keys: &[&str],
+) -> Map<String, Value> {
+    let mut out = Map::new();
+    for key in keys {
+        let before = before_fields.get(*key);
+        let after = after_fields.get(*key);
+        if before == after {
+            continue;
+        }
+        out.insert(
+            (*key).to_string(),
+            json!({
+                "before": before.cloned().unwrap_or(Value::Null),
+                "after": after.cloned().unwrap_or(Value::Null),
+            }),
+        );
+    }
+    out
+}
+
+fn value_to_bool(value: Option<&Value>) -> bool {
+    match value {
+        Some(Value::Bool(v)) => *v,
+        Some(Value::Number(v)) => v.as_i64().unwrap_or_default() != 0,
+        Some(Value::String(v)) => parse_bool_like(v),
+        _ => false,
+    }
+}
+
+fn value_present(value: Option<&Value>) -> bool {
+    match value {
+        Some(Value::Null) | None => false,
+        Some(Value::String(v)) => !v.trim().is_empty(),
+        Some(Value::Array(v)) => !v.is_empty(),
+        Some(Value::Object(v)) => !v.is_empty(),
+        Some(_) => true,
+    }
+}
+
+fn build_v7_captcha_bridge_surface(explicit_stage1: Option<&Value>, stage2_value: &Value) -> Value {
+    let stage1_value = explicit_stage1
+        .cloned()
+        .unwrap_or_else(|| derive_v7_first_stage_candidate(stage2_value));
+    let stage1_fields = extract_known_fields_from_value(&stage1_value, V7_FINGERPRINT_KEYS);
+    let stage2_fields = extract_known_fields_from_value(stage2_value, V7_FINGERPRINT_KEYS);
+    let stage1_missing = missing_known_keys(&stage1_fields, V7_FINGERPRINT_KEYS);
+    let stage2_missing = missing_known_keys(&stage2_fields, V7_FINGERPRINT_KEYS);
+    let retry_patch_fields = extract_known_fields_from_value(stage2_value, V7_CAPTCHA_BRIDGE_KEYS);
+    let retry_patch_missing = missing_known_keys(&retry_patch_fields, V7_CAPTCHA_BRIDGE_KEYS);
+    let retry_patch_diff = build_field_diff(&stage1_fields, &stage2_fields, V7_CAPTCHA_BRIDGE_KEYS);
+
+    let stage2_verify_status = value_to_bool(stage2_fields.get("verifyStatus"));
+    let has_retry_tuple = value_present(stage2_fields.get("rid"))
+        && value_present(stage2_fields.get("modeType"))
+        && value_present(stage2_fields.get("diffTime"));
+    let has_any_retry_patch = V7_CAPTCHA_BRIDGE_KEYS
+        .iter()
+        .any(|key| value_present(stage2_fields.get(*key)));
+
+    let branch_type = if stage2_verify_status && has_retry_tuple {
+        "captcha_retry_ready"
+    } else if !stage2_verify_status && !has_any_retry_patch {
+        "first_stage_only"
+    } else if has_any_retry_patch {
+        "captcha_retry_partial"
+    } else {
+        "direct_or_unknown"
+    };
+
+    json!({
+        "source": if explicit_stage1.is_some() { "explicit_stage1_plus_stage2" } else { "derived_stage1_candidate_plus_stage2" },
+        "branch_type": branch_type,
+        "key_point": {
+            "name": "captcha_retry_patch",
+            "summary": "Between 1900 and 202, retry is unlocked by patching verifyStatus/rid/modeType/diffTime into the second sendsms payload.",
+            "static_chain_anchor": {
+                "gate_callback": "u63.onPostExecute/d",
+                "captcha_apply": "nz.a",
+                "retry_builder": "o92.getRequestArgs"
+            }
+        },
+        "stage1_candidate_fields": stage1_fields,
+        "stage1_candidate_missing": stage1_missing,
+        "retry_patch_fields": retry_patch_fields,
+        "retry_patch_missing": retry_patch_missing,
+        "retry_patch_diff": retry_patch_diff,
+        "stage2_fields": stage2_fields,
+        "stage2_missing": stage2_missing,
+    })
+}
+
+fn build_v7_captcha_upstream_production(
+    explicit_stage1: Option<&Value>,
+    stage2_value: &Value,
+) -> Value {
+    let bridge_surface = build_v7_captcha_bridge_surface(explicit_stage1, stage2_value);
+    let retry_patch_diff = bridge_surface
+        .get("retry_patch_diff")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let retry_patch_fields = bridge_surface
+        .get("retry_patch_fields")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let branch_type = bridge_surface
+        .get("branch_type")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+
+    json!({
+        "branch_type": branch_type,
+        "summary": "Between first sendsms=1900 and second sendsms=202, the critical upstream production step is CaptchaResult construction plus nz.a retry patching, not another HTTP API.",
+        "production_chain": [
+            {
+                "order": 1,
+                "node": "u63.onPostExecute/d",
+                "kind": "gate_callback",
+                "role": "Delivers first sendsms resultCode=1900 to the login callback branch."
+            },
+            {
+                "order": 2,
+                "node": "com.zenmen.palmchat.utils.captcha.a.o(String)",
+                "kind": "captcha_result_builder",
+                "role": "Builds CaptchaResult when captcha pass is confirmed.",
+                "evidence": {
+                    "constructor": "new CaptchaResult(captchaBean.rid, this.k.a(), ir5.e(this.l))",
+                    "field_origins": {
+                        "rid": "captchaBean.rid",
+                        "modeType": "mz.a() / this.k.a()",
+                        "diffTime": "ir5.e(this.l)"
+                    }
+                }
+            },
+            {
+                "order": 3,
+                "node": "nz.a(HashMap<String,Object>, CaptchaResult)",
+                "kind": "retry_patch",
+                "role": "Patches retry sendsms body with verifyStatus/rid/modeType/diffTime.",
+                "evidence": {
+                    "rule": "captchaResult == null => verifyStatus=false; else verifyStatus=true and put rid/modeType/diffTime"
+                }
+            },
+            {
+                "order": 4,
+                "node": "na3.a(SMSInfo, CaptchaResult, cb)",
+                "kind": "retry_dispatch",
+                "role": "Dispatches second sendsms with SMSInfo + CaptchaResult."
+            },
+            {
+                "order": 5,
+                "node": "o92.getRequestArgs()",
+                "kind": "request_builder",
+                "role": "Builds sw4 body, adds mobile/countryCode/paramNum, and invokes nz.a(...) for captcha patch."
+            },
+            {
+                "order": 6,
+                "node": "u63.a(sw4, ...)",
+                "kind": "request_consumer",
+                "role": "Serializes patched sw4 JSON, calls EncryptUtils.setLxData, then builds EncryptedJsonRequest for second sendsms."
+            }
+        ],
+        "field_sources": {
+            "verifyStatus": {
+                "producer": "nz.a(HashMap<String,Object>, CaptchaResult)",
+                "rule": "null captcha => false, non-null captcha => true",
+                "observed_patch": retry_patch_diff.get("verifyStatus").cloned().unwrap_or(Value::Null)
+            },
+            "rid": {
+                "producer": "CaptchaResult.rid",
+                "upstream_origin": "captchaBean.rid",
+                "patcher": "nz.a(HashMap<String,Object>, CaptchaResult)",
+                "observed_patch": retry_patch_diff.get("rid").cloned().unwrap_or(Value::Null)
+            },
+            "modeType": {
+                "producer": "CaptchaResult.modeType",
+                "upstream_origin": "mz.a() / this.k.a()",
+                "patcher": "nz.a(HashMap<String,Object>, CaptchaResult)",
+                "observed_patch": retry_patch_diff.get("modeType").cloned().unwrap_or(Value::Null)
+            },
+            "diffTime": {
+                "producer": "CaptchaResult.diffTime",
+                "upstream_origin": "ir5.e(this.l)",
+                "patcher": "nz.a(HashMap<String,Object>, CaptchaResult)",
+                "observed_patch": retry_patch_diff.get("diffTime").cloned().unwrap_or(Value::Null)
+            }
+        },
+        "retry_patch_fields": retry_patch_fields,
+        "bridge_surface": bridge_surface
+    })
+}
+
+fn build_v7_retry_payload_views(explicit_stage1: Option<&Value>, stage2_value: &Value) -> Value {
+    let stage1_value = explicit_stage1
+        .cloned()
+        .unwrap_or_else(|| derive_v7_first_stage_candidate(stage2_value));
+
+    let stage1_obj = match &stage1_value {
+        Value::Object(map) => map.clone(),
+        _ => Map::new(),
+    };
+    let stage2_obj = match stage2_value {
+        Value::Object(map) => map.clone(),
+        _ => Map::new(),
+    };
+
+    let mut retry_patch_only = Map::new();
+    for key in V7_CAPTCHA_BRIDGE_KEYS {
+        if let Some(value) = stage2_obj.get(*key) {
+            retry_patch_only.insert((*key).to_string(), value.clone());
+        }
+    }
+
+    let mut patched_preview = stage1_obj.clone();
+    for (key, value) in &retry_patch_only {
+        patched_preview.insert(key.clone(), value.clone());
+    }
+
+    let stage1_fields =
+        extract_known_fields_from_value(&Value::Object(stage1_obj.clone()), V7_FINGERPRINT_KEYS);
+    let stage2_fields =
+        extract_known_fields_from_value(&Value::Object(stage2_obj.clone()), V7_FINGERPRINT_KEYS);
+    let patch_diff = build_field_diff(&stage1_fields, &stage2_fields, V7_CAPTCHA_BRIDGE_KEYS);
+
+    json!({
+        "stage1_candidate_body": Value::Object(stage1_obj),
+        "retry_patch_only": Value::Object(retry_patch_only),
+        "stage1_plus_patch_preview": Value::Object(patched_preview),
+        "stage2_effective_body": Value::Object(stage2_obj),
+        "patch_diff": patch_diff,
+    })
+}
+
+fn parse_json_string_or_object(value: Option<&Value>) -> Option<Value> {
+    match value {
+        Some(Value::Object(map)) => Some(Value::Object(map.clone())),
+        Some(Value::String(raw)) => serde_json::from_str::<Value>(raw).ok(),
+        _ => None,
+    }
+}
+
+fn extract_app_list_channel_id(stage2_value: &Value) -> Value {
+    parse_json_string_or_object(stage2_value.get("appList"))
+        .and_then(|value| value.get("channelId").cloned())
+        .unwrap_or(Value::Null)
+}
+
+fn build_v7_base_field_production(stage2_value: &Value) -> Value {
+    let observed_android_id = stage2_value
+        .get("androidId")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let observed_body_channel_id = stage2_value
+        .get("channelId")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let observed_app_list_channel_id = extract_app_list_channel_id(stage2_value);
+
+    json!({
+        "summary": "androidId and body.channelId are base-field producers that are established before captcha retry patching. body.channelId comes from ac1.m asset initialization, while androidId comes from PrivInfoManager -> wm4.h() -> Settings.Secure android_id.",
+        "field_sources": {
+            "androidId": {
+                "consumer": "mh.a -> sw4.f20862a.put(\"androidId\", ac1.p)",
+                "producer": "ac1.e(Context)",
+                "upstream_origin": "PrivInfoManager.INSTANCE.getAndroidID() -> wm4.h() -> Settings.Secure.getString(contentResolver, \"android_id\")",
+                "cache_slots": ["ac1.p", "wm4.n"],
+                "fallback": "If Settings.Secure android_id is empty, wm4.h() falls back to MediaInfo.RENDERER_TYPE_UNKNOWN.",
+                "observed_value": observed_android_id,
+            },
+            "channelId": {
+                "consumer": "mh.a -> sw4.f20862a.put(\"channelId\", ac1.m)",
+                "producer": "ac1.c(Context)",
+                "upstream_origin": "Read first line of asset file \"channel\" into ac1.m, then ac1.p(Context) returns it.",
+                "cache_slots": ["ac1.m"],
+                "observed_body_value": observed_body_channel_id,
+                "note": "This is the body channelId. It is not the same as appList.channelId."
+            },
+            "appList.channelId": {
+                "consumer": "ac1.s() -> JSONObject.put(\"channelId\", ac1.m + \"_\" + xn3.a())",
+                "producer": "ac1.s()",
+                "upstream_origin": "appList reuses ac1.m but appends a request-scoped suffix from xn3.a().",
+                "suffix_formula": "xn3.a() = random4 + ir5.b()",
+                "observed_value": observed_app_list_channel_id,
+            }
+        },
+        "production_chain": [
+            {
+                "order": 1,
+                "node": "ac1.B(Context)",
+                "kind": "bootstrap",
+                "role": "Initializes base identity fields before request builders consume them."
+            },
+            {
+                "order": 2,
+                "node": "ac1.p(Context) -> ac1.c(Context)",
+                "kind": "channel_asset_init",
+                "role": "Initializes ac1.m by reading the asset file named channel."
+            },
+            {
+                "order": 3,
+                "node": "ac1.e(Context)",
+                "kind": "android_id_capture",
+                "role": "Stores androidId into ac1.p and also updates did = imei + '_' + mac + '_' + androidId."
+            },
+            {
+                "order": 4,
+                "node": "PrivInfoManager.getAndroidID() -> wm4.h()",
+                "kind": "android_id_provider",
+                "role": "Reads Settings.Secure android_id once and memoizes it in wm4.n."
+            },
+            {
+                "order": 5,
+                "node": "mh.a(String)",
+                "kind": "request_builder_consumer",
+                "role": "Consumes ac1.m/ac1.p into body.channelId/body.androidId."
+            },
+            {
+                "order": 6,
+                "node": "ac1.s()",
+                "kind": "app_list_variant",
+                "role": "Builds appList JSON and emits appList.channelId = ac1.m + '_' + xn3.a()."
+            }
+        ]
+    })
+}
+
+fn build_v7_identity_dependency_graph(stage2_value: &Value) -> Value {
+    let observed_android_id = stage2_value
+        .get("androidId")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let observed_body_channel_id = stage2_value
+        .get("channelId")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let observed_app_list_channel_id = extract_app_list_channel_id(stage2_value);
+    let observed_did = stage2_value.get("did").cloned().unwrap_or(Value::Null);
+    let observed_imei = stage2_value.get("imei").cloned().unwrap_or(Value::Null);
+    let observed_mac = stage2_value.get("mac").cloned().unwrap_or(Value::Null);
+
+    let nodes = json!([
+        {
+            "id": "settings_android_id",
+            "label": "Settings.Secure android_id",
+            "kind": "system_source"
+        },
+        {
+            "id": "r75_l",
+            "label": "r75.l()",
+            "kind": "gate"
+        },
+        {
+            "id": "ac1_a",
+            "label": "ac1.A(Context)",
+            "kind": "gate_dispatch"
+        },
+        {
+            "id": "telephony_device_id",
+            "label": "TelephonyManager.getDeviceId()",
+            "kind": "system_source"
+        },
+        {
+            "id": "wm4_k",
+            "label": "wm4.k()",
+            "kind": "provider"
+        },
+        {
+            "id": "privinfo_imei",
+            "label": "PrivInfoManager.getIMEI()",
+            "kind": "provider"
+        },
+        {
+            "id": "ac1_k_context",
+            "label": "ac1.k(Context)",
+            "kind": "assembler"
+        },
+        {
+            "id": "ac1_i",
+            "label": "ac1.i (imei cache)",
+            "kind": "cache_slot"
+        },
+        {
+            "id": "wm4_h",
+            "label": "wm4.h()",
+            "kind": "provider"
+        },
+        {
+            "id": "privinfo_android_id",
+            "label": "PrivInfoManager.getAndroidID()",
+            "kind": "provider"
+        },
+        {
+            "id": "ac1_e",
+            "label": "ac1.e(Context)",
+            "kind": "assembler"
+        },
+        {
+            "id": "ac1_p",
+            "label": "ac1.p (androidId cache)",
+            "kind": "cache_slot"
+        },
+        {
+            "id": "body_android_id",
+            "label": "body.androidId",
+            "kind": "request_field"
+        },
+        {
+            "id": "assets_channel",
+            "label": "assets/channel",
+            "kind": "asset_source"
+        },
+        {
+            "id": "ac1_c",
+            "label": "ac1.c(Context)",
+            "kind": "loader"
+        },
+        {
+            "id": "ac1_m",
+            "label": "ac1.m (channelId cache)",
+            "kind": "cache_slot"
+        },
+        {
+            "id": "body_channel_id",
+            "label": "body.channelId",
+            "kind": "request_field"
+        },
+        {
+            "id": "xn3_a",
+            "label": "xn3.a()",
+            "kind": "suffix_builder"
+        },
+        {
+            "id": "app_list_channel_id",
+            "label": "appList.channelId",
+            "kind": "request_field_variant"
+        },
+        {
+            "id": "imei_mac",
+            "label": "imei + '_' + mac",
+            "kind": "base_inputs"
+        },
+        {
+            "id": "ac1_g",
+            "label": "ac1.g()",
+            "kind": "assembler"
+        },
+        {
+            "id": "ac1_r_stub",
+            "label": "ac1.r() -> empty string",
+            "kind": "stubbed_source"
+        },
+        {
+            "id": "ac1_k_mac",
+            "label": "ac1.k (mac cache)",
+            "kind": "cache_slot"
+        },
+        {
+            "id": "did_field",
+            "label": "did",
+            "kind": "request_field"
+        },
+        {
+            "id": "mh_a",
+            "label": "mh.a(String)",
+            "kind": "request_builder"
+        }
+    ]);
+
+    let edges = json!([
+        {
+            "from": "r75_l",
+            "to": "ac1_a",
+            "label": "gate true"
+        },
+        {
+            "from": "ac1_a",
+            "to": "ac1_k_context",
+            "label": "invoke"
+        },
+        {
+            "from": "telephony_device_id",
+            "to": "wm4_k",
+            "label": "getDeviceId"
+        },
+        {
+            "from": "wm4_k",
+            "to": "privinfo_imei",
+            "label": "return imei"
+        },
+        {
+            "from": "privinfo_imei",
+            "to": "ac1_k_context",
+            "label": "imei input"
+        },
+        {
+            "from": "ac1_k_context",
+            "to": "ac1_i",
+            "label": "ac1.i = imei"
+        },
+        {
+            "from": "settings_android_id",
+            "to": "wm4_h",
+            "label": "Settings.Secure.getString(contentResolver, \"android_id\")"
+        },
+        {
+            "from": "wm4_h",
+            "to": "privinfo_android_id",
+            "label": "return androidId"
+        },
+        {
+            "from": "privinfo_android_id",
+            "to": "ac1_e",
+            "label": "androidId input"
+        },
+        {
+            "from": "ac1_e",
+            "to": "ac1_p",
+            "label": "ac1.p = androidId"
+        },
+        {
+            "from": "ac1_p",
+            "to": "body_android_id",
+            "label": "mh.a put(\"androidId\", ac1.p)"
+        },
+        {
+            "from": "assets_channel",
+            "to": "ac1_c",
+            "label": "read first line"
+        },
+        {
+            "from": "ac1_c",
+            "to": "ac1_m",
+            "label": "ac1.m = asset line"
+        },
+        {
+            "from": "ac1_m",
+            "to": "body_channel_id",
+            "label": "mh.a put(\"channelId\", ac1.m)"
+        },
+        {
+            "from": "ac1_m",
+            "to": "app_list_channel_id",
+            "label": "prefix"
+        },
+        {
+            "from": "xn3_a",
+            "to": "app_list_channel_id",
+            "label": "dynamic suffix"
+        },
+        {
+            "from": "ac1_i",
+            "to": "imei_mac",
+            "label": "imei segment"
+        },
+        {
+            "from": "ac1_a",
+            "to": "ac1_g",
+            "label": "invoke"
+        },
+        {
+            "from": "ac1_g",
+            "to": "ac1_r_stub",
+            "label": "k = r()"
+        },
+        {
+            "from": "ac1_r_stub",
+            "to": "ac1_k_mac",
+            "label": "mac becomes empty string"
+        },
+        {
+            "from": "ac1_k_mac",
+            "to": "imei_mac",
+            "label": "mac segment"
+        },
+        {
+            "from": "ac1_p",
+            "to": "did_field",
+            "label": "right segment androidId"
+        },
+        {
+            "from": "imei_mac",
+            "to": "did_field",
+            "label": "left segment"
+        },
+        {
+            "from": "body_android_id",
+            "to": "mh_a",
+            "label": "serialized into sw4"
+        },
+        {
+            "from": "body_channel_id",
+            "to": "mh_a",
+            "label": "serialized into sw4"
+        },
+        {
+            "from": "did_field",
+            "to": "mh_a",
+            "label": "serialized into sw4"
+        },
+        {
+            "from": "app_list_channel_id",
+            "to": "mh_a",
+            "label": "serialized via ac1.s()"
+        }
+    ]);
+
+    let mermaid = [
+        "flowchart TD",
+        "  r75_l[r75.l gate] -->|true| ac1_a[ac1.A(Context)]",
+        "  telephony_device_id[TelephonyManager.getDeviceId] -->|getDeviceId| wm4_k[wm4.k()]",
+        "  wm4_k --> privinfo_imei[PrivInfoManager.getIMEI()]",
+        "  privinfo_imei --> ac1_k_context[ac1.k(Context)]",
+        "  ac1_k_context --> ac1_i[ac1.i imei cache]",
+        "  settings_android_id[Settings.Secure android_id] -->|getString| wm4_h[wm4.h()]",
+        "  wm4_h --> privinfo_android_id[PrivInfoManager.getAndroidID()]",
+        "  privinfo_android_id --> ac1_e[ac1.e(Context)]",
+        "  ac1_e --> ac1_p[ac1.p androidId cache]",
+        "  ac1_p --> body_android_id[body.androidId]",
+        "  assets_channel[assets/channel] --> ac1_c[ac1.c(Context)]",
+        "  ac1_c --> ac1_m[ac1.m channelId cache]",
+        "  ac1_m --> body_channel_id[body.channelId]",
+        "  ac1_m --> app_list_channel_id[appList.channelId]",
+        "  xn3_a[xn3.a random4 + ir5.b] --> app_list_channel_id",
+        "  ac1_a --> ac1_g[ac1.g()]",
+        "  ac1_g --> ac1_r_stub[ac1.r() returns empty string]",
+        "  ac1_r_stub --> ac1_k_mac[ac1.k mac cache]",
+        "  ac1_i --> imei_mac[imei + '_' + mac]",
+        "  ac1_k_mac --> imei_mac",
+        "  ac1_p --> did_field",
+        "  imei_mac --> did_field[did]",
+        "  body_android_id --> mh_a[mh.a(String)]",
+        "  body_channel_id --> mh_a",
+        "  did_field --> mh_a",
+        "  app_list_channel_id --> mh_a",
+    ]
+    .join("\n");
+
+    json!({
+        "summary": "This graph merges the base identity producers that feed body.androidId, body.channelId, appList.channelId, and did before encryption. The key distinction is body.channelId = ac1.m, while appList.channelId = ac1.m + '_' + xn3.a(). For did, imei comes from TelephonyManager.getDeviceId via PrivInfoManager.getIMEI, but mac is currently cut to an empty string by ac1.r() in this build.",
+        "observed_values": {
+            "androidId": observed_android_id,
+            "body.channelId": observed_body_channel_id,
+            "appList.channelId": observed_app_list_channel_id,
+            "imei": observed_imei,
+            "mac": observed_mac,
+            "did": observed_did,
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "mermaid": mermaid,
+        "evidence": {
+            "body_channel_id_consumer": "mh.a -> put(\"channelId\", ac1.m)",
+            "body_android_id_consumer": "mh.a -> put(\"androidId\", ac1.p)",
+            "did_consumer": "mh.a -> put(\"did\", ac1.o)",
+            "did_formula": "ac1.e(Context): o = i + '_' + k + '_' + p",
+            "app_list_channel_id_formula": "ac1.s(): channelId = m + '_' + xn3.a()",
+            "android_id_provider": "wm4.h(): Settings.Secure.getString(contentResolver, \"android_id\")",
+            "imei_provider": "wm4.k(): TelephonyManager.getDeviceId() -> PrivInfoManager.getIMEI() -> ac1.k(Context)",
+            "mac_current_build_source": "ac1.g() -> k = r(); ac1.r() currently returns empty string"
+        }
+    })
+}
+
+fn build_v7_identity_gate_diagnostics() -> Value {
+    json!({
+        "summary": "Three static gates determine whether imei/androidId-related identity collection runs: privacy-agree gate r75.l(), PHONE_STATE permission gate tg4.b(...READ_PHONE_STATE), and PrivInfoManager initialization gate. These are code-proven gates; actual runtime truth values still require a live probe in the target process.",
+        "gates": {
+            "privacy_agree_gate": {
+                "gate_fn": "r75.l()",
+                "effect": "ac1.A(Context) only executes k(context), g(), e(context) when r75.l() returns true.",
+                "evidence": {
+                    "callsite": "ac1.A(Context): if (r75.l()) { k(context); g(); e(context); }",
+                    "storage": "SharedPreferences key sp_privacy_agree",
+                    "cache": "r75.b AtomicInteger",
+                    "rule": "r75.l() returns b.get() == 1"
+                },
+                "runtime_status": "blocked_without_live_probe"
+            },
+            "phone_state_permission_gate": {
+                "gate_fn": "tg4.b(context, BaseActivityPermissionDispatcher.PermissionType.PHONE_STATE.permissionList)",
+                "effect": "ac1.k(Context) only attempts PrivInfoManager.getIMEI()/getIMSI when READ_PHONE_STATE permission passes.",
+                "evidence": {
+                    "permission_type": "PHONE_STATE(2, new String[]{android.permission.READ_PHONE_STATE})",
+                    "checker": "tg4.b -> PermissionChecker.checkSelfPermission(context, permission) == 0",
+                    "sdk_filter": "tg4.c(permission): permission considered only when Build.VERSION.SDK_INT meets threshold"
+                },
+                "runtime_status": "blocked_without_live_probe"
+            },
+            "priv_info_init_gate": {
+                "gate_fn": "PrivInfoManager.init(Context)",
+                "effect": "getAndroidID/getIMEI/getMac short-circuit until isInit=true and mImpl=new wm4(applicationContext).",
+                "evidence": {
+                    "init": "PrivInfoManager.init(Context): if !isInit { mContext=appContext; mImpl=new wm4(appContext); isInit=true; }",
+                    "android_id_guard": "getAndroidID(): !isInit ? \"none\" : mImpl.h()",
+                    "imei_guard": "getIMEI(): !isInit ? \"\" : mImpl.k()",
+                    "mac_guard": "getMac(): !isInit ? \"\" : mImpl.n()"
+                },
+                "runtime_status": "blocked_without_live_probe"
+            }
+        },
+        "current_build_note": {
+            "did_mac_path": "Even if PrivInfoManager.getMac() exists, current did assembly does not consume it directly here.",
+            "did_mac_source": "ac1.g() -> k = r(); ac1.r() currently returns empty string",
+            "impact": "In this build, did can degrade to imei + '_' + '' + '_' + androidId, or null/empty on the imei side as observed."
+        }
+    })
+}
+
 fn jni_value_to_string(value: JniValue) -> Result<String> {
     match value {
         JniValue::Object(DvmObject::String(value)) => Ok(value),
@@ -4994,10 +6899,28 @@ fn string_from_object(object: &DvmObject) -> String {
     }
 }
 
+fn string_array_from_object(object: &DvmObject) -> Vec<String> {
+    match object {
+        DvmObject::ObjectArray(_, values) => values
+            .iter()
+            .filter_map(|value| value.as_ref().map(string_from_object))
+            .collect(),
+        DvmObject::String(value) => vec![value.clone()],
+        _ => Vec::new(),
+    }
+}
+
 fn string_from_id(vm: &mut DalvikVM64<()>, object_id: i64) -> String {
     match object_from_id_mut(vm, object_id) {
         Some(object) => string_from_object(object),
         None => String::new(),
+    }
+}
+
+fn permission_granted(state: &PalmchatIdentityRuntimeState, permission: &str) -> bool {
+    match permission {
+        "android.permission.READ_PHONE_STATE" => state.effective_read_phone_state(),
+        _ => true,
     }
 }
 
@@ -5067,5 +6990,292 @@ mod tests {
         );
         assert_eq!(step.done_note.as_deref(), Some("bytes_len=48"));
         assert!(step.duration_ms.unwrap_or_default() > 0);
+    }
+
+    #[test]
+    fn v7_extract_known_fields_only_keeps_target_keys() {
+        let raw = json!({
+            "mobile": "18888888888",
+            "appId": "ZX0001",
+            "verifyStatus": true,
+            "unknown": "drop-me"
+        });
+        let extracted = extract_known_fields_from_value(&raw, V7_FINGERPRINT_KEYS);
+        assert_eq!(extracted.get("mobile"), Some(&json!("18888888888")));
+        assert_eq!(extracted.get("appId"), Some(&json!("ZX0001")));
+        assert_eq!(extracted.get("verifyStatus"), Some(&json!(true)));
+        assert!(!extracted.contains_key("unknown"));
+    }
+
+    #[test]
+    fn v7_compare_field_alignment_tracks_stable_and_changed() {
+        let produce = json!({
+            "mobile": "18888888888",
+            "appId": "ZX0001",
+            "verifyStatus": true
+        });
+        let consume = json!({
+            "mobile": "18888888888",
+            "appId": "ZX0002",
+            "verifyStatus": true
+        });
+        let produce_fields = extract_known_fields_from_value(&produce, V7_FINGERPRINT_KEYS);
+        let consume_fields = extract_known_fields_from_value(&consume, V7_FINGERPRINT_KEYS);
+        let (stable, changed) = compare_field_alignment(&produce_fields, &consume_fields);
+        assert_eq!(
+            stable,
+            vec!["mobile".to_string(), "verifyStatus".to_string()]
+        );
+        assert_eq!(
+            changed.get("appId"),
+            Some(&json!({
+                "produce": "ZX0001",
+                "consume": "ZX0002"
+            }))
+        );
+    }
+
+    #[test]
+    fn derive_v7_first_stage_candidate_strips_retry_tuple() {
+        let stage2 = json!({
+            "mobile": "15390455973",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "select",
+            "diffTime": "6551",
+            "appId": "ZX0001"
+        });
+        let stage1 = derive_v7_first_stage_candidate(&stage2);
+        assert_eq!(stage1.get("mobile"), Some(&json!("15390455973")));
+        assert_eq!(stage1.get("countryCode"), Some(&json!("86")));
+        assert_eq!(stage1.get("verifyStatus"), Some(&json!(false)));
+        assert!(stage1.get("rid").is_none());
+        assert!(stage1.get("modeType").is_none());
+        assert!(stage1.get("diffTime").is_none());
+    }
+
+    #[test]
+    fn build_v7_captcha_bridge_surface_tracks_retry_patch() {
+        let stage2 = json!({
+            "mobile": "15390455973",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "select",
+            "diffTime": "6551",
+            "appId": "ZX0001"
+        });
+        let surface = build_v7_captcha_bridge_surface(None, &stage2);
+        assert_eq!(
+            surface.get("branch_type").and_then(Value::as_str),
+            Some("captcha_retry_ready")
+        );
+        let retry_patch = surface
+            .get("retry_patch_diff")
+            .and_then(Value::as_object)
+            .expect("retry_patch_diff should be object");
+        assert_eq!(
+            retry_patch.get("verifyStatus"),
+            Some(&json!({
+                "before": false,
+                "after": true
+            }))
+        );
+        assert_eq!(
+            retry_patch.get("rid"),
+            Some(&json!({
+                "before": Value::Null,
+                "after": "RID123"
+            }))
+        );
+        assert_eq!(
+            retry_patch.get("modeType"),
+            Some(&json!({
+                "before": Value::Null,
+                "after": "select"
+            }))
+        );
+        assert_eq!(
+            retry_patch.get("diffTime"),
+            Some(&json!({
+                "before": Value::Null,
+                "after": "6551"
+            }))
+        );
+    }
+
+    #[test]
+    fn build_v7_captcha_upstream_production_contains_expected_producers() {
+        let stage2 = json!({
+            "mobile": "15390455973",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "select",
+            "diffTime": "6551",
+            "appId": "ZX0001"
+        });
+        let upstream = build_v7_captcha_upstream_production(None, &stage2);
+        assert_eq!(
+            upstream.get("branch_type").and_then(Value::as_str),
+            Some("captcha_retry_ready")
+        );
+        let field_sources = upstream
+            .get("field_sources")
+            .and_then(Value::as_object)
+            .expect("field_sources should exist");
+        assert_eq!(
+            field_sources
+                .get("verifyStatus")
+                .and_then(|v| v.get("producer"))
+                .and_then(Value::as_str),
+            Some("nz.a(HashMap<String,Object>, CaptchaResult)")
+        );
+        assert_eq!(
+            field_sources
+                .get("rid")
+                .and_then(|v| v.get("upstream_origin"))
+                .and_then(Value::as_str),
+            Some("captchaBean.rid")
+        );
+    }
+
+    #[test]
+    fn build_v7_base_field_production_contains_android_and_channel_sources() {
+        let stage2 = json!({
+            "androidId": "abc123android",
+            "channelId": "ZX0001",
+            "appList": "{\"channelId\":\"ZX0001_abcd1711111111111\",\"package\":[\"com.zenmen.palmchat\"]}"
+        });
+        let base_field = build_v7_base_field_production(&stage2);
+        let field_sources = base_field
+            .get("field_sources")
+            .and_then(Value::as_object)
+            .expect("field_sources should exist");
+        assert_eq!(
+            field_sources
+                .get("androidId")
+                .and_then(|v| v.get("producer"))
+                .and_then(Value::as_str),
+            Some("ac1.e(Context)")
+        );
+        assert_eq!(
+            field_sources
+                .get("channelId")
+                .and_then(|v| v.get("producer"))
+                .and_then(Value::as_str),
+            Some("ac1.c(Context)")
+        );
+        assert_eq!(
+            field_sources
+                .get("appList.channelId")
+                .and_then(|v| v.get("observed_value"))
+                .and_then(Value::as_str),
+            Some("ZX0001_abcd1711111111111")
+        );
+    }
+
+    #[test]
+    fn build_v7_identity_dependency_graph_contains_mermaid_and_observed_values() {
+        let stage2 = json!({
+            "androidId": "abc123android",
+            "channelId": "ZX0001",
+            "imei": Value::Null,
+            "mac": "",
+            "did": "imei_mac_abc123android",
+            "appList": "{\"channelId\":\"ZX0001_abcd1711111111111\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"}]}"
+        });
+        let graph = build_v7_identity_dependency_graph(&stage2);
+        assert_eq!(
+            graph
+                .get("observed_values")
+                .and_then(|v| v.get("androidId"))
+                .and_then(Value::as_str),
+            Some("abc123android")
+        );
+        assert_eq!(
+            graph
+                .get("observed_values")
+                .and_then(|v| v.get("appList.channelId"))
+                .and_then(Value::as_str),
+            Some("ZX0001_abcd1711111111111")
+        );
+        assert_eq!(
+            graph
+                .get("observed_values")
+                .and_then(|v| v.get("mac"))
+                .and_then(Value::as_str),
+            Some("")
+        );
+        assert!(graph
+            .get("mermaid")
+            .and_then(Value::as_str)
+            .map(|v| {
+                v.contains("appList.channelId")
+                    && v.contains("Settings.Secure android_id")
+                    && v.contains("ac1.r() returns empty string")
+            })
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn build_v7_identity_gate_diagnostics_contains_three_gates() {
+        let diag = build_v7_identity_gate_diagnostics();
+        let gates = diag
+            .get("gates")
+            .and_then(Value::as_object)
+            .expect("gates should exist");
+        assert!(gates.contains_key("privacy_agree_gate"));
+        assert!(gates.contains_key("phone_state_permission_gate"));
+        assert!(gates.contains_key("priv_info_init_gate"));
+        assert_eq!(
+            gates
+                .get("phone_state_permission_gate")
+                .and_then(|v| v.get("evidence"))
+                .and_then(|v| v.get("permission_type"))
+                .and_then(Value::as_str),
+            Some("PHONE_STATE(2, new String[]{android.permission.READ_PHONE_STATE})")
+        );
+    }
+
+    #[test]
+    fn identity_runtime_state_applies_permission_gate() {
+        let state = PalmchatIdentityRuntimeState {
+            privacy_agree: Some(true),
+            read_phone_state_granted: Some(false),
+            priv_info_initialized: true,
+            android_id: "abc123".to_string(),
+            imei: "imei-value".to_string(),
+            mac: "mac-value".to_string(),
+        };
+        assert_eq!(state.effective_android_id(), "abc123");
+        assert_eq!(state.effective_imei(), "");
+        assert_eq!(state.effective_mac(), "mac-value");
+    }
+
+    #[test]
+    fn string_array_from_object_extracts_values() {
+        let (_, string_class) = build_class_resolver()
+            .find_class_by_name("java/lang/String")
+            .expect("string class");
+        let object = DvmObject::ObjectArray(
+            string_class,
+            vec![
+                Some(DvmObject::String(
+                    "android.permission.READ_PHONE_STATE".to_string(),
+                )),
+                Some(DvmObject::String(
+                    "android.permission.ACCESS_WIFI_STATE".to_string(),
+                )),
+            ],
+        );
+        assert_eq!(
+            string_array_from_object(&object),
+            vec![
+                "android.permission.READ_PHONE_STATE".to_string(),
+                "android.permission.ACCESS_WIFI_STATE".to_string()
+            ]
+        );
     }
 }

@@ -1,10 +1,20 @@
 {
   "package": "com.zenmen.palmchat",
   "apk_path": "palmchat_env/artifacts/palmchat_base_20260324_230038.apk",
+  "app_version_code": "260304",
+  "app_version_name": "8.2.1.1",
   "so_path": "palmchat_env/runtime_so_live_20260329_050229/rebuilt_so/libzhangxin.2.so",
   "wksec_so_path": "palmchat_env/runtime_so_live_20260329_050229/disk_so/libwksec-lib.so",
   "trace_out_dir": "palmchat_env/runtime_so_live_20260329_050229/rnidbg_clean_env_live_20260329_050302/rnidbg_trace_clean_env_hashkey_fast_cfg",
   "android_api": 23,
+  "identity_probe": {
+    "privacy_agree": true,
+    "read_phone_state_granted": false,
+    "priv_info_initialized": false,
+    "android_id": "17dadd8ec4b84ba0",
+    "imei": "",
+    "mac": ""
+  },
   "backend": "unicorn",
   "runtime_page_patches": [
     {
