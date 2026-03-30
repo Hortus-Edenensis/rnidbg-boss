@@ -1,0 +1,245 @@
+cargo:rerun-if-env-changed=DYNARMIC_NO_PKG_CONFIG
+cargo:rerun-if-env-changed=PKG_CONFIG_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG
+cargo:rerun-if-env-changed=PKG_CONFIG
+cargo:rerun-if-env-changed=DYNARMIC_STATIC
+cargo:rerun-if-env-changed=DYNARMIC_DYNAMIC
+cargo:rerun-if-env-changed=PKG_CONFIG_ALL_STATIC
+cargo:rerun-if-env-changed=PKG_CONFIG_ALL_DYNAMIC
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_PATH
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_LIBDIR
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_SYSROOT_DIR
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR
+pkg-config could not find dynarmic, building from source
+cargo:rerun-if-env-changed=CC_aarch64-apple-darwin
+CC_aarch64-apple-darwin = None
+cargo:rerun-if-env-changed=CC_aarch64_apple_darwin
+CC_aarch64_apple_darwin = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET
+MACOSX_DEPLOYMENT_TARGET = None
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_aarch64_apple_darwin
+CFLAGS_aarch64_apple_darwin = None
+cargo:rerun-if-env-changed=CFLAGS_aarch64-apple-darwin
+CFLAGS_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64_apple_darwin = None
+HOST_CMAKE_TOOLCHAIN_FILE = None
+CMAKE_TOOLCHAIN_FILE = None
+1.13.2
+CMAKE_PREFIX_PATH_aarch64-apple-darwin = None
+CMAKE_PREFIX_PATH_aarch64_apple_darwin = None
+HOST_CMAKE_PREFIX_PATH = None
+CMAKE_PREFIX_PATH = None
+CMAKE_aarch64-apple-darwin = None
+CMAKE_aarch64_apple_darwin = None
+HOST_CMAKE = None
+CMAKE = None
+-- The C compiler identification is AppleClang 17.0.0.17000604
+-- The CXX compiler identification is AppleClang 17.0.0.17000604
+-- The ASM compiler identification is AppleClang
+-- Found assembler: /usr/bin/cc
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Target architecture: arm64
+-- Found Boost: /opt/homebrew/lib/cmake/Boost-1.90.0/BoostConfig.cmake (found suitable version "1.90.0", minimum required is "1.57")
+-- Could NOT find mcl (missing: mcl_DIR)
+-- Could NOT find tsl-robin-map (missing: tsl-robin-map_DIR)
+-- Could NOT find oaknut (missing: oaknut_DIR)
+-- mach/mach_exc.defs location: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Headers
+-- Configuring done (2.8s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/haojiejack/github/rnidbg-boss/target-codex/debug/build/dynarmic-093b7a9a2b4463bc/out/build
+[1/160] Building CXX object externals/mcl/src/CMakeFiles/mcl.dir/assert.cpp.o
+[2/160] Linking CXX static library externals/mcl/src/libmcl.a
+[3/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/a32_jitstate.cpp
+[4/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/abi.cpp
+[5/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64.cpp
+[6/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/address_space.cpp
+[7/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a64.cpp
+[8/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a64_memory.cpp
+[9/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a32.cpp
+[10/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a32_coprocessor.cpp
+[11/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a32_memory.cpp
+[12/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_cryptography.cpp
+[13/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_packed.cpp
+[14/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_data_processing.cpp
+[15/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_saturation.cpp
+[16/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_floating_point.cpp
+[17/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_memory.cpp
+[18/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_vector_saturation.cpp
+[19/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_vector_floating_point.cpp
+[20/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/exclusive_monitor.cpp
+[21/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_vector.cpp
+[22/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/fpsr_manager.cpp
+[23/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/reg_alloc.cpp
+[24/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/common/spin_lock_arm64.cpp
+[25/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/a64_interface.cpp
+[26/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/verbose_debugging_output.cpp
+[27/160] Generating arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/a64_address_space.cpp
+[28/160] Building C object src/dynarmic/CMakeFiles/dynarmic.dir/backend/exception_handler_macos_mig.c.o
+[29/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/cmake_pch.hxx.pch
+[30/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/crypto/crc32.cpp.o
+[31/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/crypto/sm4.cpp.o
+[32/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/crypto/aes.cpp.o
+[33/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPConvert.cpp.o
+[34/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPMulAdd.cpp.o
+[35/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPRecipEstimate.cpp.o
+[36/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPCompare.cpp.o
+[37/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/fused.cpp.o
+[38/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPRecipExponent.cpp.o
+[39/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/dynarmic.cpp.o
+[40/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPRecipStepFused.cpp.o
+[41/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/process_exception.cpp.o
+[42/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPRSqrtEstimate.cpp.o
+[43/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPRoundInt.cpp.o
+[44/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPRSqrtStepFused.cpp.o
+[45/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/op/FPToFixed.cpp.o
+[46/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/process_nan.cpp.o
+[47/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/u128.cpp.o
+[48/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/memory_pool.cpp.o
+[49/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/llvm_disassemble.cpp.o
+[50/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/math_util.cpp.o
+[51/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/imm.cpp.o
+[52/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/location_descriptor.cpp.o
+[53/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/common/fp/unpacked.cpp.o
+[54/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/dead_code_elimination_pass.cpp.o
+[55/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A32/a32_types.cpp.o
+[56/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/identity_removal_pass.cpp.o
+[57/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/a64_types.cpp.o
+[58/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/constant_propagation_pass.cpp.o
+[59/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/naming_pass.cpp.o
+[60/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/polyfill_pass.cpp.o
+[61/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/value.cpp.o
+[62/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/microinstruction.cpp.o
+[63/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/verification_pass.cpp.o
+[64/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/a64_location_descriptor.cpp.o
+[65/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/a64_ir_emitter.cpp.o
+[66/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/type.cpp.o
+[67/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/a64_exception_generating.cpp.o
+[68/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_addsub.cpp.o
+[69/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_bitfield.cpp.o
+[70/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_conditional_compare.cpp.o
+[71/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/basic_block.cpp.o
+[72/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_conditional_select.cpp.o
+[73/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/a64_branch.cpp.o
+[74/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_crc32.cpp.o
+[75/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_pcrel.cpp.o
+[76/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/backend/block_range_information.cpp.o
+[77/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_multiply.cpp.o
+[78/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_logical.cpp.o
+[79/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_shift.cpp.o
+[80/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_compare.cpp.o
+[81/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_conditional_select.cpp.o
+[82/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_conditional_compare.cpp.o
+[83/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/data_processing_register.cpp.o
+[84/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_conversion_fixed_point.cpp.o
+[85/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_conversion_integer.cpp.o
+[86/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_data_processing_one_register.cpp.o
+[87/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_data_processing_three_register.cpp.o
+[88/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/floating_point_data_processing_two_register.cpp.o
+[89/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_exclusive.cpp.o
+[90/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_load_literal.cpp.o
+[91/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_multiple_structures.cpp.o
+[92/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_no_allocate_pair.cpp.o
+[93/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_register_pair.cpp.o
+[94/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/impl.cpp.o
+[95/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_register_immediate.cpp.o
+[96/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_register_register_offset.cpp.o
+[97/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_register_unprivileged.cpp.o
+[98/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/move_wide.cpp.o
+[99/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_aes.cpp.o
+[100/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_across_lanes.cpp.o
+[101/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/load_store_single_structure.cpp.o
+[102/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_copy.cpp.o
+[103/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_extract.cpp.o
+[104/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_crypto_three_register.cpp.o
+[105/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_crypto_four_register.cpp.o
+[106/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_scalar_pairwise.cpp.o
+[107/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/ir_emitter.cpp.o
+[108/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_permute.cpp.o
+[109/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_modified_immediate.cpp.o
+[110/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_scalar_three_same.cpp.o
+[111/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_scalar_two_register_misc.cpp.o
+[112/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_scalar_shift_by_immediate.cpp.o
+[113/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_sha.cpp.o
+[114/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_scalar_x_indexed_element.cpp.o
+[115/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_table_lookup.cpp.o
+[116/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_three_different.cpp.o
+[117/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_shift_by_immediate.cpp.o
+[118/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_sha512.cpp.o
+[119/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/sys_dc.cpp.o
+[120/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_three_same_extra.cpp.o
+[121/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/sys_ic.cpp.o
+[122/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/system_flag_format.cpp.o
+[123/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_three_same.cpp.o
+[124/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/system_flag_manipulation.cpp.o
+[125/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_two_register_misc.cpp.o
+[126/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/simd_vector_x_indexed_element.cpp.o
+[127/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/impl/system.cpp.o
+[128/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/a32_jitstate.cpp.o
+[129/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/a64_callback_config_pass.cpp.o
+[130/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/a64_get_set_elimination_pass.cpp.o
+[131/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opt/a64_merge_interpret_blocks.cpp.o
+[132/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/abi.cpp.o
+[133/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a32_memory.cpp.o
+[134/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a64_memory.cpp.o
+[135/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a32_coprocessor.cpp.o
+[136/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_cryptography.cpp.o
+[137/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a64.cpp.o
+[138/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64.cpp.o
+[139/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_a32.cpp.o
+[140/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/address_space.cpp.o
+[141/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_saturation.cpp.o
+[142/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/exclusive_monitor.cpp.o
+[143/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_packed.cpp.o
+[144/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/fpsr_manager.cpp.o
+[145/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/verbose_debugging_output.cpp.o
+[146/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_vector_saturation.cpp.o
+[147/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/common/spin_lock_arm64.cpp.o
+[148/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_floating_point.cpp.o
+[149/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/reg_alloc.cpp.o
+[150/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/backend/exception_handler_macos.cpp.o
+[151/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/a64_interface.cpp.o
+[152/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_data_processing.cpp.o
+[153/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_memory.cpp.o
+[154/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_vector_floating_point.cpp.o
+[155/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/a64_address_space.cpp.o
+[156/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/frontend/A64/translate/a64_translate.cpp.o
+[157/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/arch_gen/Users/haojiejack/github/rnidbg-boss/dynarmic/src/dynarmic/backend/arm64/emit_arm64_vector.cpp.o
+[158/160] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/ir/opcodes.cpp.o
+[159/160] Linking CXX static library src/dynarmic/libdynarmic-static.a
+[160/160] Bundling dynarmic_archive
+cargo:root=/Users/haojiejack/github/rnidbg-boss/target-codex/debug/build/dynarmic-093b7a9a2b4463bc/out
+cargo:rustc-link-search=native=/Users/haojiejack/github/rnidbg-boss/target-codex/debug/build/dynarmic-093b7a9a2b4463bc/out/build
+cargo:rustc-link-lib=static=dynarmic
+cargo:rustc-link-lib=pthread
+cargo:rustc-link-lib=m
+cargo:rustc-link-lib=fmt

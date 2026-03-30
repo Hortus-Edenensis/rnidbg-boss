@@ -1,0 +1,11 @@
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/deps/fax-b639d3e2ae05b22d.d: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/maps.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/decoder.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/encoder.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/tiff.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/deps/libfax-b639d3e2ae05b22d.rlib: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/maps.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/decoder.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/encoder.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/tiff.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/deps/libfax-b639d3e2ae05b22d.rmeta: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/maps.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/decoder.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/encoder.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/tiff.rs
+
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/lib.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/maps.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/decoder.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/encoder.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.6/src/tiff.rs:

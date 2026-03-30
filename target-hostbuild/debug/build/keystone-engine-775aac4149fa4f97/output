@@ -1,0 +1,516 @@
+CMAKE_TOOLCHAIN_FILE_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64_apple_darwin = None
+HOST_CMAKE_TOOLCHAIN_FILE = None
+CMAKE_TOOLCHAIN_FILE = None
+CMAKE_GENERATOR_aarch64-apple-darwin = None
+CMAKE_GENERATOR_aarch64_apple_darwin = None
+HOST_CMAKE_GENERATOR = None
+CMAKE_GENERATOR = None
+CMAKE_PREFIX_PATH_aarch64-apple-darwin = None
+CMAKE_PREFIX_PATH_aarch64_apple_darwin = None
+HOST_CMAKE_PREFIX_PATH = None
+CMAKE_PREFIX_PATH = None
+CMAKE_aarch64-apple-darwin = None
+CMAKE_aarch64_apple_darwin = None
+HOST_CMAKE = None
+CMAKE = None
+-- The C compiler identification is AppleClang 17.0.0.17000604
+-- The CXX compiler identification is AppleClang 17.0.0.17000604
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- The ASM compiler identification is AppleClang
+-- Found assembler: /usr/bin/cc
+-- Looking for dirent.h
+-- Looking for dirent.h - found
+-- Looking for dlfcn.h
+-- Looking for dlfcn.h - found
+-- Looking for errno.h
+-- Looking for errno.h - found
+-- Looking for execinfo.h
+-- Looking for execinfo.h - found
+-- Looking for fcntl.h
+-- Looking for fcntl.h - found
+-- Looking for inttypes.h
+-- Looking for inttypes.h - found
+-- Looking for limits.h
+-- Looking for limits.h - found
+-- Looking for link.h
+-- Looking for link.h - not found
+-- Looking for malloc.h
+-- Looking for malloc.h - not found
+-- Looking for malloc/malloc.h
+-- Looking for malloc/malloc.h - found
+-- Looking for ndir.h
+-- Looking for ndir.h - not found
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Looking for signal.h
+-- Looking for signal.h - found
+-- Looking for stdint.h
+-- Looking for stdint.h - found
+-- Looking for sys/dir.h
+-- Looking for sys/dir.h - found
+-- Looking for sys/ioctl.h
+-- Looking for sys/ioctl.h - found
+-- Looking for sys/mman.h
+-- Looking for sys/mman.h - found
+-- Looking for sys/ndir.h
+-- Looking for sys/ndir.h - not found
+-- Looking for sys/param.h
+-- Looking for sys/param.h - found
+-- Looking for sys/resource.h
+-- Looking for sys/resource.h - found
+-- Looking for sys/stat.h
+-- Looking for sys/stat.h - found
+-- Looking for sys/time.h
+-- Looking for sys/time.h - found
+-- Looking for sys/uio.h
+-- Looking for sys/uio.h - found
+-- Looking for termios.h
+-- Looking for termios.h - found
+-- Looking for unistd.h
+-- Looking for unistd.h - found
+-- Looking for utime.h
+-- Looking for utime.h - found
+-- Looking for zlib.h
+-- Looking for zlib.h - found
+-- Looking for fenv.h
+-- Looking for fenv.h - found
+-- Looking for FE_ALL_EXCEPT
+-- Looking for FE_ALL_EXCEPT - found
+-- Looking for FE_INEXACT
+-- Looking for FE_INEXACT - found
+-- Looking for mach/mach.h
+-- Looking for mach/mach.h - found
+-- Looking for mach-o/dyld.h
+-- Looking for mach-o/dyld.h - found
+-- Looking for histedit.h
+-- Looking for histedit.h - found
+-- Performing Test HAVE_CXXABI_H
+-- Performing Test HAVE_CXXABI_H - Success
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - found
+-- Looking for pthread_getspecific in pthread
+-- Looking for pthread_getspecific in pthread - found
+-- Looking for pthread_rwlock_init in pthread
+-- Looking for pthread_rwlock_init in pthread - found
+-- Looking for pthread_mutex_lock in pthread
+-- Looking for pthread_mutex_lock in pthread - found
+-- Looking for dlopen in dl
+-- Looking for dlopen in dl - found
+-- Looking for clock_gettime in rt
+-- Looking for clock_gettime in rt - not found
+-- Looking for compress2 in z
+-- Looking for compress2 in z - found
+-- Looking for el_init in edit
+-- Looking for el_init in edit - found
+-- Looking for setupterm in tinfo
+-- Looking for setupterm in tinfo - not found
+-- Looking for setupterm in terminfo
+-- Looking for setupterm in terminfo - not found
+-- Looking for setupterm in curses
+-- Looking for setupterm in curses - found
+-- Looking for arc4random
+-- Looking for arc4random - found
+-- Looking for backtrace
+-- Looking for backtrace - found
+-- Looking for getpagesize
+-- Looking for getpagesize - found
+-- Looking for getrusage
+-- Looking for getrusage - found
+-- Looking for setrlimit
+-- Looking for setrlimit - found
+-- Looking for isatty
+-- Looking for isatty - found
+-- Looking for futimens
+-- Looking for futimens - found
+-- Looking for futimes
+-- Looking for futimes - found
+-- Looking for writev
+-- Looking for writev - found
+-- Looking for mallctl
+-- Looking for mallctl - not found
+-- Looking for mallinfo
+-- Looking for mallinfo - not found
+-- Looking for malloc_zone_statistics
+-- Looking for malloc_zone_statistics - found
+-- Looking for mkdtemp
+-- Looking for mkdtemp - found
+-- Looking for mkstemp
+-- Looking for mkstemp - found
+-- Looking for mktemp
+-- Looking for mktemp - found
+-- Looking for closedir
+-- Looking for closedir - found
+-- Looking for opendir
+-- Looking for opendir - found
+-- Looking for readdir
+-- Looking for readdir - found
+-- Looking for getcwd
+-- Looking for getcwd - found
+-- Looking for gettimeofday
+-- Looking for gettimeofday - found
+-- Looking for getrlimit
+-- Looking for getrlimit - found
+-- Looking for posix_spawn
+-- Looking for posix_spawn - found
+-- Looking for pread
+-- Looking for pread - found
+-- Looking for realpath
+-- Looking for realpath - found
+-- Looking for sbrk
+-- Looking for sbrk - found
+-- Looking for srand48
+-- Looking for srand48 - found
+-- Looking for lrand48
+-- Looking for lrand48 - found
+-- Looking for drand48
+-- Looking for drand48 - found
+-- Looking for strtoll
+-- Looking for strtoll - found
+-- Looking for strtoq
+-- Looking for strtoq - found
+-- Looking for strerror
+-- Looking for strerror - found
+-- Looking for strerror_r
+-- Looking for strerror_r - found
+-- Looking for strerror_s
+-- Looking for strerror_s - not found
+-- Looking for setenv
+-- Looking for setenv - found
+-- Looking for dlerror
+-- Looking for dlerror - found
+-- Looking for dlopen
+-- Looking for dlopen - found
+-- Looking for __GLIBC__
+-- Looking for __GLIBC__ - not found
+-- Performing Test HAVE_INT64_T
+-- Performing Test HAVE_INT64_T - Success
+-- Performing Test HAVE_UINT64_T
+-- Performing Test HAVE_UINT64_T - Success
+-- Performing Test HAVE_U_INT64_T
+-- Performing Test HAVE_U_INT64_T - Success
+-- Performing Test HAVE_CXX_ATOMICS_WITHOUT_LIB
+-- Performing Test HAVE_CXX_ATOMICS_WITHOUT_LIB - Success
+-- Performing Test LLVM_HAS_ATOMICS
+-- Performing Test LLVM_HAS_ATOMICS - Success
+-- Performing Test SUPPORTS_NO_VARIADIC_MACROS_FLAG
+-- Performing Test SUPPORTS_NO_VARIADIC_MACROS_FLAG - Success
+-- Target triple: arm-apple-darwin25.3.0
+-- Native target architecture is ARM
+-- Threads enabled.
+-- Performing Test C_SUPPORTS_FPIC
+-- Performing Test C_SUPPORTS_FPIC - Success
+-- Performing Test CXX_SUPPORTS_FPIC
+-- Performing Test CXX_SUPPORTS_FPIC - Success
+-- Building with -fPIC
+-- Performing Test SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG
+-- Performing Test SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG - Success
+-- Performing Test CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG
+-- Performing Test CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG - Success
+-- Performing Test C_SUPPORTS_COVERED_SWITCH_DEFAULT_FLAG
+-- Performing Test C_SUPPORTS_COVERED_SWITCH_DEFAULT_FLAG - Success
+-- Performing Test CXX_SUPPORTS_COVERED_SWITCH_DEFAULT_FLAG
+-- Performing Test CXX_SUPPORTS_COVERED_SWITCH_DEFAULT_FLAG - Success
+-- Performing Test CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
+-- Performing Test CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR - Success
+-- Performing Test C_SUPPORTS_DELETE_NON_VIRTUAL_DTOR_FLAG
+-- Performing Test C_SUPPORTS_DELETE_NON_VIRTUAL_DTOR_FLAG - Success
+-- Performing Test CXX_SUPPORTS_DELETE_NON_VIRTUAL_DTOR_FLAG
+-- Performing Test CXX_SUPPORTS_DELETE_NON_VIRTUAL_DTOR_FLAG - Success
+-- Performing Test C_WCOMMENT_ALLOWS_LINE_WRAP
+-- Performing Test C_WCOMMENT_ALLOWS_LINE_WRAP - Success
+-- Performing Test CXX_SUPPORTS_CXX11
+-- Performing Test CXX_SUPPORTS_CXX11 - Success
+-- Found PythonInterp: /opt/homebrew/opt/python@3.14/libexec/bin/python (found version "3.14.2")
+-- Constructing LLVMBuild project information
+-- Targeting AArch64
+-- Targeting ARM
+-- Targeting Hexagon
+-- Targeting Mips
+-- Targeting PowerPC
+-- Targeting Sparc
+-- Targeting SystemZ
+-- Targeting X86
+-- Found PkgConfig: /opt/homebrew/bin/pkg-config (found version "2.5.1")
+-- Configuring done (14.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build
+[  0%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCAsmBackend.cpp.o
+[  0%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCAsmInfoCOFF.cpp.o
+[  1%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCAsmInfo.cpp.o
+[  2%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCCodeEmitter.cpp.o
+[  3%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCAsmInfoELF.cpp.o
+[  3%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCContext.cpp.o
+[  3%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCAsmInfoDarwin.cpp.o
+[  3%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/ConstantPools.cpp.o
+[  3%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCAssembler.cpp.o
+[  4%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/ELFObjectWriter.cpp.o
+[  5%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCELFObjectTargetWriter.cpp.o
+[  5%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCELFStreamer.cpp.o
+[  6%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCExpr.cpp.o
+[  6%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCFragment.cpp.o
+[  7%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCInst.cpp.o
+[  7%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCInstrDesc.cpp.o
+[  7%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCLabel.cpp.o
+[  8%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCObjectFileInfo.cpp.o
+[  8%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCObjectStreamer.cpp.o
+[  9%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCObjectWriter.cpp.o
+[  9%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/AsmLexer.cpp.o
+[ 10%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/AsmParser.cpp.o
+[ 10%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/COFFAsmParser.cpp.o
+[ 11%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/DarwinAsmParser.cpp.o
+[ 11%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/ELFAsmParser.cpp.o
+[ 11%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/MCAsmLexer.cpp.o
+[ 12%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/MCAsmParser.cpp.o
+[ 12%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/MCAsmParserExtension.cpp.o
+[ 13%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCParser/MCTargetAsmParser.cpp.o
+[ 13%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCRegisterInfo.cpp.o
+[ 14%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSection.cpp.o
+[ 14%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSectionCOFF.cpp.o
+[ 15%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSectionELF.cpp.o
+[ 15%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSectionMachO.cpp.o
+[ 15%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCStreamer.cpp.o
+[ 16%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSubtargetInfo.cpp.o
+[ 16%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSymbol.cpp.o
+[ 17%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCSymbolELF.cpp.o
+[ 17%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCTargetOptions.cpp.o
+[ 18%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/MCValue.cpp.o
+[ 18%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/StringTableBuilder.cpp.o
+[ 19%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/MC/SubtargetFeature.cpp.o
+[ 19%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/APFloat.cpp.o
+[ 19%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/APInt.cpp.o
+[ 20%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/APSInt.cpp.o
+[ 20%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/ARMBuildAttrs.cpp.o
+[ 21%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/ErrorHandling.cpp.o
+[ 21%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/Hashing.cpp.o
+[ 22%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/IntEqClasses.cpp.o
+[ 22%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/LEB128.cpp.o
+[ 23%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/Memory.cpp.o
+[ 23%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/MemoryBuffer.cpp.o
+[ 23%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/Path.cpp.o
+[ 24%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/Regex.cpp.o
+[ 24%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/ScaledNumber.cpp.o
+[ 24%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/SmallVector.cpp.o
+[ 25%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/SmallPtrSet.cpp.o
+[ 26%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/SourceMgr.cpp.o
+[ 26%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/StringExtras.cpp.o
+[ 27%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/StringMap.cpp.o
+[ 27%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/StringPool.cpp.o
+[ 27%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/StringRef.cpp.o
+[ 28%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/StringSaver.cpp.o
+[ 28%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/TargetParser.cpp.o
+[ 29%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/TargetRegistry.cpp.o
+[ 29%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/Triple.cpp.o
+[ 30%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/Twine.cpp.o
+[ 30%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/raw_ostream.cpp.o
+[ 31%] Building C object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/regcomp.c.o
+[ 31%] Building C object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/regerror.c.o
+[ 31%] Building C object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/regexec.c.o
+[ 32%] Building C object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/regfree.c.o
+[ 32%] Building C object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Support/regstrlcpy.c.o
+[ 33%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/AsmParser/AArch64AsmParser.cpp.o
+[ 33%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64AsmBackend.cpp.o
+[ 33%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64MCAsmInfo.cpp.o
+[ 34%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64ELFObjectWriter.cpp.o
+[ 35%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64MCCodeEmitter.cpp.o
+[ 35%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64MCExpr.cpp.o
+[ 35%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64MCTargetDesc.cpp.o
+[ 36%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/MCTargetDesc/AArch64TargetStreamer.cpp.o
+[ 36%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/TargetInfo/AArch64TargetInfo.cpp.o
+[ 37%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/AArch64/Utils/AArch64BaseInfo.cpp.o
+[ 37%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/AsmParser/ARMAsmParser.cpp.o
+[ 38%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMAsmBackend.cpp.o
+[ 38%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMELFObjectWriter.cpp.o
+[ 39%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMMCAsmInfo.cpp.o
+[ 39%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMMCCodeEmitter.cpp.o
+[ 39%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMMCExpr.cpp.o
+[ 40%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMMCTargetDesc.cpp.o
+[ 40%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/MCTargetDesc/ARMTargetStreamer.cpp.o
+[ 41%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/ARM/TargetInfo/ARMTargetInfo.cpp.o
+[ 41%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/AsmParser/HexagonAsmParser.cpp.o
+[ 42%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonAsmBackend.cpp.o
+[ 42%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonELFObjectWriter.cpp.o
+[ 43%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCAsmInfo.cpp.o
+[ 43%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCChecker.cpp.o
+[ 43%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCCodeEmitter.cpp.o
+[ 44%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCCompound.cpp.o
+[ 44%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCDuplexInfo.cpp.o
+[ 45%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCExpr.cpp.o
+[ 45%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCInstrInfo.cpp.o
+[ 46%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCShuffler.cpp.o
+[ 46%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonMCTargetDesc.cpp.o
+[ 47%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/MCTargetDesc/HexagonShuffler.cpp.o
+[ 47%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Hexagon/TargetInfo/HexagonTargetInfo.cpp.o
+[ 47%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/AsmParser/MipsAsmParser.cpp.o
+[ 48%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsABIInfo.cpp.o
+[ 48%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsAsmBackend.cpp.o
+[ 49%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsELFObjectWriter.cpp.o
+[ 49%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsMCAsmInfo.cpp.o
+[ 50%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsMCCodeEmitter.cpp.o
+[ 50%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsMCExpr.cpp.o
+[ 51%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/MCTargetDesc/MipsMCTargetDesc.cpp.o
+[ 51%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Mips/TargetInfo/MipsTargetInfo.cpp.o
+[ 51%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/AsmParser/PPCAsmParser.cpp.o
+[ 52%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCAsmBackend.cpp.o
+[ 52%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCELFObjectWriter.cpp.o
+[ 53%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCMCAsmInfo.cpp.o
+[ 53%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCMCCodeEmitter.cpp.o
+[ 54%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCMCExpr.cpp.o
+[ 55%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCPredicates.cpp.o
+[ 55%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/MCTargetDesc/PPCMCTargetDesc.cpp.o
+[ 55%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/PowerPC/TargetInfo/PowerPCTargetInfo.cpp.o
+[ 55%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/AsmParser/SparcAsmParser.cpp.o
+[ 56%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/MCTargetDesc/SparcAsmBackend.cpp.o
+[ 56%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/MCTargetDesc/SparcELFObjectWriter.cpp.o
+[ 57%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/MCTargetDesc/SparcMCAsmInfo.cpp.o
+[ 57%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/MCTargetDesc/SparcMCCodeEmitter.cpp.o
+[ 58%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/MCTargetDesc/SparcMCExpr.cpp.o
+[ 58%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/MCTargetDesc/SparcMCTargetDesc.cpp.o
+[ 59%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/Sparc/TargetInfo/SparcTargetInfo.cpp.o
+[ 59%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/AsmParser/SystemZAsmParser.cpp.o
+[ 59%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/MCTargetDesc/SystemZMCAsmBackend.cpp.o
+[ 60%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/MCTargetDesc/SystemZMCAsmInfo.cpp.o
+[ 60%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/MCTargetDesc/SystemZMCCodeEmitter.cpp.o
+[ 61%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/MCTargetDesc/SystemZMCObjectWriter.cpp.o
+[ 61%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/MCTargetDesc/SystemZMCTargetDesc.cpp.o
+[ 62%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/SystemZ/TargetInfo/SystemZTargetInfo.cpp.o
+[ 62%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/AsmParser/X86AsmInstrumentation.cpp.o
+[ 63%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/AsmParser/X86AsmParser.cpp.o
+[ 63%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/MCTargetDesc/X86AsmBackend.cpp.o
+[ 63%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/MCTargetDesc/X86ELFObjectWriter.cpp.o
+[ 64%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp.o
+[ 64%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/MCTargetDesc/X86MCCodeEmitter.cpp.o
+[ 65%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/MCTargetDesc/X86MCTargetDesc.cpp.o
+[ 65%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/__/lib/Target/X86/TargetInfo/X86TargetInfo.cpp.o
+[ 66%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/ks.cpp.o
+[ 66%] Building CXX object llvm/keystone/CMakeFiles/keystone.dir/EVMMapping.cpp.o
+[ 67%] Linking CXX static library ../lib/libkeystone.a
+[ 67%] Built target keystone
+[ 67%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm64_arm.dir/onefile.c.o
+[ 67%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_evm.dir/onefile.c.o
+[ 67%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumbv8.dir/onefile.c.o
+[ 67%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumbv8be.dir/onefile.c.o
+[ 67%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_armv8be.dir/onefile.c.o
+[ 68%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_armbe.dir/onefile.c.o
+[ 69%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumbbe.dir/onefile.c.o
+[ 69%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumb.dir/onefile.c.o
+[ 69%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_arm.dir/onefile.c.o
+[ 70%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_armv8_arm.dir/onefile.c.o
+[ 70%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm64_arm.dir/fuzz_asm_arm64_arm.c.o
+[ 70%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumbbe.dir/fuzz_asm_arm_thumbbe.c.o
+[ 70%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_evm.dir/fuzz_asm_evm.c.o
+[ 71%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumbv8be.dir/fuzz_asm_arm_thumbv8be.c.o
+[ 72%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_arm.dir/fuzz_asm_arm_arm.c.o
+[ 72%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumbv8.dir/fuzz_asm_arm_thumbv8.c.o
+[ 72%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_armv8be.dir/fuzz_asm_arm_armv8be.c.o
+[ 73%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_thumb.dir/fuzz_asm_arm_thumb.c.o
+[ 73%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_armv8_arm.dir/fuzz_asm_armv8_arm.c.o
+[ 73%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_arm_armbe.dir/fuzz_asm_arm_armbe.c.o
+[ 74%] Linking CXX executable fuzz_asm_arm_thumbbe
+[ 74%] Linking CXX executable fuzz_asm_arm_arm
+[ 75%] Linking CXX executable fuzz_asm_evm
+[ 76%] Linking CXX executable fuzz_asm_arm64_arm
+[ 77%] Linking CXX executable fuzz_asm_arm_armv8be
+[ 78%] Linking CXX executable fuzz_asm_armv8_arm
+[ 78%] Linking CXX executable fuzz_asm_arm_thumb
+[ 79%] Linking CXX executable fuzz_asm_arm_thumbv8
+[ 79%] Linking CXX executable fuzz_asm_arm_thumbv8be
+[ 80%] Linking CXX executable fuzz_asm_arm_armbe
+[ 80%] Built target fuzz_asm_arm_thumbv8be
+[ 80%] Built target fuzz_asm_arm_thumbbe
+[ 80%] Built target fuzz_asm_armv8_arm
+[ 80%] Built target fuzz_asm_arm64_arm
+[ 80%] Built target fuzz_asm_arm_arm
+[ 80%] Built target fuzz_asm_arm_thumbv8
+[ 80%] Built target fuzz_asm_arm_armv8be
+[ 80%] Built target fuzz_asm_evm
+[ 80%] Built target fuzz_asm_arm_armbe
+[ 80%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_hex.dir/onefile.c.o
+[ 81%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mips.dir/onefile.c.o
+[ 81%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mips.dir/fuzz_asm_mips.c.o
+[ 81%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mips64.dir/onefile.c.o
+[ 81%] Built target fuzz_asm_arm_thumb
+[ 82%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mipsbe.dir/onefile.c.o
+[ 82%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mips64be.dir/onefile.c.o
+[ 82%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_ppc32be.dir/onefile.c.o
+[ 83%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_ppc64be.dir/onefile.c.o
+[ 83%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_ppc64.dir/onefile.c.o
+[ 83%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_sparc.dir/onefile.c.o
+[ 83%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_sparc.dir/fuzz_asm_sparc.c.o
+[ 84%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_hex.dir/fuzz_asm_hex.c.o
+[ 85%] Linking CXX executable fuzz_asm_mips
+[ 85%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mips64.dir/fuzz_asm_mips64.c.o
+[ 86%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_ppc64.dir/fuzz_asm_ppc64.c.o
+[ 87%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_ppc64be.dir/fuzz_asm_ppc64be.c.o
+[ 87%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mips64be.dir/fuzz_asm_mips64be.c.o
+[ 87%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_mipsbe.dir/fuzz_asm_mipsbe.c.o
+[ 87%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_ppc32be.dir/fuzz_asm_ppc32be.c.o
+[ 87%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_sparc64be.dir/onefile.c.o
+[ 88%] Linking CXX executable fuzz_asm_sparc
+[ 88%] Linking CXX executable fuzz_asm_hex
+[ 89%] Linking CXX executable fuzz_asm_mips64
+[ 89%] Linking CXX executable fuzz_asm_ppc64
+[ 89%] Linking CXX executable fuzz_asm_mips64be
+[ 90%] Linking CXX executable fuzz_asm_ppc64be
+[ 91%] Linking CXX executable fuzz_asm_mipsbe
+[ 92%] Linking CXX executable fuzz_asm_ppc32be
+[ 93%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_sparc64be.dir/fuzz_asm_sparc64be.c.o
+[ 93%] Built target fuzz_asm_mips
+[ 94%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_sparcbe.dir/onefile.c.o
+[ 94%] Linking CXX executable fuzz_asm_sparc64be
+[ 94%] Built target fuzz_asm_hex
+[ 94%] Built target fuzz_asm_sparc
+[ 94%] Built target fuzz_asm_mips64be
+[ 94%] Built target fuzz_asm_mips64
+[ 94%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_sparcbe.dir/fuzz_asm_sparcbe.c.o
+[ 94%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_systemz.dir/onefile.c.o
+[ 94%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_systemz.dir/fuzz_asm_systemz.c.o
+[ 94%] Built target fuzz_asm_mipsbe
+[ 94%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_x86_16.dir/onefile.c.o
+[ 94%] Built target fuzz_asm_ppc64
+[ 95%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_x86_32.dir/onefile.c.o
+[ 95%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_x86_32.dir/fuzz_asm_x86_32.c.o
+[ 95%] Built target fuzz_asm_ppc64be
+[ 95%] Built target fuzz_asm_ppc32be
+[ 95%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_x86_64.dir/onefile.c.o
+[ 95%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_x86_64.dir/fuzz_asm_x86_64.c.o
+[ 96%] Building C object suite/fuzz/CMakeFiles/fuzz_asm_x86_16.dir/fuzz_asm_x86_16.c.o
+[ 97%] Linking CXX executable fuzz_asm_sparcbe
+[ 98%] Linking CXX executable fuzz_asm_systemz
+[ 98%] Built target fuzz_asm_sparc64be
+[ 99%] Linking CXX executable fuzz_asm_x86_32
+[ 99%] Linking CXX executable fuzz_asm_x86_16
+[100%] Linking CXX executable fuzz_asm_x86_64
+[100%] Built target fuzz_asm_systemz
+[100%] Built target fuzz_asm_sparcbe
+[100%] Built target fuzz_asm_x86_32
+[100%] Built target fuzz_asm_x86_64
+[100%] Built target fuzz_asm_x86_16
+Install the project...
+-- Install configuration: "Debug"
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/lib/pkgconfig/keystone.pc
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/hexagon.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/mips.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/sparc.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/systemz.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/arm.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/evm.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/x86.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/keystone.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/ppc.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/arm64.h
+-- Installing: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/lib/libkeystone.a
+cargo:root=/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out
+cargo:rustc-link-search=native=/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/lib
+cargo:rustc-link-lib=keystone
+cargo:rustc-link-lib=dylib=c++

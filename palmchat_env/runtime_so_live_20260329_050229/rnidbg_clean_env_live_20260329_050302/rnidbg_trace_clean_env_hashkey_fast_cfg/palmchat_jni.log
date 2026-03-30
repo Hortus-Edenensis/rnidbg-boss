@@ -1,0 +1,21 @@
+[2026-03-30T05:17:24.731066000Z] call com/zenmen/palmchat/AppContext->getContext()Lcom/zenmen/palmchat/AppContext;
+[2026-03-30T05:17:24.734331000Z] call defpackage/k86->m(Landroid/content/Context;)Ljava/lang/String;
+[2026-03-30T05:17:24.734344000Z] probe k86.m -> com.zenmen.palmchat
+[2026-03-30T05:17:24.737625000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->getAndroidID()Ljava/lang/String;
+[2026-03-30T05:17:24.740946000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->getIMEI()Ljava/lang/String;
+[2026-03-30T05:17:24.744325000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->getMac()Ljava/lang/String;
+[2026-03-30T05:17:24.747747000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->init(Landroid/content/Context;)V
+[2026-03-30T05:17:24.747763000Z] probe PrivInfoManager.init -> isInit=true
+[2026-03-30T05:17:24.751053000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->getAndroidID()Ljava/lang/String;
+[2026-03-30T05:17:24.754428000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->getIMEI()Ljava/lang/String;
+[2026-03-30T05:17:24.757795000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->getMac()Ljava/lang/String;
+[2026-03-30T05:17:24.848021000Z] resolve_method class=com/zenmen/palmchat/AppContext name=getContext sig=()Lcom/zenmen/palmchat/AppContext; static=true
+[2026-03-30T05:17:24.848065000Z] resolve_method class=com/zenmen/palmchat/AppContext name=getPackageResourcePath sig=()Ljava/lang/String; static=false
+[2026-03-30T05:17:24.851524000Z] call com/zenmen/palmchat/AppContext->getContext()Lcom/zenmen/palmchat/AppContext;
+[2026-03-30T05:17:24.855014000Z] call com/zenmen/palmchat/AppContext->getPackageResourcePath()Ljava/lang/String;
+[2026-03-30T05:17:24.857756000Z] resolve_method class=org/json/JSONObject name=put sig=(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject; static=false
+[2026-03-30T05:17:24.857784000Z] resolve_method class=org/json/JSONObject name=toString sig=()Ljava/lang/String; static=false
+[2026-03-30T05:17:24.857821000Z] resolve_method class=java/lang/String name=getBytes sig=()[B static=false
+[2026-03-30T05:17:24.861330000Z] call org/json/JSONObject->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+[2026-03-30T05:17:24.864949000Z] call org/json/JSONObject->toString()Ljava/lang/String;
+[2026-03-30T05:17:24.868536000Z] call java/lang/String->getBytes()[B

@@ -1,0 +1,10 @@
+/Users/haojiejack/github/rnidbg-boss/target-jni/debug/deps/avif_serialize-3c4db54269c15bed.d: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/boxes.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/constants.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/writer.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-jni/debug/deps/libavif_serialize-3c4db54269c15bed.rlib: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/boxes.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/constants.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/writer.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-jni/debug/deps/libavif_serialize-3c4db54269c15bed.rmeta: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/boxes.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/constants.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/writer.rs
+
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/lib.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/boxes.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/constants.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/avif-serialize-0.8.8/src/writer.rs:

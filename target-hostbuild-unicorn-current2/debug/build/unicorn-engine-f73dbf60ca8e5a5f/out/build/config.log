@@ -1,0 +1,651 @@
+# QEMU configure log Fri Mar 27 09:49:26 CST 2026
+# Configured with: '/Users/haojiejack/github/rnidbg-boss/unicorn/qemu/configure' '--cc=/usr/bin/cc' '--extra-cflags=-DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC' '--target-list=x86_64-softmmu, arm-softmmu, aarch64-softmmu, m68k-softmmu, mips-softmmu, mipsel-softmmu, mips64-softmmu, mips64el-softmmu, sparc-softmmu, sparc64-softmmu, ppc-softmmu, ppc64-softmmu, riscv32-softmmu, riscv64-softmmu, s390x-softmmu, tricore-softmmu,  '
+#
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 398 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __linux__ not defined
+    2 | #error __linux__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 400 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: _WIN32 not defined
+    2 | #error _WIN32 not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 402 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __OpenBSD__ not defined
+    2 | #error __OpenBSD__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 404 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __sun__ not defined
+    2 | #error __sun__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 406 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __HAIKU__ not defined
+    2 | #error __HAIKU__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 408 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __FreeBSD__ not defined
+    2 | #error __FreeBSD__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 410 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __FreeBSD_kernel__ not defined
+    2 | #error __FreeBSD_kernel__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 412 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __DragonFly__ not defined
+    2 | #error __DragonFly__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 414 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __NetBSD__ not defined
+    2 | #error __NetBSD__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 416 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 450 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __i386__ not defined
+    2 | #error __i386__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 452 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __x86_64__ not defined
+    2 | #error __x86_64__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 458 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __sparc__ not defined
+    2 | #error __sparc__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 464 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: _ARCH_PPC not defined
+    2 | #error _ARCH_PPC not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 474 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __mips__ not defined
+    2 | #error __mips__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 476 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __s390__ not defined
+    2 | #error __s390__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 482 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __riscv not defined
+    2 | #error __riscv not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 488 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+config-temp/qemu-conf.c:2:2: error: __arm__ not defined
+    2 | #error __arm__ not defined
+      |  ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_object check_define main
+lines: 93 123 381 490 0
+/usr/bin/cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_object main
+lines: 93 123 939 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 944 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 994 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Werror -Wstring-plus-int -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Werror -Wtypedef-redefinition -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Werror -Winitializer-overrides -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Werror -Wexpansion-to-defined -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Werror -Wendif-labels -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Werror -Wshift-negative-value -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Werror -Wmissing-include-dirs -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Werror -Wempty-body -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Werror -Wnested-externs -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Werror -Wformat-security -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Werror -Wformat-y2k -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Werror -Winit-self -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Werror -Wignored-qualifiers -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Werror -Wold-style-declaration -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+error: unknown warning option '-Wold-style-declaration'; did you mean '-Wout-of-line-declaration'? [-Werror,-Wunknown-warning-option]
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Werror -Wold-style-definition -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_prog cc_has_warning_flag main
+lines: 93 129 1016 1020 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Werror -Wtype-limits -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc main
+lines: 93 1041 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -Werror -fstack-protector-strong -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1042 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -Werror -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC
+
+funcs: do_compiler do_cc compile_object main
+lines: 93 123 1063 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -Werror -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1075 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -Werror -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1105 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -Werror -fPIE -DPIE -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong -pie
+clang: error: argument unused during compilation: '-pie' [-Werror,-Wunused-command-line-argument]
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1118 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong -Wl,-z,relro -Wl,-z,now
+ld: unknown options: -z -z 
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+funcs: do_compiler do_cc compile_object main
+lines: 93 123 1224 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1257 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1298 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:8:32: error: too many arguments to function call, expected 1, have 2
+    8 |     pthread_setname_np(thread, "QEMU");
+      |     ~~~~~~~~~~~~~~~~~~         ^~~~~~
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/pthread.h:535:5: note: 'pthread_setname_np' declared here
+  535 | int     pthread_setname_np(const char*);
+      |         ^                  ~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1315 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:3:55: warning: non-void function does not return a value [-Wreturn-type]
+    3 | static void *f(void *p) { pthread_setname_np("QEMU"); }
+      |                                                       ^
+1 warning generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1341 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'malloc.h' file not found
+    1 | #include <malloc.h>
+      |          ^~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1390 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:4:25: warning: 'syscall' is deprecated: first deprecated in macOS 10.12 - syscall(2) is unsupported; please switch to a supported interface. For SYS_kdebug_trace use kdebug_signpost(). [-Wdeprecated-declarations]
+    4 | int main(void) { return syscall(SYS_signalfd, -1, NULL, _NSIG / 8); }
+      |                         ^
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/unistd.h:754:6: note: 'syscall' has been explicitly marked deprecated here
+  754 | int      syscall(int, ...);
+      |          ^
+config-temp/qemu-conf.c:4:33: error: use of undeclared identifier 'SYS_signalfd'
+    4 | int main(void) { return syscall(SYS_signalfd, -1, NULL, _NSIG / 8); }
+      |                                 ^~~~~~~~~~~~
+config-temp/qemu-conf.c:4:57: error: use of undeclared identifier '_NSIG'
+    4 | int main(void) { return syscall(SYS_signalfd, -1, NULL, _NSIG / 8); }
+      |                                                         ^~~~~
+1 warning and 2 errors generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1405 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:5:5: error: call to undeclared function 'sync_file_range'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    5 |     sync_file_range(0, 0, 0, 0);
+      |     ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1420 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:5:5: error: call to undeclared function 'dup3'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    5 |     dup3(0, 0, 0);
+      |     ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1435 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'sys/prctl.h' file not found
+    1 | #include <sys/prctl.h>
+      |          ^~~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1450 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'sys/epoll.h' file not found
+    1 | #include <sys/epoll.h>
+      |          ^~~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1465 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:5:12: error: call to undeclared function 'clock_adjtime'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    5 |     return clock_adjtime(0, 0);
+      |            ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1480 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:5:12: error: call to undeclared function 'syncfs'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    5 |     return syncfs(0);
+      |            ^
+config-temp/qemu-conf.c:5:12: note: did you mean 'sync'?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/unistd.h:612:7: note: 'sync' declared here
+  612 | void     sync(void);
+      |          ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1490 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'byteswap.h' file not found
+    1 | #include <byteswap.h>
+      |          ^~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1502 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:3:10: fatal error: 'machine/bswap.h' file not found
+    3 | #include <machine/bswap.h>
+      |          ^~~~~~~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1512 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1535 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:4:3: error: call to undeclared function 'timer_create'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    4 |   timer_create(CLOCK_REALTIME, NULL, NULL);
+      |   ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1538 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong -lrt
+config-temp/qemu-conf.c:4:3: error: call to undeclared function 'timer_create'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    4 |   timer_create(CLOCK_REALTIME, NULL, NULL);
+      |   ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1548 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1565 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1578 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1593 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1605 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1617 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:2:59: error: call to undeclared function 'sem_timedwait'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    2 | int main(void) { sem_t s; struct timespec t = {0}; return sem_timedwait(&s, &t); }
+      |                                                           ^
+config-temp/qemu-conf.c:2:59: note: did you mean 'sem_trywait'?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/semaphore.h:58:5: note: 'sem_trywait' declared here
+   58 | int sem_trywait(sem_t *);
+      |     ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1632 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1645 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:3:25: error: no member named 'st_atim' in 'stat'
+    3 | int main(void) { return offsetof(struct stat, st_atim); }
+      |                         ^                     ~~~~~~~
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_offsetof.h:16:24: note: expanded from macro 'offsetof'
+   16 | #define offsetof(t, d) __builtin_offsetof(t, d)
+      |                        ^                     ~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1661 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:3:3: error: missing definition
+    3 | # error missing definition
+      |   ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1675 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'linux/magic.h' file not found
+    1 | #include <linux/magic.h>
+      |          ^~~~~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1698 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -Werror -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1715 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:3:5: error: use of undeclared identifier 'environ'
+    3 |     environ = 0;
+      |     ^~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1739 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+In file included from config-temp/qemu-conf.c:1:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:14:2: error: this header is for x86 only
+   14 | #error this header is for x86 only
+      |  ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:312:5: error: invalid output constraint '=a' in asm
+  312 |     __cpuid(__leaf, __eax, __ebx, __ecx, __edx);
+      |     ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:274:11: note: expanded from macro '__cpuid'
+  274 |         : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
+      |           ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:327:5: error: invalid output constraint '=a' in asm
+  327 |     __cpuid(__leaf, *__eax, *__ebx, *__ecx, *__edx);
+      |     ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:274:11: note: expanded from macro '__cpuid'
+  274 |         : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
+      |           ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:341:5: error: invalid output constraint '=a' in asm
+  341 |     __cpuid_count(__leaf, __subleaf, *__eax, *__ebx, *__ecx, *__edx);
+      |     ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:281:11: note: expanded from macro '__cpuid_count'
+  281 |         : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
+      |           ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:349:3: error: invalid output constraint '=a' in asm
+  349 |   __cpuid_count(__leaf, __subleaf, __cpu_info[0], __cpu_info[1], __cpu_info[2],
+      |   ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:281:11: note: expanded from macro '__cpuid_count'
+  281 |         : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
+      |           ^
+config-temp/qemu-conf.c:7:9: error: invalid output constraint '=a' in asm
+    7 |         __cpuid(1, a, b, c, d);
+      |         ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:274:11: note: expanded from macro '__cpuid'
+  274 |         : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
+      |           ^
+config-temp/qemu-conf.c:11:9: error: invalid output constraint '=a' in asm
+   11 |         __cpuid_count(7, 0, a, b, c, d);
+      |         ^
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/cpuid.h:281:11: note: expanded from macro '__cpuid_count'
+  281 |         : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
+      |           ^
+7 errors generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1812 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1831 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:4:7: error: call to undeclared function '__atomic_load_16'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    4 |   y = __atomic_load_16(&x, 0);
+      |       ^
+config-temp/qemu-conf.c:5:3: error: call to undeclared function '__atomic_store_16'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    5 |   __atomic_store_16(&x, y, 0);
+      |   ^
+config-temp/qemu-conf.c:6:3: error: call to undeclared function '__atomic_compare_exchange_16'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    6 |   __atomic_compare_exchange_16(&x, &y, x, 0, 0, 0);
+      |   ^
+3 errors generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1846 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1876 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:6:7: error: call to undeclared function '__atomic_load_8'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    6 |   y = __atomic_load_8(&x, 0);
+      |       ^
+config-temp/qemu-conf.c:7:3: error: call to undeclared function '__atomic_store_8'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    7 |   __atomic_store_8(&x, y, 0);
+      |   ^
+config-temp/qemu-conf.c:8:3: error: call to undeclared function '__atomic_compare_exchange_8'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    8 |   __atomic_compare_exchange_8(&x, &y, x, 0, 0, 0);
+      |   ^
+config-temp/qemu-conf.c:9:3: error: call to undeclared function '__atomic_exchange_8'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    9 |   __atomic_exchange_8(&x, y, 0);
+      |   ^
+config-temp/qemu-conf.c:10:3: error: call to undeclared function '__atomic_fetch_add_8'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   10 |   __atomic_fetch_add_8(&x, y, 0);
+      |   ^
+5 errors generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1906 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong -Wl,--dynamic-list=config-temp/qemu-conf.txt
+ld: unknown options: --dynamic-list=config-temp/qemu-conf.txt 
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1920 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong -Wl,-exported_symbols_list,config-temp/qemu-conf.txt
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1936 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:2:35: error: aliases are not supported on darwin
+    2 | extern const int y __attribute__((alias("x")));
+      |                                   ^
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 1950 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'sys/auxv.h' file not found
+    1 | #include <sys/auxv.h>
+      |          ^~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_object main
+lines: 93 123 1978 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -Werror -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc compile_object main
+lines: 93 123 2025 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cc main
+lines: 93 2029 0
+/usr/bin/cc -nostdlib -Wl,-r -Wl,--no-relax -o config-temp/qemu-conf.mo config-temp/qemu-conf.o
+ld: unknown options: --no-relax 
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+funcs: do_compiler do_cc main
+lines: 93 2029 0
+/usr/bin/cc -nostdlib -Wl,-r -o config-temp/qemu-conf.mo config-temp/qemu-conf.o
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 2045 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:1:10: fatal error: 'sys/sysmacros.h' file not found
+    1 | #include <sys/sysmacros.h>
+      |          ^~~~~~~~~~~~~~~~~
+1 error generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 2059 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 2074 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 2088 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:3:12: error: call to undeclared function 'getrandom'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    3 |     return getrandom(0, 0, GRND_NONBLOCK);
+      |            ^
+config-temp/qemu-conf.c:3:28: error: use of undeclared identifier 'GRND_NONBLOCK'
+    3 |     return getrandom(0, 0, GRND_NONBLOCK);
+      |                            ^~~~~~~~~~~~~
+2 errors generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 2144 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:2:9: warning: a function declaration without a prototype is deprecated in all versions of C [-Wstrict-prototypes]
+    2 | int main() { pthread_jit_write_protect_np(0); return 0;}
+      |         ^
+      |          void
+1 warning generated.
+
+funcs: do_compiler do_cc compile_prog main
+lines: 93 129 2165 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+config-temp/qemu-conf.c:2:9: warning: a function declaration without a prototype is deprecated in all versions of C [-Wstrict-prototypes]
+    2 | int main() {
+      |         ^
+      |          void
+1 warning generated.
+
+funcs: do_compiler do_cc compile_object main
+lines: 93 123 2243 0
+/usr/bin/cc -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
+
+funcs: do_compiler do_cxx main
+lines: 97 2254 0
+c++ -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wall -Wundef -Wwrite-strings -fno-strict-aliasing -fno-common -fwrapv -std=gnu++98 -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wtype-limits -fstack-protector-strong -o config-temp/qemu-conf.exe config-temp/qemu-conf.cxx config-temp/qemu-conf.o -framework CoreFoundation -framework IOKit -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong

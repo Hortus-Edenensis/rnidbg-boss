@@ -1,0 +1,14 @@
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/deps/serde-d2ac353d641f523c.d: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/serde-404dbbb319085608/out/private.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/deps/libserde-d2ac353d641f523c.rlib: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/serde-404dbbb319085608/out/private.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/deps/libserde-d2ac353d641f523c.rmeta: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/serde-404dbbb319085608/out/private.rs
+
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/serde-404dbbb319085608/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/serde-404dbbb319085608/out

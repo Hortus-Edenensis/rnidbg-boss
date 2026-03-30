@@ -1,0 +1,13 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/externals/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/externals/mcl/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/externals/mcl/src/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/externals/oaknut/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/externals/robin-map/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build/src/dynarmic/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

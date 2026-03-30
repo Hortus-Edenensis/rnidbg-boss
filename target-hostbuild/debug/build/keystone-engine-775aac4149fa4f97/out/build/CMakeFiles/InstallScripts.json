@@ -1,0 +1,24 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Support/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/include/llvm/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/MC/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/AArch64/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/ARM/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/Hexagon/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/Mips/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/PowerPC/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/Sparc/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/SystemZ/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/lib/Target/X86/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/keystone/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/llvm/cmake/modules/cmake_install.cmake",
+		"/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build/suite/fuzz/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

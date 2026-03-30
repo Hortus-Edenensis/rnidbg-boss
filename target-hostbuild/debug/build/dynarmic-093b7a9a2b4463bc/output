@@ -1,0 +1,73 @@
+cargo:rerun-if-env-changed=DYNARMIC_NO_PKG_CONFIG
+cargo:rerun-if-env-changed=PKG_CONFIG_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG
+cargo:rerun-if-env-changed=PKG_CONFIG
+cargo:rerun-if-env-changed=DYNARMIC_STATIC
+cargo:rerun-if-env-changed=DYNARMIC_DYNAMIC
+cargo:rerun-if-env-changed=PKG_CONFIG_ALL_STATIC
+cargo:rerun-if-env-changed=PKG_CONFIG_ALL_DYNAMIC
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_PATH
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_LIBDIR
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_SYSROOT_DIR
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR
+pkg-config could not find dynarmic, building from source
+cargo:rerun-if-env-changed=CC_aarch64-apple-darwin
+CC_aarch64-apple-darwin = None
+cargo:rerun-if-env-changed=CC_aarch64_apple_darwin
+CC_aarch64_apple_darwin = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET
+MACOSX_DEPLOYMENT_TARGET = None
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_aarch64_apple_darwin
+CFLAGS_aarch64_apple_darwin = None
+cargo:rerun-if-env-changed=CFLAGS_aarch64-apple-darwin
+CFLAGS_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64_apple_darwin = None
+HOST_CMAKE_TOOLCHAIN_FILE = None
+CMAKE_TOOLCHAIN_FILE = None
+1.13.2
+CMAKE_PREFIX_PATH_aarch64-apple-darwin = None
+CMAKE_PREFIX_PATH_aarch64_apple_darwin = None
+HOST_CMAKE_PREFIX_PATH = None
+CMAKE_PREFIX_PATH = Some("/opt/homebrew/opt/boost;/opt/homebrew/opt/fmt")
+CMAKE_aarch64-apple-darwin = None
+CMAKE_aarch64_apple_darwin = None
+HOST_CMAKE = None
+CMAKE = None
+-- Target architecture: arm64
+-- Could NOT find mcl (missing: mcl_DIR)
+-- Could NOT find tsl-robin-map (missing: tsl-robin-map_DIR)
+-- Could NOT find oaknut (missing: oaknut_DIR)
+-- mach/mach_exc.defs location: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Headers
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build
+[1/3] Building C object src/dynarmic/CMakeFiles/dynarmic.dir/backend/exception_handler_macos_mig.c.o
+[2/3] Building CXX object src/dynarmic/CMakeFiles/dynarmic.dir/backend/exception_handler_macos.cpp.o
+[3/3] Linking CXX static library src/dynarmic/libdynarmic-static.a
+cargo:root=/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out
+cargo:rustc-link-search=native=/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/dynarmic-093b7a9a2b4463bc/out/build
+cargo:rustc-link-lib=static=dynarmic
+cargo:rustc-link-lib=pthread
+cargo:rustc-link-lib=m
+cargo:rustc-link-lib=fmt

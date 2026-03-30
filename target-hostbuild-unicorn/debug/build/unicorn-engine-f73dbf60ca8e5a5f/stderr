@@ -1,0 +1,11 @@
+running: cd "/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build" && CMAKE_PREFIX_PATH="" LC_ALL="C" "cmake" "/Users/haojiejack/github/rnidbg-boss/unicorn" "-B" "/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build" "-DCMAKE_OSX_ARCHITECTURES=arm64" "-G" "Ninja" "-DUNICORN_BUILD_TESTS=OFF" "-DUNICORN_INSTALL=OFF" "-DUNICORN_ARCH=x86;arm;aarch64;riscv;mips;sparc;m68k;ppc;s390x;tricore" "-DENABLE_SLOW_HOOK=OFF" "-DAUTO_UC_INIT=OFF" "-DCMAKE_INSTALL_PREFIX=/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -fPIC --target=arm64-apple-macosx -mmacosx-version-min=26.2 -w" "-DCMAKE_C_COMPILER=/usr/bin/cc" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -fPIC --target=arm64-apple-macosx -mmacosx-version-min=26.2 -w" "-DCMAKE_CXX_COMPILER=/usr/bin/c++" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -fPIC --target=arm64-apple-macosx -mmacosx-version-min=26.2 -w" "-DCMAKE_ASM_COMPILER=/usr/bin/cc" "-DCMAKE_BUILD_TYPE=Debug"
+CMake Deprecation Warning at CMakeLists.txt:4 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+running: cd "/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build" && LC_ALL="C" "cmake" "--build" "/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build" "--config" "Debug" "--parallel" "10"

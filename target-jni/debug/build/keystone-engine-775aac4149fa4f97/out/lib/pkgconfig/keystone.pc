@@ -1,0 +1,7 @@
+Name: keystone
+Description: Keystone assembler engine
+Version: 0.9
+libdir=/Users/haojiejack/github/rnidbg-boss/target-jni/debug/build/keystone-engine-775aac4149fa4f97/out/lib
+includedir=/Users/haojiejack/github/rnidbg-boss/target-jni/debug/build/keystone-engine-775aac4149fa4f97/out/include
+Libs: -L${libdir} -lkeystone
+Cflags: -I${includedir}

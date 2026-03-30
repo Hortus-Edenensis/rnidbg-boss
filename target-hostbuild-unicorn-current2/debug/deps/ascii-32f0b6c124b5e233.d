@@ -1,0 +1,11 @@
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/deps/ascii-32f0b6c124b5e233.d: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_char.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_str.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_string.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/free_functions.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/deps/libascii-32f0b6c124b5e233.rlib: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_char.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_str.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_string.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/free_functions.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/deps/libascii-32f0b6c124b5e233.rmeta: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_char.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_str.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_string.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/free_functions.rs
+
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/lib.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_char.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_str.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/ascii_string.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ascii-1.1.0/src/free_functions.rs:

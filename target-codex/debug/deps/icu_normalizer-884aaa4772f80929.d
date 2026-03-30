@@ -1,0 +1,10 @@
+/Users/haojiejack/github/rnidbg-boss/target-codex/debug/deps/icu_normalizer-884aaa4772f80929.d: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/properties.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/provider.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/uts46.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-codex/debug/deps/libicu_normalizer-884aaa4772f80929.rlib: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/properties.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/provider.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/uts46.rs
+
+/Users/haojiejack/github/rnidbg-boss/target-codex/debug/deps/libicu_normalizer-884aaa4772f80929.rmeta: /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/lib.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/properties.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/provider.rs /Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/uts46.rs
+
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/lib.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/properties.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/provider.rs:
+/Users/haojiejack/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/icu_normalizer-2.0.1/src/uts46.rs:

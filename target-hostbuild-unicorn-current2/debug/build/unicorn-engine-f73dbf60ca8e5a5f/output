@@ -1,0 +1,733 @@
+cargo:rerun-if-env-changed=UNICORN_NO_PKG_CONFIG
+cargo:rerun-if-env-changed=PKG_CONFIG_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG
+cargo:rerun-if-env-changed=PKG_CONFIG
+cargo:rerun-if-env-changed=UNICORN_STATIC
+cargo:rerun-if-env-changed=UNICORN_DYNAMIC
+cargo:rerun-if-env-changed=PKG_CONFIG_ALL_STATIC
+cargo:rerun-if-env-changed=PKG_CONFIG_ALL_DYNAMIC
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_PATH
+cargo:rerun-if-env-changed=PKG_CONFIG_PATH
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_LIBDIR
+cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64-apple-darwin
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64_apple_darwin
+cargo:rerun-if-env-changed=HOST_PKG_CONFIG_SYSROOT_DIR
+cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR
+pkg-config could not find unicorn, building from source
+cargo:rerun-if-env-changed=CC_aarch64-apple-darwin
+CC_aarch64-apple-darwin = None
+cargo:rerun-if-env-changed=CC_aarch64_apple_darwin
+CC_aarch64_apple_darwin = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET
+MACOSX_DEPLOYMENT_TARGET = None
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_aarch64_apple_darwin
+CFLAGS_aarch64_apple_darwin = None
+cargo:rerun-if-env-changed=CFLAGS_aarch64-apple-darwin
+CFLAGS_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64-apple-darwin = None
+CMAKE_TOOLCHAIN_FILE_aarch64_apple_darwin = None
+HOST_CMAKE_TOOLCHAIN_FILE = None
+CMAKE_TOOLCHAIN_FILE = None
+1.13.2
+CMAKE_PREFIX_PATH_aarch64-apple-darwin = None
+CMAKE_PREFIX_PATH_aarch64_apple_darwin = None
+HOST_CMAKE_PREFIX_PATH = None
+CMAKE_PREFIX_PATH = Some("/opt/homebrew/opt/boost;/opt/homebrew/opt/fmt")
+CMAKE_aarch64-apple-darwin = None
+CMAKE_aarch64_apple_darwin = None
+HOST_CMAKE = None
+CMAKE = None
+-- The C compiler identification is AppleClang 21.0.0.21000099
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+Disabling PIE due to missing toolchain support
+Install prefix    /usr/local
+binary directory  /usr/local/bin
+library directory /usr/local/lib
+libexec directory /usr/local/libexec
+include directory /usr/local/include
+config directory  /usr/local/etc
+local state directory   /usr/local/var
+ELF interp prefix /usr/gnemul/qemu-%M
+Build directory   /Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build
+Source path       /Users/haojiejack/github/rnidbg-boss/unicorn/qemu
+GIT binary        git
+GIT submodules    
+C compiler        /usr/bin/cc
+Host C compiler   cc
+C++ compiler      c++
+Objective-C compiler clang
+ARFLAGS           rv
+CFLAGS            -g 
+QEMU_CFLAGS        -DOS_OBJECT_USE_OBJC=0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv -std=gnu99  -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -Wno-string-plus-int -Wno-typedef-redefinition -Wno-initializer-overrides -Wexpansion-to-defined -Wendif-labels -Wno-shift-negative-value -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-definition -Wtype-limits -fstack-protector-strong
+QEMU_LDFLAGS      -framework CoreFoundation -framework IOKit  -DUNICORN_HAS_X86 -DUNICORN_HAS_ARM -DUNICORN_HAS_ARM64 -DUNICORN_HAS_M68K -DUNICORN_HAS_MIPS -DUNICORN_HAS_MIPSEL -DUNICORN_HAS_MIPS64 -DUNICORN_HAS_MIPS64EL -DUNICORN_HAS_SPARC -DUNICORN_HAS_PPC -DUNICORN_HAS_RISCV -DUNICORN_HAS_S390X -DUNICORN_HAS_TRICORE -fPIC -fstack-protector-strong
+make              make
+install           install
+host CPU          aarch64
+host big endian   no
+target list       x86_64-softmmu  arm-softmmu  aarch64-softmmu  m68k-softmmu  mips-softmmu  mipsel-softmmu  mips64-softmmu  mips64el-softmmu  sparc-softmmu  sparc64-softmmu  ppc-softmmu  ppc64-softmmu  riscv32-softmmu  riscv64-softmmu  s390x-softmmu  tricore-softmmu   
+strip binaries    yes
+static build      no
+mingw32 support   no
+PIE               no
+TCG support       yes
+malloc trim support no
+membarrier        no
+madvise           yes
+posix_madvise     yes
+posix_memalign    yes
+debug stack usage no
+tcmalloc support  no
+jemalloc support  no
+avx2 optimization 
+avx512f optimization no
+-- Configuring done (8.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build
+[1/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/glist.c.o
+[2/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/gtestutils.c.o
+[3/607] Building C object CMakeFiles/unicorn-common.dir/list.c.o
+[4/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/gtree.c.o
+[5/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/grand.c.o
+[6/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/gpattern.c.o
+[7/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/glib_compat.c.o
+[8/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/gslice.c.o
+[9/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/gmem.c.o
+[10/607] Building C object CMakeFiles/unicorn-common.dir/glib_compat/garray.c.o
+[11/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/cutils.c.o
+[12/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/crc32c.c.o
+[13/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/guest-random.c.o
+[14/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/host-utils.c.o
+[15/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/getauxval.c.o
+[16/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/bitmap.c.o
+[17/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/bitops.c.o
+[18/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/osdep.c.o
+[19/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/qemu-timer.c.o
+[20/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/qdist.c.o
+[21/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/qemu-thread-posix.c.o
+[22/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/qemu-timer-common.c.o
+[23/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/range.c.o
+[24/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/qht.c.o
+[25/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/pagesize.c.o
+[26/607] Building C object CMakeFiles/unicorn-common.dir/qemu/crypto/aes.c.o
+[27/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/cacheinfo.c.o
+[28/607] Building C object CMakeFiles/unicorn-common.dir/qemu/util/oslib-posix.c.o
+[29/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/exec-vary.c.o
+[30/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[31/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/softmmu/cpus.c.o
+[32/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/softmmu/ioport.c.o
+[33/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/softmmu/memory.c.o
+[34/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/exec.c.o
+[35/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[36/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[37/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[38/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/tcg/optimize.c.o
+[39/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[40/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[41/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[42/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[43/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/hw/i386/x86.c.o
+[44/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[45/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/fpu/softfloat.c.o
+[46/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/tcg/tcg-op.c.o
+[47/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[48/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[49/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/arch_memory_mapping.c.o
+[50/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/accel/tcg/translator.c.o
+[51/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/helper.c.o
+[52/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/cc_helper.c.o
+[53/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/bpt_helper.c.o
+[54/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/excp_helper.c.o
+[55/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/cpu.c.o
+[56/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/int_helper.c.o
+[57/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/machine.c.o
+[58/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/misc_helper.c.o
+[59/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/smm_helper.c.o
+[60/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/mem_helper.c.o
+[61/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/mpx_helper.c.o
+[62/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/svm_helper.c.o
+[63/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/tcg/tcg.c.o
+[64/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/xsave_helper.c.o
+[65/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/exec-vary.c.o
+[66/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/softmmu/ioport.c.o
+[67/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/unicorn.c.o
+[68/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/softmmu/cpus.c.o
+[69/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/seg_helper.c.o
+[70/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/exec.c.o
+[71/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[72/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/softmmu/memory.c.o
+[73/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/fpu_helper.c.o
+[74/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[75/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[76/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/tcg/optimize.c.o
+[77/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[78/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[79/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[80/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[81/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[82/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[83/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[84/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[85/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/tcg/tcg-op.c.o
+[86/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/fpu/softfloat.c.o
+[87/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/accel/tcg/translator.c.o
+[88/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/crypto_helper.c.o
+[89/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/debug_helper.c.o
+[90/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/cpu.c.o
+[91/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/m_helper.c.o
+[92/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/tcg/tcg.c.o
+[93/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/op_helper.c.o
+[94/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/iwmmxt_helper.c.o
+[95/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/psci.c.o
+[96/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/tlb_helper.c.o
+[97/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/neon_helper.c.o
+[98/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/unicorn_arm.c.o
+[99/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/exec-vary.c.o
+[100/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/vec_helper.c.o
+[101/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/vfp_helper.c.o
+[102/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/exec.c.o
+[103/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/softmmu/cpus.c.o
+[104/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/softmmu/ioport.c.o
+[105/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[106/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/softmmu/memory.c.o
+[107/607] Building C object CMakeFiles/x86_64-softmmu.dir/qemu/target/i386/translate.c.o
+[108/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[109/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/helper.c.o
+[110/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[111/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/fpu/softfloat.c.o
+[112/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[113/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[114/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/tcg/optimize.c.o
+[115/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[116/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[117/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[118/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[119/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/tcg/tcg-op.c.o
+[120/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[121/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/cpu.c.o
+[122/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/cpu64.c.o
+[123/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/crypto_helper.c.o
+[124/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[125/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/debug_helper.c.o
+[126/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/helper-a64.c.o
+[127/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/accel/tcg/translator.c.o
+[128/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/tcg/tcg.c.o
+[129/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/op_helper.c.o
+[130/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/m_helper.c.o
+[131/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/pauth_helper.c.o
+[132/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/iwmmxt_helper.c.o
+[133/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/psci.c.o
+[134/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/neon_helper.c.o
+[135/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/tlb_helper.c.o
+[136/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/unicorn_aarch64.c.o
+[137/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/vec_helper.c.o
+[138/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/vfp_helper.c.o
+[139/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/helper.c.o
+[140/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/exec-vary.c.o
+[141/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/exec.c.o
+[142/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/softmmu/ioport.c.o
+[143/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/softmmu/cpus.c.o
+[144/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/softmmu/memory.c.o
+[145/607] Building C object CMakeFiles/arm-softmmu.dir/qemu/target/arm/translate.c.o
+[146/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[147/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/tcg/optimize.c.o
+[148/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[149/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[150/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/tcg/tcg-op.c.o
+[151/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/fpu/softfloat.c.o
+[152/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[153/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/tcg/tcg.c.o
+[154/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[155/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[156/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[157/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[158/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[159/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[160/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/cpu.c.o
+[161/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/translator.c.o
+[162/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[163/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/fpu_helper.c.o
+[164/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/helper.c.o
+[165/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/sve_helper.c.o
+[166/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/unicorn.c.o
+[167/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/op_helper.c.o
+[168/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/softfloat.c.o
+[169/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/exec-vary.c.o
+[170/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/translate-a64.c.o
+[171/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/softmmu/ioport.c.o
+[172/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/softmmu/cpus.c.o
+[173/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/exec.c.o
+[174/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/softmmu/memory.c.o
+[175/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[176/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[177/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[178/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[179/607] Building C object CMakeFiles/m68k-softmmu.dir/qemu/target/m68k/translate.c.o
+[180/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/tcg/optimize.c.o
+[181/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/translate-sve.c.o
+[182/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[183/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/tcg/tcg-op.c.o
+[184/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/fpu/softfloat.c.o
+[185/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[186/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[187/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[188/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[189/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/cp0_timer.c.o
+[190/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[191/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/cpu.c.o
+[192/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/cp0_helper.c.o
+[193/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[194/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/helper.c.o
+[195/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/lmi_helper.c.o
+[196/607] Building C object CMakeFiles/aarch64-softmmu.dir/qemu/target/arm/translate.c.o
+[197/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/dsp_helper.c.o
+[198/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/accel/tcg/translator.c.o
+[199/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/fpu_helper.c.o
+[200/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/op_helper.c.o
+[201/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/unicorn.c.o
+[202/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/tcg/tcg.c.o
+[203/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/exec-vary.c.o
+[204/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/softmmu/cpus.c.o
+[205/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/softmmu/ioport.c.o
+[206/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[207/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/softmmu/memory.c.o
+[208/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/exec.c.o
+[209/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[210/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[211/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[212/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[213/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/tcg/optimize.c.o
+[214/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/fpu/softfloat.c.o
+[215/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/tcg/tcg-op.c.o
+[216/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[217/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[218/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/msa_helper.c.o
+[219/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[220/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/cp0_timer.c.o
+[221/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[222/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[223/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/cpu.c.o
+[224/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[225/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/cp0_helper.c.o
+[226/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/tcg/tcg.c.o
+[227/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/lmi_helper.c.o
+[228/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/helper.c.o
+[229/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/dsp_helper.c.o
+[230/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/unicorn.c.o
+[231/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/op_helper.c.o
+[232/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/accel/tcg/translator.c.o
+[233/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/fpu_helper.c.o
+[234/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/softmmu/cpus.c.o
+[235/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/exec-vary.c.o
+[236/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/softmmu/ioport.c.o
+[237/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/exec.c.o
+[238/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/softmmu/memory.c.o
+[239/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[240/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[241/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[242/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[243/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/tcg/optimize.c.o
+[244/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/msa_helper.c.o
+[245/607] Building C object CMakeFiles/mips-softmmu.dir/qemu/target/mips/translate.c.o
+[246/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/fpu/softfloat.c.o
+[247/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[248/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[249/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/tcg/tcg-op.c.o
+[250/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[251/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[252/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[253/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/cp0_timer.c.o
+[254/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/cpu.c.o
+[255/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[256/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[257/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/cp0_helper.c.o
+[258/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/helper.c.o
+[259/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/lmi_helper.c.o
+[260/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/accel/tcg/translator.c.o
+[261/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/op_helper.c.o
+[262/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/unicorn.c.o
+[263/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/tcg/tcg.c.o
+[264/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/fpu_helper.c.o
+[265/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/exec-vary.c.o
+[266/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/dsp_helper.c.o
+[267/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/exec.c.o
+[268/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/softmmu/cpus.c.o
+[269/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/softmmu/ioport.c.o
+[270/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[271/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/softmmu/memory.c.o
+[272/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[273/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[274/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[275/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/tcg/optimize.c.o
+[276/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/tcg/tcg-op.c.o
+[277/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/fpu/softfloat.c.o
+[278/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[279/607] Building C object CMakeFiles/mipsel-softmmu.dir/qemu/target/mips/translate.c.o
+[280/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[281/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/msa_helper.c.o
+[282/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[283/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[284/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[285/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[286/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[287/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/cp0_timer.c.o
+[288/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/cpu.c.o
+[289/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/cp0_helper.c.o
+[290/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/helper.c.o
+[291/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/lmi_helper.c.o
+[292/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/tcg/tcg.c.o
+[293/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/accel/tcg/translator.c.o
+[294/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/unicorn.c.o
+[295/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/fpu_helper.c.o
+[296/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/exec-vary.c.o
+[297/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/op_helper.c.o
+[298/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/dsp_helper.c.o
+[299/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/exec.c.o
+[300/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[301/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/softmmu/cpus.c.o
+[302/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/softmmu/ioport.c.o
+[303/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/softmmu/memory.c.o
+[304/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/tcg/optimize.c.o
+[305/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[306/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[307/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[308/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/tcg/tcg-op.c.o
+[309/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[310/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/fpu/softfloat.c.o
+[311/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[312/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[313/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[314/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[315/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[316/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/tcg/tcg.c.o
+[317/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/cc_helper.c.o
+[318/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[319/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/accel/tcg/translator.c.o
+[320/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/cpu.c.o
+[321/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/int32_helper.c.o
+[322/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/ldst_helper.c.o
+[323/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/helper.c.o
+[324/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/msa_helper.c.o
+[325/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/mmu_helper.c.o
+[326/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/fop_helper.c.o
+[327/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/win_helper.c.o
+[328/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/unicorn.c.o
+[329/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/exec-vary.c.o
+[330/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/softmmu/ioport.c.o
+[331/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/softmmu/cpus.c.o
+[332/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/softmmu/memory.c.o
+[333/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/exec.c.o
+[334/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[335/607] Building C object CMakeFiles/sparc-softmmu.dir/qemu/target/sparc/translate.c.o
+[336/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[337/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[338/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/tcg/optimize.c.o
+[339/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[340/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[341/607] Building C object CMakeFiles/mips64-softmmu.dir/qemu/target/mips/translate.c.o
+[342/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[343/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[344/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/tcg/tcg-op.c.o
+[345/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[346/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/fpu/softfloat.c.o
+[347/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/tcg/tcg.c.o
+[348/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[349/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/cc_helper.c.o
+[350/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[351/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/translator.c.o
+[352/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/cpu.c.o
+[353/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/fop_helper.c.o
+[354/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/helper.c.o
+[355/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/int64_helper.c.o
+[356/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/ldst_helper.c.o
+[357/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/mmu_helper.c.o
+[358/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/vis_helper.c.o
+[359/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/unicorn64.c.o
+[360/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[361/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/win_helper.c.o
+[362/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/exec-vary.c.o
+[363/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/softmmu/cpus.c.o
+[364/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[365/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/softmmu/ioport.c.o
+[366/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/exec.c.o
+[367/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/softmmu/memory.c.o
+[368/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[369/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[370/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[371/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/tcg/optimize.c.o
+[372/607] Building C object CMakeFiles/mips64el-softmmu.dir/qemu/target/mips/translate.c.o
+[373/607] Building C object CMakeFiles/sparc64-softmmu.dir/qemu/target/sparc/translate.c.o
+[374/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[375/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/tcg/tcg-op.c.o
+[376/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[377/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[378/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[379/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[380/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[381/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/fpu/softfloat.c.o
+[382/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/hw/ppc/ppc.c.o
+[383/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/libdecnumber/decContext.c.o
+[384/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/hw/ppc/ppc_booke.c.o
+[385/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/libdecnumber/dpd/decimal128.c.o
+[386/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[387/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/libdecnumber/dpd/decimal32.c.o
+[388/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/libdecnumber/dpd/decimal64.c.o
+[389/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/cpu.c.o
+[390/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/accel/tcg/translator.c.o
+[391/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/machine.c.o
+[392/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/cpu-models.c.o
+[393/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/libdecnumber/decNumber.c.o
+[394/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/misc_helper.c.o
+[395/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/excp_helper.c.o
+[396/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/mem_helper.c.o
+[397/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/mmu-hash32.c.o
+[398/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/dfp_helper.c.o
+[399/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/tcg/tcg.c.o
+[400/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/mmu_helper.c.o
+[401/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/int_helper.c.o
+[402/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/timebase_helper.c.o
+[403/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/unicorn.c.o
+[404/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/exec-vary.c.o
+[405/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/softmmu/cpus.c.o
+[406/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/softmmu/ioport.c.o
+[407/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/exec.c.o
+[408/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/fpu_helper.c.o
+[409/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[410/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/softmmu/memory.c.o
+[411/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[412/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[413/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/tcg/optimize.c.o
+[414/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[415/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[416/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[417/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/fpu/softfloat.c.o
+[418/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[419/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/tcg/tcg-op.c.o
+[420/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[421/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[422/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[423/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[424/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/libdecnumber/decContext.c.o
+[425/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/hw/ppc/ppc.c.o
+[426/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/libdecnumber/dpd/decimal128.c.o
+[427/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/hw/ppc/ppc_booke.c.o
+[428/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/libdecnumber/dpd/decimal64.c.o
+[429/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/libdecnumber/dpd/decimal32.c.o
+[430/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/cpu.c.o
+[431/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/compat.c.o
+[432/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/cpu-models.c.o
+[433/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/accel/tcg/translator.c.o
+[434/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/tcg/tcg.c.o
+[435/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/machine.c.o
+[436/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/libdecnumber/decNumber.c.o
+[437/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/dfp_helper.c.o
+[438/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/excp_helper.c.o
+[439/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/mmu-book3s-v3.c.o
+[440/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/misc_helper.c.o
+[441/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/mmu-hash32.c.o
+[442/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/mem_helper.c.o
+[443/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/mmu-hash64.c.o
+[444/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/mmu-radix64.c.o
+[445/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/timebase_helper.c.o
+[446/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/mmu_helper.c.o
+[447/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/exec-vary.c.o
+[448/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/unicorn.c.o
+[449/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/softmmu/ioport.c.o
+[450/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/int_helper.c.o
+[451/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/exec.c.o
+[452/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/softmmu/cpus.c.o
+[453/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[454/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/fpu_helper.c.o
+[455/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/softmmu/memory.c.o
+[456/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[457/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[458/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[459/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/tcg/optimize.c.o
+[460/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/tcg/tcg-op.c.o
+[461/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[462/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[463/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[464/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/tcg/tcg.c.o
+[465/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[466/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[467/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/fpu/softfloat.c.o
+[468/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/cpu.c.o
+[469/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[470/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/translator.c.o
+[471/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[472/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/op_helper.c.o
+[473/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/pmp.c.o
+[474/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/csr.c.o
+[475/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/fpu_helper.c.o
+[476/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/cpu_helper.c.o
+[477/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/unicorn.c.o
+[478/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[479/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/softmmu/cpus.c.o
+[480/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/softmmu/ioport.c.o
+[481/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/exec-vary.c.o
+[482/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/softmmu/memory.c.o
+[483/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/exec.c.o
+[484/607] Building C object CMakeFiles/riscv32-softmmu.dir/qemu/target/riscv/translate.c.o
+[485/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[486/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[487/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/tcg/optimize.c.o
+[488/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[489/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/tcg/tcg-op.c.o
+[490/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[491/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[492/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[493/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/fpu/softfloat.c.o
+[494/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[495/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[496/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/cpu.c.o
+[497/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/translator.c.o
+[498/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/tcg/tcg.c.o
+[499/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[500/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[501/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/csr.c.o
+[502/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/cpu_helper.c.o
+[503/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/fpu_helper.c.o
+[504/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/op_helper.c.o
+[505/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/pmp.c.o
+[506/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/unicorn.c.o
+[507/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/softmmu/ioport.c.o
+[508/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/exec-vary.c.o
+[509/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[510/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/exec.c.o
+[511/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/softmmu/cpus.c.o
+[512/607] Building C object CMakeFiles/ppc-softmmu.dir/qemu/target/ppc/translate.c.o
+[513/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/softmmu/memory.c.o
+[514/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[515/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[516/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[517/607] Building C object CMakeFiles/riscv64-softmmu.dir/qemu/target/riscv/translate.c.o
+[518/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/tcg/optimize.c.o
+[519/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[520/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[521/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/fpu/softfloat.c.o
+[522/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/tcg/tcg-op.c.o
+[523/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[524/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/hw/s390x/s390-skeys.c.o
+[525/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[526/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[527/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/cc_helper.c.o
+[528/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/cpu.c.o
+[529/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/tcg/tcg.c.o
+[530/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/cpu_features.c.o
+[531/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/cpu_models.c.o
+[532/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[533/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/crypto_helper.c.o
+[534/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[535/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/accel/tcg/translator.c.o
+[536/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/excp_helper.c.o
+[537/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/ioinst.c.o
+[538/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/helper.c.o
+[539/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/interrupt.c.o
+[540/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/fpu_helper.c.o
+[541/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/mmu_helper.c.o
+[542/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/int_helper.c.o
+[543/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/misc_helper.c.o
+[544/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/sigp.c.o
+[545/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/tcg-stub.c.o
+[546/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/unicorn.c.o
+[547/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/vec_fpu_helper.c.o
+[548/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/exec-vary.c.o
+[549/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/vec_helper.c.o
+[550/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/mem_helper.c.o
+[551/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/vec_string_helper.c.o
+[552/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/vec_int_helper.c.o
+[553/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/softmmu/memory_mapping.c.o
+[554/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/softmmu/ioport.c.o
+[555/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/softmmu/cpus.c.o
+[556/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/exec.c.o
+[557/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/softmmu/memory.c.o
+[558/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/tcg/tcg-op-vec.c.o
+[559/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/tcg/optimize.c.o
+[560/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/cpu-exec-common.c.o
+[561/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/cpu-exec.c.o
+[562/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/tcg-all.c.o
+[563/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/tcg-runtime.c.o
+[564/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/tcg-runtime-gvec.c.o
+[565/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/tcg/tcg-op.c.o
+[566/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/tcg/tcg-op-gvec.c.o
+[567/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/translate-all.c.o
+[568/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/cputlb.c.o
+[569/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/accel/tcg/translator.c.o
+[570/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/target/tricore/cpu.c.o
+[571/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/softmmu/unicorn_vtlb.c.o
+[572/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/fpu/softfloat.c.o
+[573/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/target/tricore/fpu_helper.c.o
+[574/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/tcg/tcg.c.o
+[575/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/target/tricore/helper.c.o
+[576/607] Linking C static library libunicorn-common.a
+[577/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/target/tricore/unicorn.c.o
+[578/607] Building C object CMakeFiles/unicorn.dir/qemu/softmmu/vl.c.o
+[579/607] Building C object CMakeFiles/unicorn.dir/qemu/hw/core/cpu.c.o
+[580/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/target/tricore/op_helper.c.o
+[581/607] Building C object CMakeFiles/unicorn.dir/uc.c.o
+[582/607] Linking C static library libx86_64-softmmu.a
+[583/607] Linking C static library libm68k-softmmu.a
+[584/607] Linking C static library libarm-softmmu.a
+[585/607] Linking C static library libaarch64-softmmu.a
+[586/607] Linking C static library libmips-softmmu.a
+[587/607] Linking C static library libmipsel-softmmu.a
+[588/607] Building C object CMakeFiles/unicorn_static.dir/uc.c.o
+[589/607] Linking C static library libsparc-softmmu.a
+[590/607] Linking C static library libmips64-softmmu.a
+[591/607] Linking C static library libmips64el-softmmu.a
+[592/607] Linking C static library libsparc64-softmmu.a
+[593/607] Linking C static library libppc-softmmu.a
+ranlib: warning: 'libppc-softmmu.a(cpu-models.c.o)' has no symbols
+ranlib: warning: 'libppc-softmmu.a(machine.c.o)' has no symbols
+ranlib: warning: 'libppc-softmmu.a(cpu-models.c.o)' has no symbols
+ranlib: warning: 'libppc-softmmu.a(machine.c.o)' has no symbols
+[594/607] Linking C static library libriscv32-softmmu.a
+[595/607] Linking C static library libriscv64-softmmu.a
+[596/607] Building C object CMakeFiles/ppc64-softmmu.dir/qemu/target/ppc/translate.c.o
+[597/607] Building C object CMakeFiles/unicorn_static.dir/qemu/softmmu/vl.c.o
+[598/607] Building C object CMakeFiles/unicorn_static.dir/qemu/hw/core/cpu.c.o
+[599/607] Linking C static library libppc64-softmmu.a
+ranlib: warning: 'libppc64-softmmu.a(cpu-models.c.o)' has no symbols
+ranlib: warning: 'libppc64-softmmu.a(machine.c.o)' has no symbols
+ranlib: warning: 'libppc64-softmmu.a(cpu-models.c.o)' has no symbols
+ranlib: warning: 'libppc64-softmmu.a(machine.c.o)' has no symbols
+[600/607] Building C object CMakeFiles/s390x-softmmu.dir/qemu/target/s390x/translate.c.o
+[601/607] Linking C static library libs390x-softmmu.a
+ranlib: warning: 'libs390x-softmmu.a(tcg-stub.c.o)' has no symbols
+ranlib: warning: 'libs390x-softmmu.a(tcg-stub.c.o)' has no symbols
+[602/607] Building C object CMakeFiles/tricore-softmmu.dir/qemu/target/tricore/translate.c.o
+[603/607] Linking C static library libtricore-softmmu.a
+[604/607] Linking C static library libunicorn_static.a
+[605/607] Linking C shared library libunicorn.2.dylib
+[606/607] Bundling unicorn_archive
+libtool: warning: 'libppc-softmmu.a(cpu-models.c.o)' has no symbols
+libtool: warning: 'libppc-softmmu.a(machine.c.o)' has no symbols
+libtool: warning: 'libppc64-softmmu.a(cpu-models.c.o)' has no symbols
+libtool: warning: 'libppc64-softmmu.a(machine.c.o)' has no symbols
+libtool: warning: 'libs390x-softmmu.a(tcg-stub.c.o)' has no symbols
+[607/607] Creating library symlink libunicorn.dylib
+cargo:root=/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out
+cargo:rustc-link-search=native=/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/unicorn-engine-f73dbf60ca8e5a5f/out/build
+cargo:rustc-link-lib=static=unicorn
+cargo:rustc-link-lib=pthread
+cargo:rustc-link-lib=m

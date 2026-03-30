@@ -1,0 +1,12 @@
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/lib/pkgconfig/keystone.pc
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/hexagon.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/mips.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/sparc.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/systemz.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/arm.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/evm.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/x86.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/keystone.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/ppc.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/include/keystone/arm64.h
+/Users/haojiejack/github/rnidbg-boss/target-hostbuild-unicorn-current2/debug/build/keystone-engine-775aac4149fa4f97/out/lib/libkeystone.a

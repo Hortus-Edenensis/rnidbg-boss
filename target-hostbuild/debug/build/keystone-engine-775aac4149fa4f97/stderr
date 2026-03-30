@@ -1,0 +1,43 @@
+running: cd "/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build" && CMAKE_PREFIX_PATH="" LC_ALL="C" PYTHONDONTWRITEBYTECODE="1" "cmake" "/Users/haojiejack/github/rnidbg-boss/vendor/keystone-engine-0.1.0/keystone" "-B" "/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build" "-DCMAKE_OSX_ARCHITECTURES=arm64" "-DCMAKE_INSTALL_LIBDIR=lib" "-DBUILD_LIBS_ONLY=1" "-DBUILD_SHARED_LIBS=OFF" "-DLLVM_TARGETS_TO_BUILD=all" "-DCMAKE_INSTALL_PREFIX=/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -fPIC --target=arm64-apple-macosx -mmacosx-version-min=26.2 -w" "-DCMAKE_C_COMPILER=/usr/bin/cc" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -fPIC --target=arm64-apple-macosx -mmacosx-version-min=26.2 -w" "-DCMAKE_CXX_COMPILER=/usr/bin/c++" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -fPIC --target=arm64-apple-macosx -mmacosx-version-min=26.2 -w" "-DCMAKE_ASM_COMPILER=/usr/bin/cc" "-DCMAKE_BUILD_TYPE=Debug" "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+CMake Deprecation Warning at CMakeLists.txt:4 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Deprecation Warning at llvm/CMakeLists.txt:3 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Warning (dev) at /opt/homebrew/share/cmake/Modules/CheckIncludeFile.cmake:154 (message):
+  Policy CMP0075 is not set: Include file check macros honor
+  CMAKE_REQUIRED_LIBRARIES.  Run "cmake --help-policy CMP0075" for policy
+  details.  Use the cmake_policy command to set the policy and suppress this
+  warning.
+
+  CMAKE_REQUIRED_LIBRARIES is set to:
+
+    m
+
+  For compatibility with CMake 3.11 and below this check is ignoring it.
+Call Stack (most recent call first):
+  llvm/cmake/config-ix.cmake:45 (check_include_file)
+  llvm/CMakeLists.txt:323 (include)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Warning (dev) at llvm/CMakeLists.txt:337 (include):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+running: cd "/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build" && LC_ALL="C" PYTHONDONTWRITEBYTECODE="1" "cmake" "--build" "/Users/haojiejack/github/rnidbg-boss/target-hostbuild/debug/build/keystone-engine-775aac4149fa4f97/out/build" "--target" "install" "--config" "Debug" "--parallel" "10"

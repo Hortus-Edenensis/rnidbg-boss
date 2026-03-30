@@ -1,0 +1,91 @@
+{
+  "header": {
+    "os": "and",
+    "lang": "zh_CN",
+    "brand": "realme",
+    "type": "RMX3560",
+    "name": "seetong",
+    "version": "8.3.8.4",
+    "clientId": "d1b90b93-6df8-4bd7-9f56-6be1ec5d9f6a",
+    "userDomain": "https://app-auth.seetong.com",
+    "userDomainBack": "",
+    "fwUpdateDomain": "https://app-api-cn.seetong.com",
+    "activeUserDomain": "",
+    "natServers": "",
+    "logServer": null
+  },
+  "accessToken": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRfaWQiOiIwMDAwMDAiLCJsb2dpblR5cGUiOiJNRU1CRVIiLCJsb2dpbk1ldGhvZCI6MSwidXNlcl9uYW1lIjoiMTUzODA0NTU5NzMiLCJyZWFsX25hbWUiOiIiLCJhdXRob3JpdGllcyI6WyJtZW1iZXIiXSwiY2xpZW50X2lkIjoic2VldG9uZ19jbG91ZF9tZW1iZXIiLCJ1c2VyX2lkIjoiNTM5OTc4NDIiLCJzY29wZSI6WyJhbGwiXSwibmlja19uYW1lIjoiMTUzODA0NTU5NzMiLCJleHAiOjE3NzQyNDMzODMsInJlZ2lvbiI6bnVsbCwianRpIjoiYzk4M2I5MDAtNDM4YS00MWI4LTgxNzctZmNjYjFmYjkzMjFlIiwiYWNjb3VudCI6IjE1MzgwNDU1OTczIn0.h7tuTDx64_jkjD8ZrhdqxNMCOlS3F2ZTqD-UUJo-Wps",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRfaWQiOiIwMDAwMDAiLCJsb2dpblR5cGUiOiJNRU1CRVIiLCJsb2dpbk1ldGhvZCI6MSwidXNlcl9uYW1lIjoiMTUzODA0NTU5NzMiLCJyZWFsX25hbWUiOiIiLCJhdXRob3JpdGllcyI6WyJtZW1iZXIiXSwiY2xpZW50X2lkIjoic2VldG9uZ19jbG91ZF9tZW1iZXIiLCJ1c2VyX2lkIjoiNTM5OTc4NDIiLCJzY29wZSI6WyJhbGwiXSwibmlja19uYW1lIjoiMTUzODA0NTU5NzMiLCJhdGkiOiJjOTgzYjkwMC00MzhhLTQxYjgtODE3Ny1mY2NiMWZiOTMyMWUiLCJleHAiOjE3NzY3NDg5ODMsInJlZ2lvbiI6bnVsbCwiaWF0IjoxNzc0MTU2OTgzLCJqdGkiOiI4OTU3ZWNmYy05NTYyLTRmNjAtODVkNy05MjkyZjA0OTUwNzYiLCJhY2NvdW50IjoiMTUzODA0NTU5NzMifQ.mbSKhh9NksvBqvvwwlDJRb71NPPKDG_GCtQlUSrk_qk",
+    "bizDomain": "app-api-cn.seetong.com",
+    "bizDomainBackup": "app-api-cn-bak.seetong.com",
+    "activeBizDomain": "{\"inUseBizDomain\": \"app-api-cn.seetong.com\", \"inUseBizIp\": \"114.116.204.76\"}",
+    "expiresTime": 1774243384
+  },
+  "sig": {
+    "clientId": "53997842",
+    "token": "eyJhbGciOiJIUzI1NiJ9.eyJjbGllbnRJZCI6IjUzOTk3ODQyIiwiZXhwaXJlVGltZSI6MTc3NDY3NDQ1Nzc0OCwic2VydmVySWQiOiJ0eC1od2ZqbnktdHBzaW90LW1lZGlhLTAxX2FndzEuc2cifQ.UOb-swXY6q330cwUbrswbQFANPtTGtJohjN3dhRSkVw"
+  },
+  "userInfoJson": {
+    "userId": 53997842,
+    "userName": "15380455973",
+    "phone": "15380455973",
+    "email": "",
+    "loginMethod": 0,
+    "isModify": 0
+  },
+  "deviceJson": [
+    {
+      "id": 179727126,
+      "devId": 41125675,
+      "devSn": "0CCF1F60A48B3EC7",
+      "devName": "门口",
+      "devLoginUser": "VwIOUA0=",
+      "devLoginPassword": "WBFVXhVVDgcCfHBVCBZYRw==",
+      "isCorrectPassword": 1,
+      "rightType": "00",
+      "devIp": "112.23.32.108",
+      "isBinder": 0,
+      "devType": 101,
+      "devSubType": 1,
+      "devIsOnline": 1,
+      "devAlarm": 1,
+      "relay": 0,
+      "vip": 0,
+      "p2pLastHeartTime": 1774068480000,
+      "lastHeartTime": 1774069424000,
+      "vaServices": "2|4",
+      "supportCsAi": 1,
+      "isBindVersion": 1,
+      "feature": 68,
+      "sharePermissions": "001,002,003,004,005,006",
+      "devChannelCount": 2,
+      "devChannelStates": "11",
+      "devChannelPermissions": "00",
+      "p2pServer": "42.194.177.127:10058",
+      "supportPlatform": 0,
+      "gatewayId": "",
+      "devNetType": null,
+      "binderName": "153****2053",
+      "seq": null,
+      "isTop": null,
+      "groupId": null,
+      "groupName": ""
+    }
+  ],
+  "priorPreconnectJson": [
+    "41125675"
+  ],
+  "watch": {
+    "cloudId": "41125675",
+    "streamNo": 1,
+    "frameType": 0,
+    "comType": 0,
+    "extra": 1
+  },
+  "setLargeDevlist": false,
+  "logLevel": 255,
+  "captureMs": 12000,
+  "sleepAfterLoginSigMs": 3000,
+  "sleepAfterResumeMs": 4000
+}
