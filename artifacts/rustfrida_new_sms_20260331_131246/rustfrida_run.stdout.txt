@@ -1,0 +1,226 @@
+
+ [1m[36m╔══════════════════════════════════════╗[0m
+ [1m[36m║[0m  [1m      rustFrida v0.1.0             [0m[1m[36m║[0m
+ [1m[36m║[0m  [2m  ARM64 Dynamic Instrumentation    [0m[1m[36m║[0m
+ [1m[36m╚══════════════════════════════════════╝[0m
+
+[1m[34m [*][0m Spawn 模式: 准备注入 com.zenmen.palmchat
+[1m[34m [*][0m 正在修补 SELinux 策略...
+[1m[36m [→][0m 当前 SELinux domain: su
+[1m[36m [→][0m 策略大小: 2553035 bytes
+[1m[36m [→][0m SELinux 策略版本: 30, MLS: true
+[1m[36m [→][0m 解析 5 个 commons
+[1m[36m [→][0m 解析 104 个 classes
+[1m[36m [→][0m 解析 4531 个 types
+[1m[36m [→][0m avtab: 161056 条目, offset 0x3BB98
+[1m[36m [→][0m avtab 范围: 0x3BB98..0x224C44 (2003116 bytes)
+[1m[36m [→][0m 规则变更: 新增 0, 修改 0
+[1m[36m [→][0m 所有规则已存在，无需修补
+[1m[36m [→][0m Zymbiote socket 名称: rustfrida-zymbiote-e5684c5fb3e77486f068fba3a92b06b6
+[1m[36m [→][0m 跳过 32 位进程 zygote (pid=1117)
+[1m[34m [*][0m 找到 1 个新 zygote 进程
+[1m[36m [→][0m 正在注入 zymbiote 到 zygote64 (pid=1115)...
+[1m[36m [→][0m Payload 写入位置: 0x77f7847000 (backing: /system/lib64/libstagefright.so +0x1f7000)
+[1m[36m [→][0m libc.so 基址: 0x77c9050000, 路径: /apex/com.android.runtime/lib64/bionic/libc.so
+[1m[36m [→][0m libc 函数地址已解析
+[1m[36m [→][0m setArgV0 地址: 0x77d2874990
+[1m[36m [→][0m selinux_android_setcontext 地址: 0x77e0bf8250
+[1m[36m [→][0m Payload 构建完成: 1120 bytes
+[1m[36m [→][0m 搜索 13 个 boot heap 区域查找 setArgV0 指针
+[1m[36m [→][0m setArgV0 指针位置: 0x701883f0 (原始值 0x77d2874990) [already patched]
+[1m[36m [→][0m Payload 写入完成
+[1m[36m [→][0m setArgV0 指针已替换: 0x77d2874990 → 0x77f7847074
+[1m[36m [→][0m setcontext GOT 已替换: 0x77d293a280
+[1m[32m [✓][0m Zymbiote 注入成功: zygote64 (pid=1115)
+[1m[34m [*][0m 正在启动应用 com.zenmen.palmchat...
+[1m[36m [→][0m 正在停止应用 com.zenmen.palmchat...
+[1m[36m [→][0m Launch activity: com.zenmen.palmchat/.login.InitActivity
+[1m[34m [*][0m 等待应用 com.zenmen.palmchat 启动... (最长 20s)
+[1m[36m [→][0m Zymbiote hello: pid=30086, ppid=1115, package=com.zenmen.palmchat
+[1m[32m [✓][0m 收到 spawn hello: pid=30086, ppid=1115, package=com.zenmen.palmchat
+[1m[34m [*][0m 正在向子进程 30086 注入 agent...
+[1m[34m [*][0m 正在附加到进程 PID: 30086 (Frida-style bootstrapper)
+[1m[32m [✓][0m 成功附加到进程 30086，等待 SIGSTOP...
+[1m[32m [✓][0m 进程已停止，可以操作寄存器
+[1m[36m [→][0m code-swap 区域: 0x77ff2fc000 (10001 bytes)
+[1m[36m [→][0m bootstrapper Phase 1: mmap 分配...
+[1m[36m [→][0m bootstrapper 分配 RWX 区域: 0x77f4569000 (28672 bytes)
+[1m[36m [→][0m code-swap 区域已恢复
+[1m[36m [→][0m bootstrapper 写入完成 (10001 bytes)
+[1m[36m [→][0m 调用 bootstrapper Phase 2...
+[1m[32m [✓][0m bootstrapper 完成: libc API 已解析
+[1m[36m [→][0m rtld_flavor: 5
+[1m[36m [→][0m ctrlfds: [73, 74]
+[1m[36m [→][0m dlopen: 0x77ff2fc1b0, dlsym: 0x77ff2fc390
+[1m[36m [→][0m pthread_create: 0x77c915b510
+[1m[36m [→][0m pidfd_getfd: pid=30086 target_fd=73 → host_fd=7
+[1m[36m [→][0m 已提取 ctrl fd: target 73 → host 7
+[1m[36m [→][0m StringTable 写入: 0x77f456c2c0
+[1m[36m [→][0m loader 写入完成 (2546 bytes)
+[1m[36m [→][0m 调用 loader...
+[1m[36m [→][0m 分离前寄存器: PC=0x77c9147644 SP=0x7fcb01b510 LR=0x77f784734c FP(x29)=0x7fcb01b600 x19=0x7fcb01b718
+[1m[32m [✓][0m 已分离目标进程
+[1m[36m [→][0m Loader worker tid: 30155
+[1m[36m [→][0m memfd SELinux label → u:object_r:tmpfs:s0:c77,c257,c512,c768
+[1m[36m [→][0m agent SO fd 已发送 (1846000 bytes)
+[1m[36m [→][0m REPL socketpair fd 已发送
+[1m[32m [✓][0m Loader: agent 加载成功
+[1m[34m [*][0m 等待 agent 连接... (最长 30s)
+[1m[32m [✓][0m Agent 已连接
+[1m[34m [*][0m 加载脚本 (子进程暂停中): /data/local/tmp/palmchat_probe_in_app.js
+[1m[35m [agent][0m [JS] [linker api] linker64 base=0x77ff2b6000, path=/apex/com.android.runtime/bin/linker64
+[1m[35m [agent][0m [JS] [linker api] found 7 symbols in one pass
+[1m[35m [agent][0m [JS] [linker api]   __dl___loader_dlvsym=0x77ff2fc3a0
+[1m[35m [agent][0m [JS] [linker api]   __dl__ZL6solist=0x77ff40bd88
+[1m[35m [agent][0m [JS] [linker api]   __dl___loader_android_dlopen_ext=0x77ff2fc0b0
+[1m[35m [agent][0m [JS] [linker api]   __dl___loader_dlopen=0x77ff2fc1b0
+[1m[35m [agent][0m [JS] [linker api]   __dl__ZL10g_dl_mutex=0x77ff404ee0
+[1m[35m [agent][0m [JS] [linker api]   __dl__ZNK6soinfo12get_realpathEv=0x77ff317770
+[1m[35m [agent][0m [JS] [linker api]   __dl__Z15solist_get_headv=0x77ff38afa0
+[1m[35m [agent][0m [JS] [linker api] unrestricted API: dlopen=0x77ff2fc1b0, dlsym=0x77ff2fc3a0, trusted_caller=0x77ff2fc1b0
+[1m[35m [agent][0m [JS] [module] libart.so range: 0x77428f0000-0x7743304000, path: Some("/apex/com.android.art/lib64/libart.so")
+[1m[35m [agent][0m [JS] [linker api] dlopen(/apex/com.android.art/lib64/libart.so, NOLOAD, caller=0x77428f0000) = 0x7cca178a8069ac7d
+[1m[35m [agent][0m [JS] [jniIds] SetJniIdType=0x7742f51df0
+[1m[35m [agent][0m [JS] [jniIds] LDR+CMP 模式: offset=1580 (32bit LDR)
+[1m[35m [agent][0m [JS] [apex] API 34+ 等效: 发现 AppInfo::GetPrimaryApkReferenceProfile
+[1m[35m [agent][0m [JS] [art runtime] 交叉验证通过: 在 ClassLinker+0x138 找到 InternTable*=0x7748c50b00
+[1m[35m [agent][0m [JS] [art runtime] classLinker 候选 Runtime+0x258 验证通过
+[1m[35m [agent][0m [JS] [art runtime] 探测成功: heap=0x200, threadList=0x248, internTable=0x250, classLinker=0x258, jniIdManager=0x270
+[1m[35m [agent][0m [JS] [art runtime] 验证: classLinker*=0x7748cd7c00, internTable*=0x7748c50b00, Runtime=0x7748c14c00
+[1m[35m [agent][0m [JS] [jniIds] JniIdManager*=0x7748c3d3e0 (Runtime+0x270)
+[1m[35m [agent][0m [JS] [jniIds] Frida-style 解码器就绪: DecodeMethodId=true, DecodeFieldId=true, indirection=0
+[1m[35m [agent][0m [JS] [java] hidden API bypass: setHiddenApiExemptions("") OK
+[1m[35m [agent][0m [JS] [java] cached artMethod field ID from java/lang/reflect/Executable
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77fdd60201, GetMethodID(android/app/Instrumentation.newApplication(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Context;)Landroid/app/Application;)=0x700d35b8
+[1m[35m [agent][0m [JS] [art spec] 探测方法: Process.getElapsedCpuTime ArtMethod*=0x70187d00
+[1m[35m [agent][0m [JS] [art spec] libandroid_runtime.so range: 0x77d26d0000-0x77d293d000
+[1m[35m [agent][0m [JS] [art spec] access_flags 发现: offset=4, value=0x50200119, masked=0x119
+[1m[35m [agent][0m [JS] [art spec] data_ (jniCode) 发现: offset=16, value=0x77d2877960
+[1m[35m [agent][0m [JS] [art spec] Frida-style 探测成功: access_flags=4, data_=16, entry_point=24, size=32 (API 34)
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x700d35b8, flags=0x50380001, data_=0x77418dedc0, ep=0x7113ef60
+[1m[35m [agent][0m [JS] [art bridge] 开始发现 ART 内部桥接函数...
+[1m[35m [agent][0m [JS] [art bridge] dlsym 未能获取全部地址，尝试 ClassLinker 扫描...
+[1m[35m [agent][0m [JS] [art bridge] Runtime=0x7748c14c00, java_vm_ 在 Runtime+0x278
+[1m[35m [agent][0m [JS] [art bridge] Android API level: 34, codename: 'REL'
+[1m[35m [agent][0m [JS] [art bridge] 候选: classLinker=0x7748cd7c00 (Runtime+0x258), internTable=0x7748c50b00 (Runtime+0x250)
+[1m[35m [agent][0m [JS] [art bridge] 找到 intern_table_ 在 ClassLinker+0x138
+[1m[35m [agent][0m [JS] [art bridge] ClassLinker: jni_tramp=ClassLinker+0x168=0x70ab4030, interp=ClassLinker+0x170=0x70ab4060, resolution=ClassLinker+0x158=0x70ab4050, imt_conflict=ClassLinker+0x160=0x70ab4040
+[1m[35m [agent][0m [JS] [art bridge] ClassLinker 结果: jni_tramp=0x70ab4030, interp_bridge=0x70ab4060, resolution_tramp=0x70ab4050, imt_conflict=0x70ab4040
+[1m[35m [agent][0m [JS] [art bridge] Nterp 入口点通过 GetNterpEntryPoint() 获取: 0x7742af00e0
+[1m[35m [agent][0m [JS] [art bridge] nterp_entry_point=0x7742af00e0
+[1m[35m [agent][0m [JS] [art bridge] DoCall 实例数=2
+[1m[35m [agent][0m [JS] [art bridge]   DoCall[0]=0x7742cdf460
+[1m[35m [agent][0m [JS] [art bridge]   DoCall[1]=0x7742ce0230
+[1m[35m [agent][0m [JS] [art bridge] gc_copying_phase=0x7742c00c90
+[1m[35m [agent][0m [JS] [art bridge] gc_collect_internal=0x7742c61650
+[1m[35m [agent][0m [JS] [art bridge] run_flip_function=0x7742f9e7d0
+[1m[35m [agent][0m [JS] [art bridge] get_oat_quick_method_header=0x7742b44db0
+[1m[35m [agent][0m [JS] [art bridge] fixup_static_trampolines=0x7742b59a40
+[1m[35m [agent][0m [JS] [art bridge] thread_current=0x0
+[1m[35m [agent][0m [JS] [art bridge] pretty_method=0x7742b44880
+[1m[35m [agent][0m [JS] [art bridge] 解析 trampoline 0x70ab4030 → Thread+0x350 → entrypoint 0x7742b173a0
+[1m[35m [agent][0m [JS] [art bridge] 解析 trampoline 0x70ab4060 → Thread+0x4c0 → entrypoint 0x7742b17510
+[1m[35m [agent][0m [JS] [art bridge] 解析 trampoline 0x70ab4050 → Thread+0x4b8 → entrypoint 0x7742b17260
+[1m[35m [agent][0m [JS] [art bridge] resolved entrypoints: jni=0x7742b173a0, interp=0x7742b17510, resolution=0x7742b17260
+[1m[35m [agent][0m [JS] [art bridge] ART 桥接函数发现完成
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x7113ef60)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x772aea98c0, flags=0x52000101, data_=0x770eb70028, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [artController] 开始安装三层拦截矩阵...
+[1m[35m [agent][0m [JS] [art thread] JNIEnv=0x772aea7500, Thread*=0x772ae23c00 (raw=0x772ae23c00)
+[1m[35m [agent][0m [JS] [art thread] 找到 jni_env 在 Thread+208 (value=0x772aea7500)
+[1m[35m [agent][0m [JS] [art thread] 探测成功 (API 34): exception=160, managed_stack=176, self=224, top_handle_scope=288, is_exception_reported=None, throw_location=None
+[1m[35m [agent][0m [JS] [managed stack] API 34: top_quick_frame=0, link=8
+[1m[35m [agent][0m [JS] [jit cache] InvalidateAllMethods 符号未找到，跳过 JIT 缓存清空
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] resolve_art_trampoline: 0x70ab4060 → LDR X16,[X19,#1216]; BR X16 → 7742b17510
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x7742b17510, thunk=0x770eb703a0, trampoline=0x770eb702a0
+[1m[35m [agent][0m [JS] [artController] Layer 1: quick_to_interpreter_bridge hook 安装成功: 0x70ab4060 (hooked=0x7742b17510), trampoline=0x770eb702a0
+[1m[35m [agent][0m [JS] [hook_engine] [dump_code] 0x7742b17510 (20 bytes):
+[1m[35m [agent][0m [JS] [hook_engine]   +000: b0e602d0
+[1m[35m [agent][0m [JS] [hook_engine]   +004: 910e8210
+[1m[35m [agent][0m [JS] [hook_engine]   +008: d61f0200
+[1m[35m [agent][0m [JS] [hook_engine]   +00c: d10383ff
+[1m[35m [agent][0m [JS] [hook_engine]   +010: 6d0107e0
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] resolve_art_trampoline: 0x70ab4050 → LDR X16,[X19,#1208]; BR X16 → 7742b17260
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x7742b17260, thunk=0x770eb70d18, trampoline=0x770eb70c18
+[1m[35m [agent][0m [JS] [artController] Layer 1: quick_resolution_trampoline hook 安装成功: 0x70ab4050 (hooked=0x7742b17260), trampoline=0x770eb70c18
+[1m[35m [agent][0m [JS] [hook_engine] [dump_code] 0x7742b17260 (20 bytes):
+[1m[35m [agent][0m [JS] [hook_engine]   +000: b0e602d0
+[1m[35m [agent][0m [JS] [hook_engine]   +004: 91346210
+[1m[35m [agent][0m [JS] [hook_engine]   +008: d61f0200
+[1m[35m [agent][0m [JS] [hook_engine]   +00c: d10383ff
+[1m[35m [agent][0m [JS] [hook_engine]   +010: 6d0107e0
+[1m[35m [agent][0m [JS] [artController] Layer 2: DoCall[0] hook 安装成功: 0x7742cdf460
+[1m[35m [agent][0m [JS] [artController] Layer 2: DoCall[1] hook 安装成功: 0x7742ce0230
+[1m[35m [agent][0m [JS] [artController] GC CopyingPhase hook 安装成功: 0x7742c00c90
+[1m[35m [agent][0m [JS] [artController] GC CollectGarbageInternal hook 安装成功: 0x7742c61650
+[1m[35m [agent][0m [JS] [artController] GC RunFlipFunction hook 安装成功: 0x7742f9e7d0
+[1m[35m [agent][0m [JS] [artController] GetOatQuickMethodHeader hook 安装成功: 0x7742b44db0, trampoline=0x770eb726e8
+[1m[35m [agent][0m [JS] [artController] FixupStaticTrampolines hook 安装成功: 0x7742b59a40
+[1m[35m [agent][0m [JS] [artController] PrettyMethod hook 安装成功: 0x7742b44880
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] scanning libart: exec=0x7742af0000+5824512, full=0x77428f0000+10567680
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] found 1 inlined GetOatQuickMethodHeader patterns
+[1m[35m [agent][0m [JS] [hook_engine] hook_mmap_near_range: OK at 0x77428e0000 for target 0x7742b44dd4 (range=±134217728)
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] trampoline at 0x77428e0000, size=192, method_reg=x0
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] apply: addr=0x7742b44dd4 overwrite=12 stealth_mode=0
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] patched inlined GetOatQuickMethodHeader at 0x7742b44dd4 (method_reg=x0, B.EQ→runtime)
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] done: 1/1 patterns patched
+[1m[35m [agent][0m [JS] [artController] WalkStack SIGSEGV guard 已安装
+[1m[35m [agent][0m [JS] [artController] 初始化完成: Layer1=2, Layer2=2, GC=3, OatHeader=active, Fixup=active, PrettyMethod=active, InlinePatch=1
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=700d35b8, replacement=772aea98c0
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x50380001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x7113ef60, thunk=0x770eb73250, trampoline=0x770eb73150
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x7113ef60 (hooked=0x7113ef60), trampoline=0x770eb73150, current_ep=0x7113ef60, first_bytes=104a86d2
+[1m[35m [agent][0m [JS] [java hook] 完成: android/app/Instrumentation.newApplication(Ljava/lang/ClassLoader;Ljava/lang/String;Landroid/content/Context;)Landroid/app/Application; (ArtMethod=0x700d35b8, strategy=compiled+router)
+[32m=> undefined[0m
+[1m[36m [→][0m 正在恢复子进程 30086...
+[1m[36m [→][0m 等待子进程 30086 关闭 socket...
+[1m[36m [→][0m 等待子进程 30086 SIGSTOP...
+[1m[36m [→][0m 子进程 30086 已停止
+[1m[36m [→][0m 还原子进程 30086 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 30086 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 30086 setcontext GOT at 0x77d293a280
+[1m[32m [✓][0m 子进程 30086 已恢复运行
+  [2m输入 help 查看命令，exit 退出[0m
+rustfrida> [1m[35m [agent][0m [JS] [java.ready] ClassLoader 已更新
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77fde79025, GetMethodID(android.app.Instrumentation.callApplicationOnCreate(Landroid/app/Application;)V)=0x700d3278
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x700d3278, flags=0x50380001, data_=0x77418e0014, ep=0x7113e790
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x7113e790)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x77168bd160, flags=0x52000101, data_=0x770eb73a78, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=700d3278, replacement=77168bd160
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x50380001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x7113e790, thunk=0x770eb73df0, trampoline=0x770eb73cf0
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x7113e790 (hooked=0x7113e790), trampoline=0x770eb73cf0, current_ep=0x7113e790, first_bytes=10be87d2
+[1m[35m [agent][0m [JS] [java hook] 完成: android.app.Instrumentation.callApplicationOnCreate(Landroid/app/Application;)V (ArtMethod=0x700d3278, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [probe-in-app] hooked Instrumentation.callApplicationOnCreate
+[1m[35m [agent][0m [JS] [probe-in-app] callApplicationOnCreate pkg=com.zenmen.palmchat
+[1m[36m [→][0m Zymbiote hello: pid=30408, ppid=1115, package=com.zenmen.palmchat:persistent
+[1m[36m [→][0m 未找到 com.zenmen.palmchat:persistent 的 spawn 请求，放行 pid=30408
+[1m[36m [→][0m 还原子进程 30408 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 30408 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 30408 setcontext GOT at 0x77d293a280
+[1m[36m [→][0m Zymbiote hello: pid=30416, ppid=1115, package=com.zenmen.palmchat.daemon
+[1m[36m [→][0m 未找到 com.zenmen.palmchat.daemon 的 spawn 请求，放行 pid=30416
+[1m[36m [→][0m 还原子进程 30416 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 30416 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 30416 setcontext GOT at 0x77d293a280
+[1m[36m [→][0m Zymbiote hello: pid=30468, ppid=1115, package=com.zenmen.palmchat:assist
+[1m[36m [→][0m 未找到 com.zenmen.palmchat:assist 的 spawn 请求，放行 pid=30468
+[1m[36m [→][0m 还原子进程 30468 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 30468 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 30468 setcontext GOT at 0x77d293a280
+[1m[36m [→][0m Zymbiote hello: pid=30479, ppid=1115, package=com.zenmen.palmchat:assist1
+[1m[36m [→][0m 未找到 com.zenmen.palmchat:assist1 的 spawn 请求，放行 pid=30479
+[1m[36m [→][0m 还原子进程 30479 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 30479 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 30479 setcontext GOT at 0x77d293a280
+[1m[35m [agent][0m [JS] [probe-in-app] invokeHelper error reason=callApplicationOnCreate err=TypeError: Java._setClassLoader() loader must be a loader object or pointer
+[1m[36m [→][0m Zymbiote hello: pid=30948, ppid=1115, package=com.zenmen.palmchat:pushservice
+[1m[36m [→][0m 未找到 com.zenmen.palmchat:pushservice 的 spawn 请求，放行 pid=30948
+[1m[36m [→][0m 还原子进程 30948 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 30948 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 30948 setcontext GOT at 0x77d293a280
+[1m[36m [→][0m Zymbiote hello: pid=31013, ppid=1115, package=com.zenmen.palmchat:daemon
+[1m[36m [→][0m 未找到 com.zenmen.palmchat:daemon 的 spawn 请求，放行 pid=31013
+[1m[36m [→][0m 还原子进程 31013 payload at 0x77f7847000 (1120 bytes)
+[1m[36m [→][0m 还原子进程 31013 setArgV0 指针 at 0x701883f0
+[1m[36m [→][0m 还原子进程 31013 setcontext GOT at 0x77d293a280

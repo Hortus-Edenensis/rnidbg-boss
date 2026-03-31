@@ -8,7 +8,7 @@ use crate::memory::svc_memory::SvcCallResult::{FUCK, RET};
 use crate::memory::svc_memory::{Arm64Svc, SvcCallResult};
 use crate::pointer::VMPointer;
 use anyhow::anyhow;
-use log::debug;
+use log::{debug, warn};
 use std::mem::size_of;
 
 const PROP_VALUE_LEN_SHIFT: u32 = 24;
@@ -116,6 +116,13 @@ impl<T: Clone> Arm64Svc<T> for SystemPropertyGet {
         let Ok(name_pointer) = backend.reg_read(RegisterARM64::X0) else {
             return FUCK(anyhow!("unable to get name_pointer"));
         };
+        if name_pointer == 0 {
+            if let Ok(value) = backend.reg_read(RegisterARM64::X1) {
+                let _ = write_property_value(backend, value, b"");
+            }
+            warn!("__system_property_get called with null name pointer");
+            return RET(0);
+        }
         let Ok(name) = backend.mem_read_c_string(name_pointer) else {
             return FUCK(anyhow!(
                 "unable to read name from name pointer: 0x{:X}",
@@ -153,6 +160,10 @@ impl<T: Clone> Arm64Svc<T> for SystemPropertyFind {
         let Ok(name_pointer) = backend.reg_read(RegisterARM64::X0) else {
             return FUCK(anyhow!("unable to get name_pointer"));
         };
+        if name_pointer == 0 {
+            warn!("__system_property_find called with null name pointer");
+            return RET(0);
+        }
         let Ok(name) = backend.mem_read_c_string(name_pointer) else {
             return FUCK(anyhow!(
                 "unable to read name from name pointer: 0x{:X}",

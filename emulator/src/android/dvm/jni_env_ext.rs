@@ -59,6 +59,14 @@ fn checked_byte_array_region(op: &str, start: usize, length: usize, total: usize
     Ok(())
 }
 
+fn object_long_fallback_value(object: &DvmObject) -> Option<i64> {
+    match object {
+        DvmObject::DataMutInstance(_, data) => unsafe { (&*data.get()).downcast_ref::<i64>().copied() },
+        DvmObject::DataInstance(_, data) => data.downcast_ref::<i64>().copied(),
+        _ => None,
+    }
+}
+
 fn NoImplementedHandler<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
     SvcCallResult::FUCK(anyhow!("Svc({}) No Implemented!", name))
 }
@@ -125,6 +133,16 @@ fn ExceptionClear<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCal
     }
     dalvik!(emulator).throwable = None;
     RET(JNI_OK)
+}
+
+fn ExceptionDescribe<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
+    let throwable_present = dalvik!(emulator).throwable.is_some();
+    info!(
+        "JNI ExceptionDescribe throwable_present={} lr=0x{:X}",
+        throwable_present,
+        emulator.get_lr().unwrap_or(0)
+    );
+    VOID
 }
 
 fn NewGlobalRef<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
@@ -1131,6 +1149,86 @@ fn GetIntField<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallRe
             "{} {}(env = 0x{:x}, object = 0x{:x}, field = 0x{:x}) => 0x{:x}",
             Color::Yellow.paint("JNI:"),
             Color::Blue.paint("GetIntField"),
+            env!(emulator),
+            object_id,
+            field_id,
+            value
+        );
+    }
+
+    RET(value)
+}
+
+fn GetLongField<T: Clone>(name: &str, emulator: &AndroidEmulator<T>) -> SvcCallResult {
+    let dvm = dalvik!(emulator);
+    let object_id = emulator.backend.reg_read(RegisterARM64::X1).unwrap() as i64;
+    let field_id = emulator.backend.reg_read(RegisterARM64::X2).unwrap() as i64;
+
+    if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
+        debug!(
+            "{} {}(env = 0x{:x}, object = 0x{:x}, field = 0x{:x})",
+            Color::Yellow.paint("JNI:"),
+            Color::Blue.paint("GetLongField"),
+            env!(emulator),
+            object_id,
+            field_id
+        );
+    }
+
+    let flag = jni::get_flag_id(object_id);
+    let instance = if flag == JNI_FLAG_REF {
+        dalvik!(emulator).get_global_ref_mut(object_id)
+    } else if flag == JNI_FLAG_OBJECT {
+        dalvik!(emulator).get_local_ref_mut(object_id)
+    } else {
+        None
+    };
+
+    if instance.is_none() {
+        panic!("GetLongField: Object not found");
+    }
+    let instance = instance.unwrap();
+    let class = instance.get_class(dvm);
+
+    let Some(field) = dvm.find_field_by_id(class.id, field_id) else {
+        if class.name == "android/content/res/AssetManager" {
+            if let Some(value) = object_long_fallback_value(instance) {
+                warn!(
+                    "JNI GetLongField fallback class={} field_id=0x{:x} value=0x{:x}",
+                    class.name, field_id, value
+                );
+                return RET(value);
+            }
+            let scratch = emulator.backend.reg_read(RegisterARM64::SP).unwrap_or(0) as i64;
+            warn!(
+                "JNI GetLongField fallback class={} field_id=0x{:x} using_sp_scratch=0x{:x}",
+                class.name, field_id, scratch
+            );
+            return RET(scratch);
+        }
+        panic!(
+            "GetLongField: field not found class={} field_id=0x{:x}",
+            class.name, field_id
+        );
+    };
+    let value = dalvik!(emulator)
+        .jni
+        .as_mut()
+        .expect("JNI not register")
+        .get_field_value(dalvik!(emulator), &class, field, Some(instance));
+
+    let value = match value {
+        JniValue::Long(value) => value,
+        JniValue::Int(value) => value as i64,
+        JniValue::Null => JNI_NULL,
+        _ => unreachable!(),
+    };
+
+    if option_env!("PRINT_JNI_CALLS").unwrap_or("") == "1" {
+        debug!(
+            "{} {}(env = 0x{:x}, object = 0x{:x}, field = 0x{:x}) => 0x{:x}",
+            Color::Yellow.paint("JNI:"),
+            Color::Blue.paint("GetLongField"),
             env!(emulator),
             object_id,
             field_id,
@@ -3107,10 +3205,8 @@ pub fn initialize_env<T: Clone>(svc_memory: &mut SvcMemory<T>) -> u64 {
         "_ExceptionOccurred",
         NoImplementedHandler,
     ));
-    let _exception_describe = svc_memory.register_svc(SimpleArm64Svc::new(
-        "_ExceptionDescribe",
-        NoImplementedHandler,
-    ));
+    let _exception_describe =
+        svc_memory.register_svc(SimpleArm64Svc::new("_ExceptionDescribe", ExceptionDescribe));
     let _exception_clear =
         svc_memory.register_svc(SimpleArm64Svc::new("_ExceptionClear", ExceptionClear));
     let _fatal_error =
@@ -3135,8 +3231,9 @@ pub fn initialize_env<T: Clone>(svc_memory: &mut SvcMemory<T>) -> u64 {
     ));
     let _alloc_object =
         svc_memory.register_svc(SimpleArm64Svc::new("_AllocObject", NoImplementedHandler));
-    let _new_object =
-        svc_memory.register_svc(SimpleArm64Svc::new("_NewObject", NoImplementedHandler));
+    let _new_object = svc_memory.register_svc(SimpleArm64Svc::new("_NewObject", |name, emulator| {
+        with_synthesized_varargs(emulator, NewObjectV, name)
+    }));
     let _new_object_v = svc_memory.register_svc(SimpleArm64Svc::new("_NewObjectV", NewObjectV));
     let _new_object_a =
         svc_memory.register_svc(SimpleArm64Svc::new("_NewObjectA", NoImplementedHandler));
@@ -3378,7 +3475,7 @@ pub fn initialize_env<T: Clone>(svc_memory: &mut SvcMemory<T>) -> u64 {
         svc_memory.register_svc(SimpleArm64Svc::new("_GetShortField", NoImplementedHandler));
     let _get_int_field = svc_memory.register_svc(SimpleArm64Svc::new("_GetIntField", GetIntField));
     let _get_long_field =
-        svc_memory.register_svc(SimpleArm64Svc::new("_GetLongField", NoImplementedHandler));
+        svc_memory.register_svc(SimpleArm64Svc::new("_GetLongField", GetLongField));
     let _get_float_field =
         svc_memory.register_svc(SimpleArm64Svc::new("_GetFloatField", NoImplementedHandler));
     let _get_double_field =

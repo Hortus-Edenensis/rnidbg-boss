@@ -1,0 +1,15 @@
+
+ [1m[36m╔══════════════════════════════════════╗[0m
+ [1m[36m║[0m  [1m      rustFrida v0.1.0             [0m[1m[36m║[0m
+ [1m[36m║[0m  [2m  ARM64 Dynamic Instrumentation    [0m[1m[36m║[0m
+ [1m[36m╚══════════════════════════════════════╝[0m
+
+[1m[34m [*][0m 正在附加到进程 PID: 28148 (Frida-style bootstrapper)
+[1m[32m [✓][0m 成功附加到进程 28148，等待 SIGSTOP...
+[1m[32m [✓][0m 进程已停止，可以操作寄存器
+[1m[36m [→][0m code-swap 区域: 0x77ff2fc000 (10001 bytes)
+[1m[36m [→][0m bootstrapper Phase 1: mmap 分配...
+[1m[36m [→][0m bootstrapper 分配 RWX 区域: 0x77f7381000 (28672 bytes)
+[1m[36m [→][0m code-swap 区域已恢复
+[1m[36m [→][0m bootstrapper 写入完成 (10001 bytes)
+[1m[36m [→][0m 调用 bootstrapper Phase 2...

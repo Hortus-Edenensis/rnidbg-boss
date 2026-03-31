@@ -52,11 +52,18 @@ impl<'a, T: Clone> SvcMemory<'a, T> {
     }
 
     pub fn register_svc(&mut self, svc_box: Box<dyn Arm64Svc<T> + 'a>) -> u64 {
+        let next_number = self.arm_svc_number + 1;
         if option_env!("PRINT_SVC_REGISTER").unwrap_or("") == "1" {
             debug!(
                 "register_svc: name={}, svc_number=0x{:x}",
                 &svc_box.name(),
-                self.arm_svc_number + 1
+                next_number
+            );
+        } else if std::env::var_os("RNIDBG_TRACE_SVC_MAP").is_some() {
+            log::warn!(
+                "register_svc: name={}, svc_number=0x{:x}",
+                &svc_box.name(),
+                next_number
             );
         }
         let pointer = unsafe {

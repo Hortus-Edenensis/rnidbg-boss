@@ -1,0 +1,12 @@
+{
+  "artifact_dir": "artifacts/rustfrida_new_sms_20260331_131535",
+  "package": "com.zenmen.palmchat",
+  "pid": null,
+  "remote_bin": "/data/local/tmp/rustfrida",
+  "remote_cmd": "'/data/local/tmp/rustfrida' --spawn 'com.zenmen.palmchat' -l '/data/local/tmp/palmchat_probe_in_app.js' --verbose",
+  "remote_script": "/data/local/tmp/palmchat_probe_in_app.js",
+  "run_seconds": 25,
+  "script": "/tmp/palmchat_probe_in_app.js",
+  "status": null,
+  "timed_out": true
+}

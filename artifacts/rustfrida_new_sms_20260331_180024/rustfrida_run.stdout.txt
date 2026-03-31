@@ -1,0 +1,258 @@
+
+ [1m[36m╔══════════════════════════════════════╗[0m
+ [1m[36m║[0m  [1m      rustFrida v0.1.0             [0m[1m[36m║[0m
+ [1m[36m║[0m  [2m  ARM64 Dynamic Instrumentation    [0m[1m[36m║[0m
+ [1m[36m╚══════════════════════════════════════╝[0m
+
+[1m[34m [*][0m 正在附加到进程 PID: 23254 (Frida-style bootstrapper)
+[1m[32m [✓][0m 成功附加到进程 23254，等待 SIGSTOP...
+[1m[32m [✓][0m 进程已停止，可以操作寄存器
+[1m[36m [→][0m code-swap 区域: 0x77ff2fc000 (10001 bytes)
+[1m[36m [→][0m bootstrapper Phase 1: mmap 分配...
+[1m[36m [→][0m bootstrapper 分配 RWX 区域: 0x77ec6d9000 (28672 bytes)
+[1m[36m [→][0m code-swap 区域已恢复
+[1m[36m [→][0m bootstrapper 写入完成 (10001 bytes)
+[1m[36m [→][0m 调用 bootstrapper Phase 2...
+[1m[32m [✓][0m bootstrapper 完成: libc API 已解析
+[1m[36m [→][0m rtld_flavor: 5
+[1m[36m [→][0m ctrlfds: [281, 292]
+[1m[36m [→][0m dlopen: 0x77ff2fc1b0, dlsym: 0x77ff2fc390
+[1m[36m [→][0m pthread_create: 0x77c915b510
+[1m[36m [→][0m pidfd_getfd: pid=23254 target_fd=281 → host_fd=4
+[1m[36m [→][0m 已提取 ctrl fd: target 281 → host 4
+[1m[36m [→][0m StringTable 写入: 0x77ec6dc2c0
+[1m[36m [→][0m loader 写入完成 (2546 bytes)
+[1m[36m [→][0m 调用 loader...
+[1m[36m [→][0m 分离前寄存器: PC=0x77c9147aa8 SP=0x7fcb01aed0 LR=0x77d25e8b60 FP(x29)=0x7fcb01b040 x19=0x7748c1a980
+[1m[32m [✓][0m 已分离目标进程
+[1m[36m [→][0m Loader worker tid: 14924
+[1m[36m [→][0m memfd SELinux label → u:object_r:tmpfs:s0:c77,c257,c512,c768
+[1m[36m [→][0m agent SO fd 已发送 (1846000 bytes)
+[1m[36m [→][0m REPL socketpair fd 已发送
+[1m[32m [✓][0m Loader: agent 加载成功
+[1m[34m [*][0m 等待 agent 连接... (最长 30s)
+[1m[32m [✓][0m Agent 已连接
+[1m[34m [*][0m 加载脚本: /data/local/tmp/palmchat_new_send_sms_rustfrida.js
+[1m[35m [agent][0m [JS] [linker api] linker64 base=0x77ff2b6000, path=/apex/com.android.runtime/bin/linker64
+[1m[35m [agent][0m [JS] [linker api] found 7 symbols in one pass
+[1m[35m [agent][0m [JS] [linker api]   __dl___loader_android_dlopen_ext=0x77ff2fc0b0
+[1m[35m [agent][0m [JS] [linker api]   __dl___loader_dlvsym=0x77ff2fc3a0
+[1m[35m [agent][0m [JS] [linker api]   __dl__ZL6solist=0x77ff40bd88
+[1m[35m [agent][0m [JS] [linker api]   __dl__ZL10g_dl_mutex=0x77ff404ee0
+[1m[35m [agent][0m [JS] [linker api]   __dl__ZNK6soinfo12get_realpathEv=0x77ff317770
+[1m[35m [agent][0m [JS] [linker api]   __dl___loader_dlopen=0x77ff2fc1b0
+[1m[35m [agent][0m [JS] [linker api]   __dl__Z15solist_get_headv=0x77ff38afa0
+[1m[35m [agent][0m [JS] [linker api] unrestricted API: dlopen=0x77ff2fc1b0, dlsym=0x77ff2fc3a0, trusted_caller=0x77ff2fc1b0
+[1m[35m [agent][0m [JS] [module] libart.so range: 0x77428f0000-0x7743304000, path: Some("/apex/com.android.art/lib64/libart.so")
+[1m[35m [agent][0m [JS] [linker api] dlopen(/apex/com.android.art/lib64/libart.so, NOLOAD, caller=0x77428f0000) = 0x7cca178a8069ac7d
+[1m[35m [agent][0m [JS] [jniIds] SetJniIdType=0x7742f51df0
+[1m[35m [agent][0m [JS] [jniIds] LDR+CMP 模式: offset=1580 (32bit LDR)
+[1m[35m [agent][0m [JS] [apex] API 34+ 等效: 发现 AppInfo::GetPrimaryApkReferenceProfile
+[1m[35m [agent][0m [JS] [art runtime] 交叉验证通过: 在 ClassLinker+0x138 找到 InternTable*=0x7748c50b00
+[1m[35m [agent][0m [JS] [art runtime] classLinker 候选 Runtime+0x258 验证通过
+[1m[35m [agent][0m [JS] [art runtime] 探测成功: heap=0x200, threadList=0x248, internTable=0x250, classLinker=0x258, jniIdManager=0x270
+[1m[35m [agent][0m [JS] [art runtime] 验证: classLinker*=0x7748cd7c00, internTable*=0x7748c50b00, Runtime=0x7748c14c00
+[1m[35m [agent][0m [JS] [jniIds] JniIdManager*=0x7748c3d3e0 (Runtime+0x270)
+[1m[35m [agent][0m [JS] [jniIds] Frida-style 解码器就绪: DecodeMethodId=true, DecodeFieldId=true, indirection=0
+[1m[35m [agent][0m [JS] [java] hidden API bypass: setHiddenApiExemptions("") OK
+[1m[35m [agent][0m [JS] [java] cached artMethod field ID from java/lang/reflect/Executable
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [*] start rustFrida Palmchat new SMS capture
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [*] thread_ret_patch=false pthread_hook_mode=0 java_stealth=0
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [*] passive_mode java_ctor=true reg_natives=false native_buffer=false dlopen_trace=false recovery_retry=false
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [*] dummy thread routine -> getpid @ 0x77c90f3b10
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [*] libmsaoaidsec.so already loaded @ 0x76b0690000
+[1m[35m [agent][0m [JS] [stealth] Java hook 模式: 关闭
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(sw4.d()Lorg/json/JSONObject;)=0x9e617668
+[1m[35m [agent][0m [JS] [art spec] 探测方法: Process.getElapsedCpuTime ArtMethod*=0x70187d00
+[1m[35m [agent][0m [JS] [art spec] libandroid_runtime.so range: 0x77d26d0000-0x77d293d000
+[1m[35m [agent][0m [JS] [art spec] access_flags 发现: offset=4, value=0x50200119, masked=0x119
+[1m[35m [agent][0m [JS] [art spec] data_ (jniCode) 发现: offset=16, value=0x77d2877960
+[1m[35m [agent][0m [JS] [art spec] Frida-style 探测成功: access_flags=4, data_=16, entry_point=24, size=32 (API 34)
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e617668, flags=0x12200001, data_=0x76b39fa1b1, ep=0x76b1fc2a10
+[1m[35m [agent][0m [JS] [art bridge] 开始发现 ART 内部桥接函数...
+[1m[35m [agent][0m [JS] [art bridge] dlsym 未能获取全部地址，尝试 ClassLinker 扫描...
+[1m[35m [agent][0m [JS] [art bridge] Runtime=0x7748c14c00, java_vm_ 在 Runtime+0x278
+[1m[35m [agent][0m [JS] [art bridge] Android API level: 34, codename: 'REL'
+[1m[35m [agent][0m [JS] [art bridge] 候选: classLinker=0x7748cd7c00 (Runtime+0x258), internTable=0x7748c50b00 (Runtime+0x250)
+[1m[35m [agent][0m [JS] [art bridge] 找到 intern_table_ 在 ClassLinker+0x138
+[1m[35m [agent][0m [JS] [art bridge] ClassLinker: jni_tramp=ClassLinker+0x168=0x70ab4030, interp=ClassLinker+0x170=0x70ab4060, resolution=ClassLinker+0x158=0x70ab4050, imt_conflict=ClassLinker+0x160=0x70ab4040
+[1m[35m [agent][0m [JS] [art bridge] ClassLinker 结果: jni_tramp=0x70ab4030, interp_bridge=0x70ab4060, resolution_tramp=0x70ab4050, imt_conflict=0x70ab4040
+[1m[35m [agent][0m [JS] [art bridge] Nterp 入口点通过 GetNterpEntryPoint() 获取: 0x7742af00e0
+[1m[35m [agent][0m [JS] [art bridge] nterp_entry_point=0x7742af00e0
+[1m[35m [agent][0m [JS] [art bridge] DoCall 实例数=2
+[1m[35m [agent][0m [JS] [art bridge]   DoCall[0]=0x7742cdf460
+[1m[35m [agent][0m [JS] [art bridge]   DoCall[1]=0x7742ce0230
+[1m[35m [agent][0m [JS] [art bridge] gc_copying_phase=0x7742c00c90
+[1m[35m [agent][0m [JS] [art bridge] gc_collect_internal=0x7742c61650
+[1m[35m [agent][0m [JS] [art bridge] run_flip_function=0x7742f9e7d0
+[1m[35m [agent][0m [JS] [art bridge] get_oat_quick_method_header=0x7742b44db0
+[1m[35m [agent][0m [JS] [art bridge] fixup_static_trampolines=0x7742b59a40
+[1m[35m [agent][0m [JS] [art bridge] thread_current=0x0
+[1m[35m [agent][0m [JS] [art bridge] pretty_method=0x7742b44880
+[1m[35m [agent][0m [JS] [art bridge] 解析 trampoline 0x70ab4030 → Thread+0x350 → entrypoint 0x7742b173a0
+[1m[35m [agent][0m [JS] [art bridge] 解析 trampoline 0x70ab4060 → Thread+0x4c0 → entrypoint 0x7742b17510
+[1m[35m [agent][0m [JS] [art bridge] 解析 trampoline 0x70ab4050 → Thread+0x4b8 → entrypoint 0x7742b17260
+[1m[35m [agent][0m [JS] [art bridge] resolved entrypoints: jni=0x7742b173a0, interp=0x7742b17510, resolution=0x7742b17260
+[1m[35m [agent][0m [JS] [art bridge] ART 桥接函数发现完成
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1fc2a10)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x7669154500, flags=0x12000101, data_=0x77e6a00028, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [artController] 开始安装三层拦截矩阵...
+[1m[35m [agent][0m [JS] [art thread] JNIEnv=0x7649298000, Thread*=0x7726747000 (raw=0x7726747000)
+[1m[35m [agent][0m [JS] [art thread] 找到 jni_env 在 Thread+208 (value=0x7649298000)
+[1m[35m [agent][0m [JS] [art thread] 探测成功 (API 34): exception=160, managed_stack=176, self=224, top_handle_scope=288, is_exception_reported=None, throw_location=None
+[1m[35m [agent][0m [JS] [managed stack] API 34: top_quick_frame=0, link=8
+[1m[35m [agent][0m [JS] [jit cache] InvalidateAllMethods 符号未找到，跳过 JIT 缓存清空
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] resolve_art_trampoline: 0x70ab4060 → LDR X16,[X19,#1216]; BR X16 → 7742b17510
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x7742b17510, thunk=0x77e6a003a0, trampoline=0x77e6a002a0
+[1m[35m [agent][0m [JS] [artController] Layer 1: quick_to_interpreter_bridge hook 安装成功: 0x70ab4060 (hooked=0x7742b17510), trampoline=0x77e6a002a0
+[1m[35m [agent][0m [JS] [hook_engine] [dump_code] 0x7742b17510 (20 bytes):
+[1m[35m [agent][0m [JS] [hook_engine]   +000: b051f750
+[1m[35m [agent][0m [JS] [hook_engine]   +004: 910e8210
+[1m[35m [agent][0m [JS] [hook_engine]   +008: d61f0200
+[1m[35m [agent][0m [JS] [hook_engine]   +00c: d10383ff
+[1m[35m [agent][0m [JS] [hook_engine]   +010: 6d0107e0
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] resolve_art_trampoline: 0x70ab4050 → LDR X16,[X19,#1208]; BR X16 → 7742b17260
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x7742b17260, thunk=0x77e6a00d18, trampoline=0x77e6a00c18
+[1m[35m [agent][0m [JS] [artController] Layer 1: quick_resolution_trampoline hook 安装成功: 0x70ab4050 (hooked=0x7742b17260), trampoline=0x77e6a00c18
+[1m[35m [agent][0m [JS] [hook_engine] [dump_code] 0x7742b17260 (20 bytes):
+[1m[35m [agent][0m [JS] [hook_engine]   +000: b051f750
+[1m[35m [agent][0m [JS] [hook_engine]   +004: 91346210
+[1m[35m [agent][0m [JS] [hook_engine]   +008: d61f0200
+[1m[35m [agent][0m [JS] [hook_engine]   +00c: d10383ff
+[1m[35m [agent][0m [JS] [hook_engine]   +010: 6d0107e0
+[1m[35m [agent][0m [JS] [artController] Layer 2: DoCall[0] hook 安装成功: 0x7742cdf460
+[1m[35m [agent][0m [JS] [artController] Layer 2: DoCall[1] hook 安装成功: 0x7742ce0230
+[1m[35m [agent][0m [JS] [artController] GC CopyingPhase hook 安装成功: 0x7742c00c90
+[1m[35m [agent][0m [JS] [artController] GC CollectGarbageInternal hook 安装成功: 0x7742c61650
+[1m[35m [agent][0m [JS] [artController] GC RunFlipFunction hook 安装成功: 0x7742f9e7d0
+[1m[35m [agent][0m [JS] [artController] GetOatQuickMethodHeader hook 安装成功: 0x7742b44db0, trampoline=0x77e6a026e8
+[1m[35m [agent][0m [JS] [artController] FixupStaticTrampolines hook 安装成功: 0x7742b59a40
+[1m[35m [agent][0m [JS] [artController] PrettyMethod hook 安装成功: 0x7742b44880
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] scanning libart: exec=0x7742af0000+5824512, full=0x77428f0000+10567680
+[1m[35m [agent][0m [JS] [hook_engine] [oat_patch] found 0 inlined GetOatQuickMethodHeader patterns
+[1m[35m [agent][0m [JS] [artController] WalkStack SIGSEGV guard 已安装
+[1m[35m [agent][0m [JS] [artController] 初始化完成: Layer1=2, Layer2=2, GC=3, OatHeader=active, Fixup=active, PrettyMethod=active, InlinePatch=0
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e617668, replacement=7669154500
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1fc2a10, thunk=0x77e6a03250, trampoline=0x77e6a03150
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1fc2a10 (hooked=0x76b1fc2a10), trampoline=0x77e6a03150, current_ep=0x76b1fc2a10, first_bytes=104a86d2
+[1m[35m [agent][0m [JS] [java hook] 完成: sw4.d()Lorg/json/JSONObject; (ArtMethod=0x9e617668, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] sw4.d hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(o92.getRequestArgs()Lsw4;)=0x9e61b938
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e61b938, flags=0x12200001, data_=0x76b39f4a05, ep=0x76b1ff3510
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1ff3510)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x760b736dc0, flags=0x12000101, data_=0x77e6a03a78, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e61b938, replacement=760b736dc0
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1ff3510, thunk=0x77e6a03df0, trampoline=0x77e6a03cf0
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1ff3510 (hooked=0x76b1ff3510), trampoline=0x77e6a03cf0, current_ep=0x76b1ff3510, first_bytes=10be87d2
+[1m[35m [agent][0m [JS] [java hook] 完成: o92.getRequestArgs()Lsw4; (ArtMethod=0x9e61b938, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] o92.getRequestArgs direct hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(ui0.getRequestArgs()Lsw4;)=0x9e61b9a0
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e61b9a0, flags=0x12200001, data_=0x76b3a45a15, ep=0x70ab4060
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=false (ep=0x70ab4060)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x7669357a40, flags=0x12000101, data_=0x77e6a04618, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e61b9a0, replacement=7669357a40
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [java hook] Step 9: 共享 stub, 依赖 Layer 1+2 路由: ep=0x70ab4060
+[1m[35m [agent][0m [JS] [java hook] 完成: ui0.getRequestArgs()Lsw4; (ArtMethod=0x9e61b9a0, strategy=shared_stub)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] ui0.getRequestArgs direct hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(mh.a(Ljava/lang/String;)Lsw4;)=0x0
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e616548, flags=0x12200009, data_=0x76b39ee6af, ep=0x76b1fb1be0
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1fb1be0)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914c020, flags=0x12000109, data_=0x77e6a04840, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e616548, replacement=766914c020
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200009 → 0x12200009
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1fb1be0, thunk=0x77e6a04bb8, trampoline=0x77e6a04ab8
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1fb1be0 (hooked=0x76b1fb1be0), trampoline=0x77e6a04ab8, current_ep=0x76b1fb1be0, first_bytes=107789d2
+[1m[35m [agent][0m [JS] [java hook] 完成: mh.a(Ljava/lang/String;)Lsw4; (ArtMethod=0x9e616548, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] mh.a direct hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(u63.a(Lsw4;Lcom/android/volley/Response$Listener;Lcom/android/volley/Response$ErrorListener;)Lcom/android/volley/Request;)=0x9e6a0950
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e6a0950, flags=0x12200011, data_=0x76b39f780b, ep=0x76b1fcd4a0
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1fcd4a0)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x7669357c60, flags=0x12000111, data_=0x77e6a053e0, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e6a0950, replacement=7669357c60
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200011 → 0x12200011
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1fcd4a0, thunk=0x77e6a05758, trampoline=0x77e6a05658
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1fcd4a0 (hooked=0x76b1fcd4a0), trampoline=0x77e6a05658, current_ep=0x76b1fcd4a0, first_bytes=10eb8ad2
+[1m[35m [agent][0m [JS] [java hook] 完成: u63.a(Lsw4;Lcom/android/volley/Response$Listener;Lcom/android/volley/Response$ErrorListener;)Lcom/android/volley/Request; (ArtMethod=0x9e6a0950, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] u63.a direct hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.zenmen.palmchat.utils.EncryptUtils.setLxData(Lorg/json/JSONObject;)V)=0x0
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e699f08, flags=0x12200119, data_=0x7696b16044, ep=0x76b1d099c0
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1d099c0)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914c220, flags=0x12000119, data_=0x77e6a05f80, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e699f08, replacement=766914c220
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200119 → 0x12200119
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1d099c0, thunk=0x77e6a062f8, trampoline=0x77e6a061f8
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1d099c0 (hooked=0x76b1d099c0), trampoline=0x77e6a061f8, current_ep=0x76b1d099c0, first_bytes=105f8cd2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.zenmen.palmchat.utils.EncryptUtils.setLxData(Lorg/json/JSONObject;)V (ArtMethod=0x9e699f08, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] EncryptUtils.setLxData hook installed: JSONObject
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.zenmen.palmchat.utils.EncryptUtils.cipherWithHashKey(Lorg/json/JSONObject;IZ)[B)=0x0
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e699bc8, flags=0x12200119, data_=0x7696b15de4, ep=0x76b1d09730
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1d09730)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914c000, flags=0x12000119, data_=0x77e6a06b20, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e699bc8, replacement=766914c000
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200119 → 0x12200119
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1d09730, thunk=0x77e6a06e98, trampoline=0x77e6a06d98
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1d09730 (hooked=0x76b1d09730), trampoline=0x77e6a06d98, current_ep=0x76b1d09730, first_bytes=10d38dd2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.zenmen.palmchat.utils.EncryptUtils.cipherWithHashKey(Lorg/json/JSONObject;IZ)[B (ArtMethod=0x9e699bc8, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] EncryptUtils.cipherWithHashKey hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.zenmen.palmchat.utils.EncryptedJsonRequest.<init>(ILjava/lang/String;Lorg/json/JSONObject;IZLcom/android/volley/Response$Listener;Lcom/android/volley/Response$ErrorListener;)V)=0x9e6a2510
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e6a2510, flags=0x12210001, data_=0x76b3a0afcf, ep=0x76b1fe34f0
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1fe34f0)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914c740, flags=0x12010101, data_=0x77e6a076c0, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e6a2510, replacement=766914c740
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12210001 → 0x12210001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1fe34f0, thunk=0x77e6a07a38, trampoline=0x77e6a07938
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1fe34f0 (hooked=0x76b1fe34f0), trampoline=0x77e6a07938, current_ep=0x76b1fe34f0, first_bytes=10478fd2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.zenmen.palmchat.utils.EncryptedJsonRequest.<init>(ILjava/lang/String;Lorg/json/JSONObject;IZLcom/android/volley/Response$Listener;Lcom/android/volley/Response$ErrorListener;)V (ArtMethod=0x9e6a2510, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] EncryptedJsonRequest.$init v7 hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.zenmen.palmchat.utils.EncryptedJsonRequest.addHeader(Ljava/lang/String;Ljava/lang/String;)V)=0x9e6a25d0
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e6a25d0, flags=0x12200001, data_=0x76b3a0b1e1, ep=0x76b1fe46c0
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1fe46c0)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x76693570e0, flags=0x12000101, data_=0x77e6a08260, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e6a25d0, replacement=76693570e0
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1fe46c0, thunk=0x77e6a085d8, trampoline=0x77e6a084d8
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1fe46c0 (hooked=0x76b1fe46c0), trampoline=0x77e6a084d8, current_ep=0x76b1fe46c0, first_bytes=10bb90d2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.zenmen.palmchat.utils.EncryptedJsonRequest.addHeader(Ljava/lang/String;Ljava/lang/String;)V (ArtMethod=0x9e6a25d0, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] EncryptedJsonRequest.addHeader hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.zenmen.palmchat.utils.EncryptedJsonRequest.getBody()[B)=0x9e6a2650
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e6a2650, flags=0x12200001, data_=0x76b3a0ad4b, ep=0x76b1fe4b00
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b1fe4b00)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914c2a0, flags=0x12000101, data_=0x77e6a08e00, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e6a2650, replacement=766914c2a0
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b1fe4b00, thunk=0x77e6a09178, trampoline=0x77e6a09078
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b1fe4b00 (hooked=0x76b1fe4b00), trampoline=0x77e6a09078, current_ep=0x76b1fe4b00, first_bytes=102f92d2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.zenmen.palmchat.utils.EncryptedJsonRequest.getBody()[B (ArtMethod=0x9e6a2650, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] EncryptedJsonRequest.getBody hook installed
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [-] rg3.d direct hook failed: Error: Method not found: rg3.d
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [-] rg3.d v3 hook failed: Error: No matching overload: rg3.d(Ljava/lang/String;ILjava/lang/Object;)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [-] d54.d direct hook failed: Error: Method not found: d54.d
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [-] d54.d v3 hook failed: Error: No matching overload: d54.d(Ljava/lang/String;ILjava/lang/Object;)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [-] no response hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.android.volley.RequestQueue.add(Lcom/android/volley/Request;)Lcom/android/volley/Request;)=0x9e62dcb0
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e62dcb0, flags=0x12200001, data_=0x76b4340533, ep=0x76b202cc50
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b202cc50)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914c3e0, flags=0x12000101, data_=0x77e6a099a0, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e62dcb0, replacement=766914c3e0
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b202cc50, thunk=0x77e6a09d18, trampoline=0x77e6a09c18
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b202cc50 (hooked=0x76b202cc50), trampoline=0x77e6a09c18, current_ep=0x76b202cc50, first_bytes=10a393d2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.android.volley.RequestQueue.add(Lcom/android/volley/Request;)Lcom/android/volley/Request; (ArtMethod=0x9e62dcb0, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] RequestQueue.add hook installed
+[1m[35m [agent][0m [JS] [resolve_art_method] cls=0x77ef3ff001, GetMethodID(com.android.volley.toolbox.BasicNetwork.performRequest(Lcom/android/volley/Request;)Lcom/android/volley/NetworkResponse;)=0x9e6b9940
+[1m[35m [agent][0m [JS] [java hook] Step 1 fetchArtMethod: art_method=0x9e6b9940, flags=0x12200001, data_=0x76b4340d5b, ep=0x76b20b8070
+[1m[35m [agent][0m [JS] [java hook] Step 4: has_independent_code=true (ep=0x76b20b8070)
+[1m[35m [agent][0m [JS] [java hook] Step 4 replacement: addr=0x766914cd40, flags=0x12000101, data_=0x77e6a0a540, ep=0x70ab4030
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] table_add: original=9e6b9940, replacement=766914cd40
+[1m[35m [agent][0m [JS] [java hook] Step 5 original flags: 0x12200001 → 0x12200001
+[1m[35m [agent][0m [JS] [hook_engine] [art_router] installed: target=0x76b20b8070, thunk=0x77e6a0a8b8, trampoline=0x77e6a0a7b8
+[1m[35m [agent][0m [JS] [java hook] Step 9: Layer 3 installed: ep=0x76b20b8070 (hooked=0x76b20b8070), trampoline=0x77e6a0a7b8, current_ep=0x76b20b8070, first_bytes=101795d2
+[1m[35m [agent][0m [JS] [java hook] 完成: com.android.volley.toolbox.BasicNetwork.performRequest(Lcom/android/volley/Request;)Lcom/android/volley/NetworkResponse; (ArtMethod=0x9e6b9940, strategy=compiled+router)
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [+] BasicNetwork.performRequest hook installed
+[1m[35m [agent][0m [JS] [rustfrida:new_sms] [*] Java hooks active
+[32m=> undefined[0m
+  [2m输入 help 查看命令，exit 退出[0m
+rustfrida> 

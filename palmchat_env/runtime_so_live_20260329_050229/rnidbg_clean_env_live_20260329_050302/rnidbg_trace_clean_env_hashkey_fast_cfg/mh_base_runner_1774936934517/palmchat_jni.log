@@ -1,0 +1,9 @@
+[2026-03-31T06:02:40.478121000Z] call com/zenmen/palmchat/AppContext->getContext()Lcom/zenmen/palmchat/AppContext;
+[2026-03-31T06:02:40.481557000Z] call com/zenmen/palmchat/privinfo/PrivInfoManager->init(Landroid/content/Context;)V
+[2026-03-31T06:02:40.481574000Z] probe PrivInfoManager.init -> isInit=true
+[2026-03-31T06:02:40.484976000Z] call defpackage/ac1->B(Landroid/content/Context;)V
+[2026-03-31T06:02:40.488481000Z] call defpackage/ts0->I(Landroid/content/Context;)V
+[2026-03-31T06:02:40.491867000Z] call defpackage/mh->a(Ljava/lang/String;)Ldefpackage/sw4;
+[2026-03-31T06:02:40.494242000Z] probe mh.a -> sw4(url_len=112 keys=16)
+[2026-03-31T06:02:40.497717000Z] call defpackage/sw4->d()Lorg/json/JSONObject;
+[2026-03-31T06:02:40.497741000Z] probe sw4.d -> url_len=112 keys=16 enc_type=1 enc=true

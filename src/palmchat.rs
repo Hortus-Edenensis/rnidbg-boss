@@ -1,16 +1,18 @@
 use std::any::Any;
 use std::cell::{RefCell, UnsafeCell};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
 use std::rc::Rc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine as _;
 use boa_engine::{Context as BoaContext, Source};
 use chrono::{SecondsFormat, Utc};
 use emulator::android::dvm::class::DvmClass;
@@ -20,7 +22,9 @@ use emulator::android::dvm::object::DvmObject;
 use emulator::android::dvm::DalvikVM64;
 use emulator::android::jni::{self, Jni, JniValue, MethodAcc, VaList};
 use emulator::android::virtual_library::libc::SystemPropertyService;
+use emulator::linux::errno::Errno;
 use emulator::linux::file_system::{FileIO, StMode};
+use emulator::linux::fs::direction::{Direction, DirectionEntry};
 use emulator::linux::fs::linux_file::LinuxFileIO;
 use emulator::linux::fs::ByteArrayFileIO;
 use emulator::linux::PAGE_ALIGN;
@@ -29,15 +33,21 @@ use emulator::memory::svc_memory::{SimpleArm64Svc, SvcCallResult};
 #[cfg(feature = "unicorn")]
 use emulator::UnicornRegisterARM64;
 use emulator::{AndroidEmulator, Backend, BackendKind, Permission, RegisterARM64, UnicornArg};
+use rand::Rng;
+use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use sha2::{Digest, Sha256};
 use std::mem::size_of;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
-use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 #[cfg(feature = "unicorn")]
 use unicorn_engine::unicorn_const::HookType;
+#[cfg(feature = "unicorn")]
+use unicorn_engine::Unicorn;
+use url::Url;
+use zip::ZipArchive;
 
 const PID: u32 = 2667;
 const PPID: u32 = 2427;
@@ -50,6 +60,9 @@ const V7_FINGERPRINT_KEYS: &[&str] = &[
     "modeType",
     "rid",
     "diffTime",
+    "platform",
+    "versionCode",
+    "autoLogin",
     "dfp",
     "appList",
     "ipInfo",
@@ -57,13 +70,32 @@ const V7_FINGERPRINT_KEYS: &[&str] = &[
     "oaid",
     "androidId",
     "appId",
-    "local_smid",
     "channelId",
     "did",
+    "mac",
+    "imei",
     "oneId",
-    "device_id",
+    "dhid",
 ];
 const V7_CAPTCHA_BRIDGE_KEYS: &[&str] = &["verifyStatus", "rid", "modeType", "diffTime", "captcha"];
+const V7_STAGE_BASE_REQUIRED_KEYS: &[&str] = &[
+    "mobile",
+    "countryCode",
+    "paramNum",
+    "verifyStatus",
+    "platform",
+    "versionCode",
+    "autoLogin",
+    "dfp",
+    "appList",
+    "ipInfo",
+    "sdid",
+    "oaid",
+    "androidId",
+    "appId",
+    "channelId",
+];
+const V7_STAGE2_REQUIRED_KEYS: &[&str] = &["modeType", "rid", "diffTime"];
 
 #[derive(Clone, Debug, Deserialize)]
 struct PalmchatConfig {
@@ -102,6 +134,95 @@ struct PalmchatConfig {
     backend: String,
 }
 
+#[derive(Clone, Debug)]
+struct PalmchatAppContextFs {
+    legacy_data_dir: String,
+    user0_data_dir: String,
+    files_dir: String,
+    cache_dir: String,
+    host_data_dir: PathBuf,
+    host_files_dir: PathBuf,
+    host_cache_dir: PathBuf,
+}
+
+impl PalmchatAppContextFs {
+    fn new(trace_out_dir: &Path, package_name: &str) -> Result<Self> {
+        let host_data_dir = trace_out_dir
+            .join("app_ctx_fs")
+            .join("data")
+            .join("data")
+            .join(package_name);
+        let host_files_dir = host_data_dir.join("files");
+        let host_cache_dir = host_data_dir.join("cache");
+        fs::create_dir_all(host_files_dir.join("hash")).with_context(|| {
+            format!(
+                "failed to create palmchat app files dir: {}",
+                host_files_dir.display()
+            )
+        })?;
+        fs::create_dir_all(&host_cache_dir).with_context(|| {
+            format!(
+                "failed to create palmchat app cache dir: {}",
+                host_cache_dir.display()
+            )
+        })?;
+        Ok(Self {
+            legacy_data_dir: format!("/data/data/{package_name}"),
+            user0_data_dir: format!("/data/user/0/{package_name}"),
+            files_dir: format!("/data/data/{package_name}/files"),
+            cache_dir: format!("/data/data/{package_name}/cache"),
+            host_data_dir,
+            host_files_dir,
+            host_cache_dir,
+        })
+    }
+
+    fn host_path_for_guest(&self, guest_path: &str) -> Option<PathBuf> {
+        for base in [&self.legacy_data_dir, &self.user0_data_dir] {
+            if guest_path == base {
+                return Some(self.host_data_dir.clone());
+            }
+            if let Some(suffix) = guest_path.strip_prefix(&(base.clone() + "/")) {
+                return Some(self.host_data_dir.join(suffix));
+            }
+        }
+        None
+    }
+
+    fn guest_dir_for_name(&self, name: &str) -> String {
+        format!("{}/app_{}", self.legacy_data_dir, name)
+    }
+
+    fn ensure_host_dir_for_guest(&self, guest_path: &str) -> Result<PathBuf> {
+        let host_path = self
+            .host_path_for_guest(guest_path)
+            .ok_or_else(|| anyhow!("guest path is outside palmchat app context fs: {guest_path}"))?;
+        fs::create_dir_all(&host_path).with_context(|| {
+            format!(
+                "failed to create palmchat guest directory mapping {} -> {}",
+                guest_path,
+                host_path.display()
+            )
+        })?;
+        Ok(host_path)
+    }
+
+    fn file_state_for_path(&self, requested_path: &str) -> PalmchatFileState {
+        let trimmed = requested_path.trim();
+        if let Some(host_path) = self.host_path_for_guest(trimmed) {
+            PalmchatFileState {
+                guest_path: trimmed.to_string(),
+                host_path,
+            }
+        } else {
+            PalmchatFileState {
+                guest_path: trimmed.to_string(),
+                host_path: PathBuf::from(trimmed),
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 struct PalmchatIdentityProbeConfig {
     #[serde(default)]
@@ -117,6 +238,12 @@ struct PalmchatIdentityProbeConfig {
     #[serde(default)]
     mac: Option<String>,
     #[serde(default)]
+    sdid: Option<String>,
+    #[serde(default)]
+    local_smid: Option<String>,
+    #[serde(default)]
+    device_label: Option<String>,
+    #[serde(default)]
     process_name: Option<String>,
 }
 
@@ -128,6 +255,9 @@ struct PalmchatIdentityRuntimeState {
     android_id: String,
     imei: String,
     mac: String,
+    sdid: String,
+    local_smid: String,
+    device_label: String,
     process_name: String,
 }
 
@@ -140,6 +270,9 @@ impl PalmchatIdentityRuntimeState {
             android_id: config.android_id.clone().unwrap_or_default(),
             imei: config.imei.clone().unwrap_or_default(),
             mac: config.mac.clone().unwrap_or_default(),
+            sdid: config.sdid.clone().unwrap_or_default(),
+            local_smid: config.local_smid.clone().unwrap_or_default(),
+            device_label: config.device_label.clone().unwrap_or_default(),
             process_name: config.process_name.clone().unwrap_or_default(),
         }
     }
@@ -172,12 +305,345 @@ impl PalmchatIdentityRuntimeState {
         self.mac.clone()
     }
 
+    fn effective_sdid(&self) -> String {
+        self.sdid.clone()
+    }
+
+    fn effective_local_smid(&self) -> String {
+        self.local_smid.clone()
+    }
+
+    fn effective_device_label(&self) -> String {
+        self.device_label.clone()
+    }
+
     fn effective_process_name(&self, package_name: &str) -> String {
         if self.process_name.trim().is_empty() {
             package_name.to_string()
         } else {
             self.process_name.clone()
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct PalmchatLiveDeviceProfile {
+    source: String,
+    android_id: Option<String>,
+    sdid: Option<String>,
+    device_label: Option<String>,
+    tray_device_id: Option<String>,
+    account_uid: Option<String>,
+    account_exid: Option<String>,
+    account_phone: Option<String>,
+    account_session_id_enc: Option<String>,
+    account_refresh_key_enc: Option<String>,
+    oaid: Option<String>,
+    channel_id: Option<String>,
+    ip_info: Option<String>,
+    installed_packages: Vec<String>,
+    data_dir_packages: Vec<String>,
+    app_version_code: Option<String>,
+    app_version_name: Option<String>,
+    build_fingerprint: Option<String>,
+    build_display: Option<String>,
+    build_incremental: Option<String>,
+    build_time_millis: Option<i64>,
+    build_tags: Option<String>,
+    build_bootloader: Option<String>,
+    build_version_codename: Option<String>,
+    build_host: Option<String>,
+    build_id: Option<String>,
+    product_model: Option<String>,
+    product_brand: Option<String>,
+    product_manufacturer: Option<String>,
+    product_device: Option<String>,
+    product_name: Option<String>,
+    product_board: Option<String>,
+    product_abi_list: Vec<String>,
+    build_release: Option<String>,
+    locale_tag: Option<String>,
+    display_density: Option<String>,
+    build_security_patch: Option<String>,
+    hardware: Option<String>,
+    usb_state: Option<String>,
+    wlan_ipv4: Option<String>,
+    wifi_ssid: Option<String>,
+    network_type: Option<String>,
+    network_state: Option<String>,
+    mobile_data_enabled: Option<bool>,
+    webview_user_agent: Option<String>,
+    baseband_version: Option<String>,
+    cpu_cores: Option<i64>,
+    cpu_features: Option<String>,
+    cpu_processor: Option<String>,
+    cpuinfo_hardware: Option<String>,
+    cpu_max_freq: Option<String>,
+    cpu_min_freq: Option<String>,
+    kernel_version: Option<String>,
+    http_proxy_host: Option<String>,
+    http_proxy_port: Option<i64>,
+    boot_time_millis: Option<i64>,
+    resolution: Option<String>,
+    screen_brightness: Option<i64>,
+    screen_on: Option<bool>,
+    sensor_name_list: Vec<String>,
+    enabled_accessibility_packages: Vec<String>,
+    input_method_ids: Vec<String>,
+    input_method_labels: Vec<String>,
+    secinfo_json: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PalmchatSmssendUrlAuth {
+    uid: Option<String>,
+    token: Option<String>,
+    session_id: Option<String>,
+    callback_id: Option<String>,
+    p_id: Option<String>,
+    sys_uid: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct PalmchatRecoveredAuthState {
+    uid: Option<String>,
+    session_id: Option<String>,
+    refresh_key: Option<String>,
+    source: String,
+    token_after_bootstrap: Option<String>,
+    skey_available_before: bool,
+    skey_available_after: bool,
+    uid_present: bool,
+    session_id_present: bool,
+    refresh_key_present: bool,
+    refresh_server_key_invoked: bool,
+    messaging_service_secret_present: bool,
+    app_context_secret_present_before: bool,
+    app_context_secret_present_after: bool,
+    token_present_after: bool,
+    failure_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PalmchatSecretPair {
+    key: Vec<u8>,
+    iv: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+struct PalmchatAAssetHandle {
+    name: String,
+    handle_ptr: u64,
+    data_ptr: u64,
+    len: usize,
+    cursor: usize,
+    bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+struct PalmchatAssetShimState {
+    manager_ptr: u64,
+    apk_path: PathBuf,
+    arena_base: u64,
+    arena_cursor: u64,
+    arena_end: u64,
+    open_handles: HashMap<u64, PalmchatAAssetHandle>,
+}
+
+impl PalmchatAssetShimState {
+    fn alloc(&mut self, size: usize, align: u64) -> Option<u64> {
+        let aligned = align_up_u64(self.arena_cursor, align.max(1));
+        let end = aligned.checked_add(size.max(1) as u64)?;
+        if end > self.arena_end {
+            return None;
+        }
+        self.arena_cursor = end;
+        Some(aligned)
+    }
+
+    fn handle(&self, ptr: u64) -> Option<&PalmchatAAssetHandle> {
+        self.open_handles.get(&ptr)
+    }
+
+    fn handle_mut(&mut self, ptr: u64) -> Option<&mut PalmchatAAssetHandle> {
+        self.open_handles.get_mut(&ptr)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PalmchatTransportRuntime {
+    Auto,
+    Direct,
+    OkHttpBridge,
+}
+
+impl PalmchatTransportRuntime {
+    fn parse(value: Option<&str>) -> Result<Self> {
+        match value.unwrap_or("auto").trim().to_ascii_lowercase().as_str() {
+            "" | "auto" => Ok(Self::Auto),
+            "direct" => Ok(Self::Direct),
+            "okhttp-bridge" | "okhttp_bridge" | "okhttp" => Ok(Self::OkHttpBridge),
+            other => Err(anyhow!("unsupported transport runtime: {other}")),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PalmchatHttpTransportResponse {
+    status: u16,
+    headers: HashMap<String, String>,
+    body_bytes: Vec<u8>,
+    transport: Value,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PalmchatSecretStringCandidate {
+    value: String,
+    source: String,
+    addr: u64,
+    offset: usize,
+}
+
+#[derive(Clone, Default)]
+struct PalmchatPairState {
+    first: Option<DvmObject>,
+    second: Option<DvmObject>,
+}
+
+#[derive(Clone, Default)]
+struct PalmchatSw4State {
+    url: String,
+    body_map: Map<String, Value>,
+    encrypted_body_type: i32,
+    encrypted_request: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PalmchatRecoveredAuthCandidates {
+    cli_uid: Option<String>,
+    cli_session_id: Option<String>,
+    live_uid: Option<String>,
+    live_session_id: Option<String>,
+    live_refresh_key: Option<String>,
+    java_uid: Option<String>,
+    java_session_id: Option<String>,
+    java_refresh_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PalmchatRuntimeProbeOverrides {
+    source_path: String,
+    android_id: Option<String>,
+    ip_info: Option<String>,
+    secinfo_json: Option<String>,
+    network_type: Option<String>,
+    network_state: Option<String>,
+    wifi_ssid: Option<String>,
+    wlan_ipv4: Option<String>,
+    resolution: Option<String>,
+    screen_brightness: Option<i64>,
+    screen_on: Option<bool>,
+    sensor_name_list: Option<Vec<String>>,
+    device_label: Option<String>,
+    baseband_version: Option<String>,
+    kernel_version: Option<String>,
+    boot_time_millis: Option<i64>,
+    installed_packages: Option<Vec<String>>,
+}
+
+impl PalmchatLiveDeviceProfile {
+    fn apply_to_identity_seed(&self, state: &mut PalmchatIdentityRuntimeState) {
+        if let Some(android_id) = normalize_plain_candidate(self.android_id.clone()) {
+            state.android_id = android_id;
+        }
+        if let Some(sdid) = normalize_device_id_candidate(self.sdid.clone()) {
+            state.sdid = sdid;
+        }
+        if let Some(device_label) = normalize_plain_candidate(self.device_label.clone()) {
+            state.device_label = device_label;
+        }
+    }
+
+    fn update_identity_state_from_effective_body(
+        &self,
+        state: &mut PalmchatIdentityRuntimeState,
+        value: &Value,
+        opts: &HashMap<String, String>,
+    ) -> Vec<String> {
+        let mut events = Vec::new();
+        let mut next_android_id = self.android_id.clone();
+        let mut next_imei = None::<String>;
+        let mut next_mac = None::<String>;
+        let mut next_sdid = None::<String>;
+        let mut next_local_smid = None::<String>;
+        let mut next_device_label = opts.get("--seed-device-label").cloned();
+
+        if let Value::Object(map) = value {
+            next_android_id = extract_non_empty_string(map, "androidId").or(next_android_id);
+            next_sdid =
+                extract_non_empty_string(map, "sdid").or_else(|| opts.get("--seed-sdid").cloned());
+            next_local_smid = extract_non_empty_string(map, "local_smid")
+                .or_else(|| opts.get("--seed-local-smid").cloned());
+            next_imei = match map.get("imei") {
+                Some(Value::Null) => Some(String::new()),
+                Some(Value::String(raw)) => Some(raw.trim().to_string()),
+                _ => opts.get("--seed-imei").cloned(),
+            };
+            next_mac = match map.get("mac") {
+                Some(Value::Null) => Some(String::new()),
+                Some(Value::String(raw)) => Some(raw.trim().to_string()),
+                _ => opts.get("--seed-mac").cloned(),
+            };
+
+            if next_device_label.is_none() {
+                if let Some(Value::Object(dfp_obj)) = parse_json_string_or_object(map.get("dfp")) {
+                    next_device_label = extract_non_empty_string(&dfp_obj, "duDeviceLabel");
+                }
+            }
+        }
+
+        if let Some(android_id) = normalize_plain_candidate(next_android_id) {
+            if state.android_id != android_id {
+                state.android_id = android_id.clone();
+                events.push(format!("identity.android_id={android_id}"));
+            }
+        }
+        if let Some(imei) = next_imei {
+            if state.imei != imei {
+                state.imei = imei.clone();
+                events.push(format!("identity.imei_len={}", imei.len()));
+            }
+        }
+        if let Some(mac) = next_mac {
+            if state.mac != mac {
+                state.mac = mac.clone();
+                events.push(format!("identity.mac_len={}", mac.len()));
+            }
+        }
+        if let Some(sdid) = normalize_plain_candidate(next_sdid) {
+            if state.sdid != sdid {
+                state.sdid = sdid.clone();
+                events.push(format!("identity.sdid={sdid}"));
+            }
+        }
+        if let Some(local_smid) = normalize_plain_candidate(next_local_smid) {
+            if state.local_smid != local_smid {
+                state.local_smid = local_smid.clone();
+                events.push(format!("identity.local_smid={local_smid}"));
+            }
+        }
+        if let Some(device_label) = normalize_device_label_candidate(next_device_label) {
+            if state.device_label != device_label {
+                state.device_label = device_label.clone();
+                events.push(format!("identity.device_label={device_label}"));
+            }
+        }
+        if state.priv_info_initialized {
+            state.priv_info_initialized = false;
+            events.push("identity.priv_info_initialized=false".to_string());
+        }
+
+        events
     }
 }
 
@@ -355,8 +821,24 @@ fn maybe_inject_device_core_syslibs(path: &Path, config: &mut PalmchatConfig) ->
 
 fn resolve_app_version_info(
     config: &PalmchatConfig,
+    live_device_profile: Option<&PalmchatLiveDeviceProfile>,
     shared: Rc<RefCell<SharedState>>,
 ) -> PalmchatAppVersionInfo {
+    if let Some(profile) = live_device_profile {
+        if profile.app_version_code.is_some() || profile.app_version_name.is_some() {
+            let info = PalmchatAppVersionInfo {
+                version_code: profile.app_version_code.clone(),
+                version_name: profile.app_version_name.clone(),
+                source: Some("live_device_profile.package_info".to_string()),
+            };
+            shared.borrow_mut().native(&format!(
+                "app version source=live_device_profile code={:?} name={:?}",
+                info.version_code, info.version_name
+            ));
+            return info;
+        }
+    }
+
     if config.app_version_code.is_some() || config.app_version_name.is_some() {
         let info = PalmchatAppVersionInfo {
             version_code: config.app_version_code.clone(),
@@ -568,12 +1050,16 @@ impl SharedState {
 pub struct PalmchatLab {
     config: PalmchatConfig,
     app_version_info: PalmchatAppVersionInfo,
+    live_device_profile: Option<PalmchatLiveDeviceProfile>,
     emulator: AndroidEmulator<'static, ()>,
     encrypt_utils_class: Rc<DvmClass>,
     messaging_service_class: Rc<DvmClass>,
     shared: Rc<RefCell<SharedState>>,
     identity_seed: PalmchatIdentityRuntimeState,
     identity_state: Rc<RefCell<PalmchatIdentityRuntimeState>>,
+    app_context_secret_pair: Rc<RefCell<Option<PalmchatSecretPair>>>,
+    asset_manager_native_ptr: u64,
+    recovered_auth_state: Option<PalmchatRecoveredAuthState>,
     module_base: u64,
     module_size: u64,
 }
@@ -584,11 +1070,22 @@ impl PalmchatLab {
         backend_override: Option<&str>,
     ) -> Result<Self> {
         let config = PalmchatConfig::load(config_path)?.with_backend_override(backend_override)?;
+        Self::load_from_config(config)
+    }
+
+    fn load_from_config(config: PalmchatConfig) -> Result<Self> {
         validate_config(&config)?;
         let shared = Rc::new(RefCell::new(SharedState::new(&config.trace_out_dir)?));
-        let identity_seed = PalmchatIdentityRuntimeState::from_config(&config.identity_probe);
+        let live_device_profile = discover_live_device_profile(shared.clone());
+        let mut identity_seed = PalmchatIdentityRuntimeState::from_config(&config.identity_probe);
+        if let Some(profile) = live_device_profile.as_ref() {
+            profile.apply_to_identity_seed(&mut identity_seed);
+        }
         let identity_state = Rc::new(RefCell::new(identity_seed.clone()));
-        let app_version_info = resolve_app_version_info(&config, shared.clone());
+        let app_context_secret_pair = Rc::new(RefCell::new(None));
+        let app_version_info =
+            resolve_app_version_info(&config, live_device_profile.as_ref(), shared.clone());
+        let app_context_fs = PalmchatAppContextFs::new(&config.trace_out_dir, &config.package_name)?;
         let runtime_base_path = prepare_runtime_base_path(&config, shared.clone())?;
         std::env::set_var("BASE_PATH", &runtime_base_path);
         std::env::set_var(
@@ -602,8 +1099,16 @@ impl PalmchatLab {
             (),
             config.backend_kind()?,
         )?;
-        install_system_properties(&emulator, &config);
-        configure_file_system(&emulator, &config);
+        let asset_manager_native_ptr = emulator
+            .falloc(0x100, false)
+            .context("failed to allocate asset manager native handle scratch")?
+            .addr;
+        shared.borrow_mut().native(&format!(
+            "seeded asset manager native ptr addr=0x{:x}",
+            asset_manager_native_ptr
+        ));
+        install_system_properties(&emulator, &config, live_device_profile.as_ref());
+        configure_file_system(&emulator, &config, &app_context_fs);
 
         let vm = emulator.get_dalvik_vm();
         vm.set_class_resolver(build_class_resolver());
@@ -611,7 +1116,11 @@ impl PalmchatLab {
             shared.clone(),
             config.package_name.clone(),
             config.apk_path.clone(),
+            app_context_fs.clone(),
             identity_state.clone(),
+            live_device_profile.clone(),
+            app_context_secret_pair.clone(),
+            asset_manager_native_ptr,
         )));
         let run_init_during_load = run_init_during_load();
         shared.borrow_mut().native(&format!(
@@ -666,7 +1175,10 @@ impl PalmchatLab {
             &emulator,
             shared.clone(),
             module.base,
+            module.size as u64,
             hashkey_fast_global_ref,
+            &config.apk_path,
+            asset_manager_native_ptr,
         )?;
         apply_got_seed_manifest(&config, &emulator, shared.clone(), module.base)?;
         apply_runtime_page_patches(&config, &emulator, shared.clone(), module.base)?;
@@ -700,9 +1212,9 @@ impl PalmchatLab {
                     Some(offset),
                 ) {
                     let err_text = format!("{onload_err:#}");
-                    if err_text.contains("version=1") {
+                    if err_text.contains("version=") {
                         shared.borrow_mut().native(&format!(
-                            "JNI_OnLoad hidden symbol fallback non-fatal err={}",
+                            "JNI_OnLoad hidden symbol fallback non-fatal version mismatch err={}",
                             err_text
                         ));
                     } else {
@@ -725,12 +1237,16 @@ impl PalmchatLab {
         Ok(Self {
             config,
             app_version_info,
+            live_device_profile,
             emulator,
             encrypt_utils_class,
             messaging_service_class,
             shared,
             identity_seed,
             identity_state,
+            app_context_secret_pair,
+            asset_manager_native_ptr,
+            recovered_auth_state: None,
             module_base: module.base,
             module_size: module.size as u64,
         })
@@ -840,6 +1356,58 @@ impl PalmchatLab {
         Ok(instance.call_method(&emulator, vm, method_name, signature, args))
     }
 
+    fn call_java_method_on_object(
+        &self,
+        class_name: &str,
+        object: &DvmObject,
+        method_name: &str,
+        signature: &str,
+        args: Vec<JniValue>,
+    ) -> Result<JniValue> {
+        let emulator = self.emulator.clone();
+        let _ = self.ensure_java_method(class_name, method_name, signature)?;
+        let vm = emulator.get_dalvik_vm();
+        Ok(object.call_method(&emulator, vm, method_name, signature, args))
+    }
+
+    fn try_call_java_static_string(
+        &mut self,
+        class_name: &str,
+        method_name: &str,
+        signature: &str,
+        args: Vec<JniValue>,
+    ) -> Option<String> {
+        match self.call_java_static(class_name, method_name, signature, args) {
+            Ok(value) => jni_value_to_string(value).ok(),
+            Err(err) => {
+                self.shared.borrow_mut().jni(&format!(
+                    "probe {}->{}{} blocked err={err:#}",
+                    class_name, method_name, signature
+                ));
+                None
+            }
+        }
+    }
+
+    fn try_call_java_static_bool(
+        &mut self,
+        class_name: &str,
+        method_name: &str,
+        signature: &str,
+        args: Vec<JniValue>,
+    ) -> Option<bool> {
+        match self.call_java_static(class_name, method_name, signature, args) {
+            Ok(value) => jni_value_to_bool(value).ok(),
+            Err(err) => {
+                self.shared.borrow_mut().jni(&format!(
+                    "probe {}->{}{} blocked err={err:#}",
+                    class_name, method_name, signature
+                ));
+                None
+            }
+        }
+    }
+
     fn app_context_object(&self) -> Result<DvmObject> {
         match self.call_java_static(
             "com/zenmen/palmchat/AppContext",
@@ -853,6 +1421,427 @@ impl PalmchatLab {
                 describe_jni_value(&other)
             )),
         }
+    }
+
+    fn make_asset_manager_object(&self) -> Result<DvmObject> {
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let (_, class) = vm
+            .resolve_class("android/content/res/AssetManager")
+            .ok_or_else(|| anyhow!("failed to resolve android/content/res/AssetManager"))?;
+        Ok(new_mut_data_object(
+            class,
+            self.asset_manager_native_ptr as i64,
+        ))
+    }
+
+    fn current_app_context_secret_pair(&self) -> Option<PalmchatSecretPair> {
+        self.app_context_secret_pair.borrow().clone()
+    }
+
+    fn app_context_secret_present(&self) -> bool {
+        self.current_app_context_secret_pair()
+            .map(|pair| !pair.key.is_empty() && !pair.iv.is_empty())
+            .unwrap_or(false)
+    }
+
+    fn set_app_context_secret_pair(&self, pair: Option<PalmchatSecretPair>) {
+        *self.app_context_secret_pair.borrow_mut() = pair;
+    }
+
+    fn sync_app_context_secret_pair(&self, pair: PalmchatSecretPair, scope: &str) {
+        self.set_app_context_secret_pair(Some(pair.clone()));
+        self.shared.borrow_mut().native(&format!(
+            "{scope} app_context_secret_pair synced key_len={} iv_len={}",
+            pair.key.len(),
+            pair.iv.len()
+        ));
+    }
+
+    fn decrypt_persisted_app_string(&self, value: &str) -> Option<String> {
+        let raw = normalize_plain_candidate(Some(value.to_string()))?;
+        let decoded = hex::decode(raw).ok()?;
+        let output = self
+            .call_static(
+                "cipherWithType",
+                "([BIZ)[B",
+                vec![
+                    JniValue::Object(DvmObject::ByteArray(decoded)),
+                    7.into(),
+                    true.into(),
+                ],
+            )
+            .ok()
+            .and_then(|value| jni_value_to_bytes(value).ok())?;
+        normalize_plain_candidate(Some(String::from_utf8_lossy(&output).to_string()))
+    }
+
+    fn account_utils_string(&mut self, method_name: &str) -> Option<String> {
+        let app_context = self.app_context_object().ok()?;
+        self.try_call_java_static_string(
+            "com/zenmen/palmchat/account/AccountUtils",
+            method_name,
+            "(Landroid/content/Context;)Ljava/lang/String;",
+            vec![app_context.into()],
+        )
+        .and_then(|value| normalize_plain_candidate(Some(value)))
+    }
+
+    fn compose_refresh_server_key_query_did(&self) -> String {
+        let state = self.identity_state.borrow();
+        format!(
+            "{}_{}_{}",
+            state.effective_imei(),
+            "",
+            state.effective_android_id()
+        )
+    }
+
+    fn messaging_service_secret_pair(&self) -> Option<PalmchatSecretPair> {
+        let value = self
+            .call_messaging_static("getSecretKeys", "()Landroid/util/Pair;", vec![])
+            .ok()?;
+        jni_value_to_secret_pair(value)
+    }
+
+    fn log_secret_slot_snapshot(&self, scope: &str) {
+        const GET_SECRET_KEYS_SLOT_OFFSET: u64 = 0x187ae0;
+        const SKEY_FLAG_SLOT_OFFSET: u64 = 0x187ae8;
+        const CREATE_CKEY_STATE_SLOT_OFFSET: u64 = 0x187af0;
+
+        let pair_slot_addr = self.module_base + GET_SECRET_KEYS_SLOT_OFFSET;
+        let skey_flag_slot_addr = self.module_base + SKEY_FLAG_SLOT_OFFSET;
+        let create_state_slot_addr = self.module_base + CREATE_CKEY_STATE_SLOT_OFFSET;
+
+        let pair_slot_value = read_u64_slot(&self.emulator, pair_slot_addr);
+        let skey_flag_slot_value = read_u64_slot(&self.emulator, skey_flag_slot_addr);
+        let create_state_slot_value = read_u64_slot(&self.emulator, create_state_slot_addr);
+        let read_head = |ptr| {
+            if !pointer_range_readable(&self.emulator, ptr, 0x80) {
+                return "unreadable".to_string();
+            }
+            self.emulator
+                .backend
+                .mem_read_as_vec(ptr, 0x80)
+                .ok()
+                .map(hex::encode)
+                .unwrap_or_else(|| "unreadable".to_string())
+        };
+        self.shared.borrow_mut().native(&format!(
+            "{scope} secret_slot_snapshot pair_slot=0x{:x} skey_flag_slot=0x{:x} create_state_slot=0x{:x} skey_head={} create_state_head={}",
+            pair_slot_value,
+            skey_flag_slot_value,
+            create_state_slot_value,
+            read_head(skey_flag_slot_value),
+            read_head(create_state_slot_value)
+        ));
+    }
+
+    fn secret_candidate_preview(value: &str) -> String {
+        if value.len() <= 8 {
+            return value.to_string();
+        }
+        format!("{}...{}", &value[..4], &value[value.len() - 4..])
+    }
+
+    fn is_secret_ascii_candidate_byte(byte: u8) -> bool {
+        byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/' | b'=' | b'_' | b'-')
+    }
+
+    fn scan_secret_string_candidates_in_buffer(
+        &self,
+        base_addr: u64,
+        bytes: &[u8],
+        source: &str,
+        seen: &mut HashSet<String>,
+        out: &mut Vec<PalmchatSecretStringCandidate>,
+    ) {
+        if bytes.len() < 16 {
+            return;
+        }
+        for offset in 0..=bytes.len() - 16 {
+            let window = &bytes[offset..offset + 16];
+            if !window
+                .iter()
+                .copied()
+                .all(Self::is_secret_ascii_candidate_byte)
+            {
+                continue;
+            }
+            let value = String::from_utf8_lossy(window).into_owned();
+            if !seen.insert(value.clone()) {
+                continue;
+            }
+            out.push(PalmchatSecretStringCandidate {
+                value,
+                source: source.to_string(),
+                addr: base_addr + offset as u64,
+                offset,
+            });
+        }
+    }
+
+    fn collect_refresh_secret_state_candidates(
+        &self,
+        state_ptr: u64,
+        scope: &str,
+    ) -> Vec<PalmchatSecretStringCandidate> {
+        let mut seen = HashSet::new();
+        let mut out = Vec::new();
+        let Some(state_head) = self.emulator.backend.mem_read_as_vec(state_ptr, 0x100).ok() else {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap refresh_state_scan skipped reason=state_unreadable ptr=0x{state_ptr:x}"
+            ));
+            return out;
+        };
+        self.scan_secret_string_candidates_in_buffer(
+            state_ptr,
+            &state_head,
+            "create_state",
+            &mut seen,
+            &mut out,
+        );
+        let mut pointed_regions = Vec::new();
+        for offset in (0..state_head.len().saturating_sub(8) + 1).step_by(8) {
+            let ptr = u64::from_le_bytes(state_head[offset..offset + 8].try_into().unwrap());
+            if ptr == 0 || ptr == state_ptr {
+                continue;
+            }
+            if pointed_regions.iter().any(|existing| *existing == ptr) {
+                continue;
+            }
+            pointed_regions.push(ptr);
+            match self.emulator.backend.mem_read_as_vec(ptr, 0x100) {
+                Ok(pointed_head) => {
+                    let head_hex = hex::encode(
+                        pointed_head
+                            .get(..pointed_head.len().min(0x40))
+                            .unwrap_or_default(),
+                    );
+                    self.shared.borrow_mut().native(&format!(
+                        "{scope} auth_bootstrap refresh_state_scan ptr_slot=0x{offset:x} target=0x{ptr:x} head={head_hex}"
+                    ));
+                    self.scan_secret_string_candidates_in_buffer(
+                        ptr,
+                        &pointed_head,
+                        &format!("create_state_ptr+0x{offset:x}"),
+                        &mut seen,
+                        &mut out,
+                    );
+                    let printable = read_c_string_lossy(&self.emulator, ptr, 0x80)
+                        .filter(|value| value.len() >= 16)
+                        .map(|value| value.chars().take(16).collect::<String>());
+                    if let Some(value) = printable {
+                        if seen.insert(value.clone()) {
+                            out.push(PalmchatSecretStringCandidate {
+                                value,
+                                source: format!("create_state_cstr+0x{offset:x}"),
+                                addr: ptr,
+                                offset: 0,
+                            });
+                        }
+                    }
+                }
+                Err(_) => {
+                    self.shared.borrow_mut().native(&format!(
+                        "{scope} auth_bootstrap refresh_state_scan ptr_slot=0x{offset:x} target=0x{ptr:x} unreadable"
+                    ));
+                }
+            }
+        }
+        let candidate_summary = out
+            .iter()
+            .map(|candidate| {
+                format!(
+                    "{}@0x{:x}+0x{:x}:{}",
+                    candidate.source,
+                    candidate.addr,
+                    candidate.offset,
+                    Self::secret_candidate_preview(&candidate.value)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap refresh_state_scan ptr=0x{state_ptr:x} candidate_count={} candidates=[{}]",
+            out.len(),
+            candidate_summary
+        ));
+        out
+    }
+
+    fn try_recover_secret_pair_from_refresh_state(
+        &mut self,
+        uid: &str,
+        scope: &str,
+        extra_candidates: &[String],
+    ) -> Result<Option<String>> {
+        const CREATE_CKEY_STATE_SLOT_OFFSET: u64 = 0x187af0;
+        let state_ptr = read_u64_slot(
+            &self.emulator,
+            self.module_base + CREATE_CKEY_STATE_SLOT_OFFSET,
+        );
+        if state_ptr == 0 {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap refresh_state_oracle skipped reason=create_state_empty"
+            ));
+            return Ok(None);
+        }
+        let mut candidates = self.collect_refresh_secret_state_candidates(state_ptr, scope);
+        let mut seen = candidates
+            .iter()
+            .map(|candidate| candidate.value.clone())
+            .collect::<HashSet<_>>();
+        for (index, value) in extra_candidates.iter().enumerate() {
+            if value.len() < 16 || !seen.insert(value.clone()) {
+                continue;
+            }
+            candidates.push(PalmchatSecretStringCandidate {
+                value: value.clone(),
+                source: format!("extra_{index}"),
+                addr: 0,
+                offset: 0,
+            });
+        }
+        if candidates.is_empty() {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap refresh_state_oracle skipped reason=no_candidates"
+            ));
+            return Ok(None);
+        }
+
+        let mut key_candidates = candidates.clone();
+        key_candidates.sort_by_key(|candidate| {
+            (
+                candidate.source != "create_state",
+                candidate.offset,
+                candidate.addr,
+            )
+        });
+        let mut iv_candidates = candidates;
+        iv_candidates.sort_by_key(|candidate| {
+            (
+                candidate.source == "create_state" && candidate.offset == 0,
+                candidate.source == "create_state",
+                candidate.offset,
+                candidate.addr,
+            )
+        });
+
+        let max_key_candidates = key_candidates.len().min(4);
+        let max_iv_candidates = iv_candidates.len().min(12);
+        let mut attempt = 0usize;
+        for key_candidate in key_candidates.into_iter().take(max_key_candidates) {
+            for iv_candidate in iv_candidates.iter().take(max_iv_candidates) {
+                if key_candidate.value == iv_candidate.value {
+                    continue;
+                }
+                attempt += 1;
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} auth_bootstrap refresh_state_oracle try idx={} key={} iv={} key_src={} iv_src={}",
+                    attempt,
+                    Self::secret_candidate_preview(&key_candidate.value),
+                    Self::secret_candidate_preview(&iv_candidate.value),
+                    key_candidate.source,
+                    iv_candidate.source
+                ));
+                if let Err(err) = self.call_messaging_static(
+                    "setSecretKeys",
+                    "(Ljava/lang/String;Ljava/lang/String;)V",
+                    vec![
+                        key_candidate.value.clone().into(),
+                        iv_candidate.value.clone().into(),
+                    ],
+                ) {
+                    self.shared.borrow_mut().native(&format!(
+                        "{scope} auth_bootstrap refresh_state_oracle setSecretKeys_failed idx={} err={err:#}",
+                        attempt
+                    ));
+                    continue;
+                }
+                self.set_app_context_secret_pair(Some(PalmchatSecretPair {
+                    key: key_candidate.value.as_bytes().to_vec(),
+                    iv: iv_candidate.value.as_bytes().to_vec(),
+                }));
+                let token = self.generate_smssend_message_token(uid);
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} auth_bootstrap refresh_state_oracle result idx={} token_present={}",
+                    attempt,
+                    token.is_some()
+                ));
+                if token.is_some() {
+                    self.log_secret_slot_snapshot(&format!(
+                        "{scope} auth_bootstrap refresh_state_oracle"
+                    ));
+                    return Ok(token);
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn promote_refresh_secret_state_to_skey_flag_if_needed(&self, scope: &str) -> Result<bool> {
+        const GET_SECRET_KEYS_SLOT_OFFSET: u64 = 0x187ae0;
+        const SKEY_FLAG_SLOT_OFFSET: u64 = 0x187ae8;
+        const CREATE_CKEY_STATE_SLOT_OFFSET: u64 = 0x187af0;
+
+        let pair_slot_addr = self.module_base + GET_SECRET_KEYS_SLOT_OFFSET;
+        let skey_flag_slot_addr = self.module_base + SKEY_FLAG_SLOT_OFFSET;
+        let create_state_slot_addr = self.module_base + CREATE_CKEY_STATE_SLOT_OFFSET;
+
+        let pair_slot_value = read_u64_slot(&self.emulator, pair_slot_addr);
+        let skey_flag_slot_value = read_u64_slot(&self.emulator, skey_flag_slot_addr);
+        let create_state_slot_value = read_u64_slot(&self.emulator, create_state_slot_addr);
+
+        if skey_flag_slot_value != 0 {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap skey_flag promotion skipped reason=already_populated pair_slot=0x{:x} skey_flag_slot=0x{:x} create_state_slot=0x{:x}",
+                pair_slot_value,
+                skey_flag_slot_value,
+                create_state_slot_value
+            ));
+            return Ok(false);
+        }
+        if create_state_slot_value == 0 {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap skey_flag promotion skipped reason=create_state_empty pair_slot=0x{:x}",
+                pair_slot_value
+            ));
+            return Ok(false);
+        }
+        if !pointer_range_readable(&self.emulator, create_state_slot_value, 0x10) {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap skey_flag promotion skipped reason=create_state_unreadable pair_slot=0x{:x} create_state_slot=0x{:x}",
+                pair_slot_value,
+                create_state_slot_value
+            ));
+            return Ok(false);
+        }
+
+        let state_head = self
+            .emulator
+            .backend
+            .mem_read_as_vec(create_state_slot_value, 0x20)
+            .ok()
+            .map(hex::encode)
+            .unwrap_or_else(|| "unreadable".to_string());
+        self.emulator
+            .backend
+            .mem_write(skey_flag_slot_addr, &create_state_slot_value.to_le_bytes())
+            .with_context(|| {
+                format!(
+                    "failed to promote create_state slot into skey_flag slot 0x{skey_flag_slot_addr:x}"
+                )
+            })?;
+        let readback = read_u64_slot(&self.emulator, skey_flag_slot_addr);
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap skey_flag promoted pair_slot=0x{:x} create_state_slot=0x{:x} state_head={} readback=0x{:x}",
+            pair_slot_value,
+            create_state_slot_value,
+            state_head,
+            readback
+        ));
+        Ok(readback == create_state_slot_value)
     }
 
     fn make_string_array(&self, values: &[&str]) -> Result<DvmObject> {
@@ -872,6 +1861,9 @@ impl PalmchatLab {
 
     fn reset_identity_probe_state(&mut self, opts: &HashMap<String, String>) {
         let mut state = self.identity_seed.clone();
+        if let Some(profile) = self.live_device_profile.as_ref() {
+            profile.apply_to_identity_seed(&mut state);
+        }
         if let Some(value) = opts.get("--privacy-agree") {
             state.privacy_agree = Some(parse_bool_like(value));
         }
@@ -890,10 +1882,40 @@ impl PalmchatLab {
         if let Some(value) = opts.get("--mac") {
             state.mac = value.clone();
         }
+        if let Some(value) = opts.get("--seed-sdid") {
+            state.sdid = value.clone();
+        }
+        if let Some(value) = opts.get("--seed-local-smid") {
+            state.local_smid = value.clone();
+        }
+        if let Some(value) = opts.get("--seed-device-label") {
+            state.device_label = value.clone();
+        }
         if let Some(value) = opts.get("--process-name") {
             state.process_name = value.clone();
         }
         *self.identity_state.borrow_mut() = state;
+    }
+
+    fn sync_identity_state_from_effective_body(
+        &mut self,
+        value: &Value,
+        opts: &HashMap<String, String>,
+    ) {
+        let mut state = self.identity_state.borrow().clone();
+        let events = if let Some(profile) = self.live_device_profile.as_ref() {
+            profile.update_identity_state_from_effective_body(&mut state, value, opts)
+        } else {
+            PalmchatLiveDeviceProfile::default()
+                .update_identity_state_from_effective_body(&mut state, value, opts)
+        };
+        *self.identity_state.borrow_mut() = state;
+        if !events.is_empty() {
+            self.shared.borrow_mut().native(&format!(
+                "identity_state synchronized from effective_body changes=[{}]",
+                events.join(", ")
+            ));
+        }
     }
 
     fn bind_hidden_encrypt_utils_method(
@@ -1000,6 +2022,178 @@ impl PalmchatLab {
         Ok(true)
     }
 
+    fn bind_hidden_create_connection_delegate_method(
+        &self,
+        vm: &mut DalvikVM64<()>,
+        class_id: i64,
+        method_name: &str,
+        signature: &str,
+    ) -> Result<bool> {
+        let Some(symbol_name) = hidden_create_connection_delegate_symbol_name(method_name) else {
+            return Ok(false);
+        };
+        let offset = match find_hidden_symbol_value(&self.config.so_path, symbol_name) {
+            Ok(value) => value,
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "hidden symbol scan failed symbol={} path={} err={err:#}",
+                    symbol_name,
+                    self.config.so_path.display()
+                ));
+                None
+            }
+        }
+        .or_else(|| {
+            self.config
+                .hidden_symbol_offsets
+                .get(symbol_name)
+                .and_then(|value| parse_u64ish(value).ok())
+        })
+        .or_else(|| known_hidden_symbol_offset(symbol_name));
+        let Some(offset) = offset else {
+            self.shared.borrow_mut().native(&format!(
+                "hidden native bind skipped method={}{} symbol={} reason=offset-not-found",
+                method_name, signature, symbol_name
+            ));
+            return Ok(false);
+        };
+        let fn_ptr = self.module_base + offset;
+        vm.register_native_method(class_id, method_name, signature, fn_ptr)
+            .with_context(|| {
+                format!(
+                    "failed to register hidden native method: {}{} symbol={} fn_ptr=0x{:x}",
+                    method_name, signature, symbol_name, fn_ptr
+                )
+            })?;
+        let fn_head_hex = self
+            .emulator
+            .backend
+            .mem_read_as_vec(fn_ptr, 16)
+            .ok()
+            .map(hex::encode)
+            .unwrap_or_default();
+        self.shared.borrow_mut().native(&format!(
+            "hidden native bound method={}{} symbol={} offset=0x{:x} absolute=0x{:x} head16={}",
+            method_name, signature, symbol_name, offset, fn_ptr, fn_head_hex
+        ));
+        Ok(true)
+    }
+
+    fn call_create_connection_delegate_refresh_server_key(
+        &self,
+        session_id: &str,
+        refresh_key: &str,
+        did: &str,
+        ck_version: &str,
+        double_key_1: Option<&str>,
+        double_key_2: Option<&str>,
+        url: &str,
+        use_new_key: bool,
+    ) -> Result<JniValue> {
+        const CLASS_NAME: &str = "com/zenmen/palmchat/messaging/CreateConnectionDelegate";
+        const METHOD_NAME: &str = "refreshServerKey";
+        const SIGNATURE: &str = "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Landroid/content/res/AssetManager;Ljava/lang/String;Z)Lorg/json/JSONObject;";
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let (_, class) = vm
+            .resolve_class(CLASS_NAME)
+            .ok_or_else(|| anyhow!("failed to resolve {CLASS_NAME}"))?;
+        let needs_hidden_bind = vm
+            .find_method(class.id, METHOD_NAME, SIGNATURE)
+            .map(|method| !method.is_jni_method())
+            .unwrap_or(true);
+        if needs_hidden_bind
+            && !self.bind_hidden_create_connection_delegate_method(
+                vm,
+                class.id,
+                METHOD_NAME,
+                SIGNATURE,
+            )?
+        {
+            let available = vm.list_method_signatures(class.id);
+            return Err(anyhow!(
+                "native method not registered: {}{} on {}, available={:?}",
+                METHOD_NAME,
+                SIGNATURE,
+                class.name,
+                available
+            ));
+        }
+        let asset_manager = self.make_asset_manager_object()?;
+        let instance = class.new_simple_instance(vm);
+        Ok(instance.call_method(
+            &emulator,
+            vm,
+            METHOD_NAME,
+            SIGNATURE,
+            vec![
+                session_id.to_string().into(),
+                refresh_key.to_string().into(),
+                did.to_string().into(),
+                ck_version.to_string().into(),
+                double_key_1
+                    .map(|value| value.to_string().into())
+                    .unwrap_or(JniValue::Null),
+                double_key_2
+                    .map(|value| value.to_string().into())
+                    .unwrap_or(JniValue::Null),
+                asset_manager.into(),
+                url.to_string().into(),
+                use_new_key.into(),
+            ],
+        ))
+    }
+
+    fn call_create_connection_delegate_refresh_wrapper(
+        &self,
+        uid: &str,
+        session_id: &str,
+        refresh_key: &str,
+    ) -> Result<JniValue> {
+        const CLASS_NAME: &str = "com/zenmen/palmchat/messaging/CreateConnectionDelegate";
+        const WRAPPER_METHOD: &str = "e";
+        const WRAPPER_SIGNATURE: &str =
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V";
+        const REFRESH_METHOD: &str = "refreshServerKey";
+        const REFRESH_SIGNATURE: &str = "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Landroid/content/res/AssetManager;Ljava/lang/String;Z)Lorg/json/JSONObject;";
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let (_, class) = vm
+            .resolve_class(CLASS_NAME)
+            .ok_or_else(|| anyhow!("failed to resolve {CLASS_NAME}"))?;
+        let needs_hidden_bind = vm
+            .find_method(class.id, REFRESH_METHOD, REFRESH_SIGNATURE)
+            .map(|method| !method.is_jni_method())
+            .unwrap_or(true);
+        if needs_hidden_bind
+            && !self.bind_hidden_create_connection_delegate_method(
+                vm,
+                class.id,
+                REFRESH_METHOD,
+                REFRESH_SIGNATURE,
+            )?
+        {
+            let available = vm.list_method_signatures(class.id);
+            return Err(anyhow!(
+                "native method not registered: {}{} on {}, available={:?}",
+                REFRESH_METHOD,
+                REFRESH_SIGNATURE,
+                class.name,
+                available
+            ));
+        }
+        self.call_java_instance(
+            CLASS_NAME,
+            WRAPPER_METHOD,
+            WRAPPER_SIGNATURE,
+            vec![
+                uid.to_string().into(),
+                session_id.to_string().into(),
+                refresh_key.to_string().into(),
+            ],
+        )
+    }
+
     fn make_json_object(&self, raw: &str) -> Result<DvmObject> {
         let emulator = self.emulator.clone();
         let vm = emulator.get_dalvik_vm();
@@ -1097,6 +2291,49 @@ impl PalmchatLab {
             .borrow_mut()
             .native("ckdiag step=createCKey done");
 
+        let mut encrypted_ckey = Map::new();
+        for use_new_key in [false, true] {
+            self.shared.borrow_mut().native(&format!(
+                "ckdiag step=getEncryptedCKey start use_new_key={use_new_key}"
+            ));
+            let value = self.call_static("getEncryptedCKey", "(Z)[B", vec![use_new_key.into()])?;
+            let return_debug = describe_jni_value(&value);
+            let decode = {
+                let emulator = self.emulator.clone();
+                let vm = emulator.get_dalvik_vm();
+                jni_value_to_bytes_with_vm(vm, value)
+            };
+            let key = if use_new_key { "true" } else { "false" };
+            match decode {
+                Ok(bytes) => {
+                    self.shared.borrow_mut().native(&format!(
+                        "ckdiag step=getEncryptedCKey done use_new_key={use_new_key} bytes_len={}",
+                        bytes.len()
+                    ));
+                    encrypted_ckey.insert(
+                        key.to_string(),
+                        json!({
+                            "return_debug": return_debug,
+                            "bytes_len": bytes.len(),
+                            "output_hex": hex::encode(&bytes),
+                        }),
+                    );
+                }
+                Err(err) => {
+                    self.shared.borrow_mut().native(&format!(
+                        "ckdiag step=getEncryptedCKey done use_new_key={use_new_key} decode_error={err:#}"
+                    ));
+                    encrypted_ckey.insert(
+                        key.to_string(),
+                        json!({
+                            "return_debug": return_debug,
+                            "decode_error": err.to_string(),
+                        }),
+                    );
+                }
+            }
+        }
+
         let after_skey = self.call_static("skeyAvailable", "()Z", vec![])?;
         let after_ck = self.call_static("getCkVersion", "()Ljava/lang/String;", vec![])?;
         let after_ck_debug = describe_jni_value(&after_ck);
@@ -1133,6 +2370,7 @@ impl PalmchatLab {
             "create_ckey": {
                 "return_debug": create_debug,
             },
+            "encrypted_ckey": encrypted_ckey,
             "set_lx_data": set_lx_data,
             "after": {
                 "skey_available": after_skey_bool,
@@ -1320,6 +2558,33 @@ impl PalmchatLab {
             "()Ljava/lang/String;",
             vec![],
         )?)?;
+        let smdu_device_id = self
+            .try_call_java_static_string(
+                "com/wifi/open/sec/SmDuManager",
+                "getDeviceId",
+                "()Ljava/lang/String;",
+                vec![],
+            )
+            .unwrap_or_default();
+        let smdu_device_label = self
+            .try_call_java_static_string(
+                "com/wifi/open/sec/SmDuManager",
+                "getDuLabel",
+                "()Ljava/lang/String;",
+                vec![],
+            )
+            .unwrap_or_default();
+        let smid_helper_o = self
+            .try_call_java_static_string(
+                "com/zenmen/palmchat/utils/SmidHelper",
+                "o",
+                "()Ljava/lang/String;",
+                vec![],
+            )
+            .unwrap_or_default();
+        let ac1_v = self
+            .try_call_java_static_string("defpackage/ac1", "v", "()Ljava/lang/String;", vec![])
+            .unwrap_or_default();
 
         let privacy_gate =
             jni_value_to_bool(self.call_java_static("defpackage/r75", "l", "()Z", vec![])?)?;
@@ -1342,6 +2607,7 @@ impl PalmchatLab {
             .and_then(|v| v.get("after_init"))
             .cloned()
             .unwrap_or_else(|| json!({}));
+        let runtime_state = self.identity_state.borrow().clone();
         self.shared.borrow_mut().native(&format!(
             "gate_probe privacy_agree={} read_phone_state={} before_init={} after_init={} before_android_id={} after_android_id={} after_imei_len={} after_mac_len={}",
             privacy_gate,
@@ -1361,7 +2627,7 @@ impl PalmchatLab {
             "active_backend": self.emulator.backend.name(),
             "native_log": self.config.trace_out_dir.join("palmchat_native.log"),
             "jni_log": self.config.trace_out_dir.join("palmchat_jni.log"),
-            "runtime_state_seed": self.identity_seed.clone(),
+            "runtime_state_seed": runtime_state.clone(),
             "gates": {
                 "privacy_agree_gate": {
                     "call": "r75.l()",
@@ -1393,11 +2659,25 @@ impl PalmchatLab {
                 "imei": wm4_imei,
                 "mac": wm4_mac,
             },
+            "smid": {
+                "smdu_getDeviceId_runtime": smdu_device_id,
+                "smdu_getDeviceId_seed": runtime_state.effective_sdid(),
+                "smdu_getDuLabel_runtime": smdu_device_label,
+                "smdu_getDuLabel_seed": runtime_state.effective_device_label(),
+                "smid_helper_o_runtime": smid_helper_o,
+                "smid_helper_expected_seed": if !runtime_state.effective_sdid().trim().is_empty() {
+                    runtime_state.effective_sdid()
+                } else {
+                    runtime_state.effective_local_smid()
+                },
+                "ac1_v_runtime": ac1_v,
+            },
             "app_init_upstream_observation": app_init_upstream_observation,
             "evidence": {
                 "privacy_agree_device_pref": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/artifacts/device_20260326_203005/extracted2/palmchat_pull/shared_prefs/wifi_social.xml:22",
                 "app_init_callsite": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/AppContext.java:607",
                 "read_phone_state_runtime_check": "adb shell dumpsys package com.zenmen.palmchat | rg READ_PHONE_STATE",
+                "smid_static_chain": "/Users/haojiejack/github/drizzle-dumper-rust/artifacts/palmchat_apponly_jadx_20260324_230038/sources/com/zenmen/palmchat/utils/SmidHelper.java:238",
             }
         }))
     }
@@ -1459,6 +2739,10 @@ impl PalmchatLab {
             .get("--sdk-html")
             .map(PathBuf::from)
             .unwrap_or_else(default_smcaptcha_html_path);
+        let sdk_backfill_wait_ms = opts
+            .get("--sdk-backfill-wait-ms")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or_else(|| default_diff_time.parse::<u64>().unwrap_or(5000));
 
         let launch = if interactive {
             match ui_mode.as_str() {
@@ -1506,6 +2790,7 @@ impl PalmchatLab {
                     &default_rid,
                     &default_mode_type,
                     &default_diff_time,
+                    sdk_backfill_wait_ms,
                     flow_enabled,
                     &sdk_html_path,
                 )?,
@@ -1675,18 +2960,54 @@ impl PalmchatLab {
         );
 
         let flow_result = if flow_enabled {
+            let mut effective_flow_opts = opts.clone();
+            let secret_keys_seeded =
+                self.apply_secret_keys_from_opts(&effective_flow_opts, "captcha_ui_debug.flow")?;
+            let auth_bootstrap =
+                self.ensure_stage1_auth_bootstrap(&effective_flow_opts, "captcha_ui_debug.flow")?;
+            let smssend_url_auth = self.derive_smssend_url_auth(&effective_flow_opts);
+            if let Some(injected) = prepare_smssend_test_url_opts(
+                &stage1_obj,
+                &stage2_obj,
+                &mut effective_flow_opts,
+                Some(&smssend_url_auth),
+                self.live_device_profile.as_ref(),
+            ) {
+                ui_events.push(json!({
+                    "ts": iso_now(),
+                    "phase": "control_flow_smssend_url_injected",
+                    "injected": injected,
+                }));
+            }
+            if let Some(secret_keys_seeded) = secret_keys_seeded.as_ref() {
+                ui_events.push(json!({
+                    "ts": iso_now(),
+                    "phase": "control_flow_secret_keys_seeded",
+                    "secret_keys_seeded": secret_keys_seeded,
+                }));
+            }
+            ui_events.push(json!({
+                "ts": iso_now(),
+                "phase": "control_flow_auth_bootstrap",
+                "auth_bootstrap": auth_bootstrap,
+            }));
             self.shared
                 .borrow_mut()
                 .native("captcha_ui_debug step=flow start");
-            let output = self.run_flow_for_captcha_ui(
+            let mut output = self.run_flow_for_captcha_ui(
                 &stage2_raw,
                 &stage1_raw_normalized,
-                opts,
+                &effective_flow_opts,
                 &ui_source,
             )?;
             self.shared
                 .borrow_mut()
                 .native("captcha_ui_debug step=flow done");
+            if let Some(secret_keys_seeded) = secret_keys_seeded {
+                if let Some(output_obj) = output.as_object_mut() {
+                    output_obj.insert("secret_keys_seeded".to_string(), secret_keys_seeded);
+                }
+            }
             ui_events.push(json!({
                 "ts": iso_now(),
                 "phase": "data_flow_observation",
@@ -1777,6 +3098,51 @@ impl PalmchatLab {
         if let Some(use_new_key) = opts.get("--arg3") {
             flow_opts.insert("--arg3".to_string(), use_new_key.clone());
         }
+        for key in [
+            "--no-empty-params",
+            "--seed-device-id",
+            "--seed-local-smid",
+            "--seed-dhid",
+            "--seed-sdid",
+            "--seed-imei",
+            "--seed-mac",
+            "--seed-oneid",
+            "--seed-oaid",
+            "--seed-android-id",
+            "--seed-channel-id",
+            "--seed-appid",
+            "--seed-ip-info",
+            "--seed-device-label",
+            "--secret-key",
+            "--secret-iv",
+        ] {
+            if let Some(value) = opts.get(key) {
+                flow_opts.insert(key.to_string(), value.clone());
+            }
+        }
+        if let Some(smssend_test) = opts.get("--smssend-test") {
+            flow_opts.insert("--smssend-test".to_string(), smssend_test.clone());
+        }
+        if let Some(two_step) = opts.get("--smssend-two-step") {
+            flow_opts.insert("--smssend-two-step".to_string(), two_step.clone());
+        }
+        if let Some(smssend_url) = opts.get("--smssend-url") {
+            flow_opts.insert("--smssend-url".to_string(), smssend_url.clone());
+        }
+        if let Some(smssend_timeout) = opts.get("--smssend-timeout-ms") {
+            flow_opts.insert("--smssend-timeout-ms".to_string(), smssend_timeout.clone());
+        }
+        if let Some(smssend_user_agent) = opts.get("--smssend-user-agent") {
+            flow_opts.insert(
+                "--smssend-user-agent".to_string(),
+                smssend_user_agent.clone(),
+            );
+        }
+        for key in ["--transport-runtime", "--okhttp-bridge-url", "--http1-only"] {
+            if let Some(value) = opts.get(key) {
+                flow_opts.insert(key.to_string(), value.clone());
+            }
+        }
         flow_opts
     }
 
@@ -1805,8 +3171,33 @@ impl PalmchatLab {
         if let Some(use_new_key) = opts.get("--arg3") {
             cmd.arg("--arg3").arg(use_new_key);
         }
+        for key in [
+            "--no-empty-params",
+            "--seed-device-id",
+            "--seed-local-smid",
+            "--seed-dhid",
+            "--seed-sdid",
+            "--seed-imei",
+            "--seed-mac",
+            "--seed-oneid",
+            "--seed-oaid",
+            "--seed-android-id",
+            "--seed-channel-id",
+            "--seed-appid",
+            "--seed-ip-info",
+            "--seed-device-label",
+            "--secret-key",
+            "--secret-iv",
+        ] {
+            if let Some(value) = opts.get(key) {
+                cmd.arg(key).arg(value);
+            }
+        }
         if let Some(flag) = opts.get("--smssend-test") {
             cmd.arg("--smssend-test").arg(flag);
+        }
+        if let Some(two_step) = opts.get("--smssend-two-step") {
+            cmd.arg("--smssend-two-step").arg(two_step);
         }
         if let Some(url) = opts.get("--smssend-url") {
             cmd.arg("--smssend-url").arg(url);
@@ -1816,6 +3207,11 @@ impl PalmchatLab {
         }
         if let Some(ua) = opts.get("--smssend-user-agent") {
             cmd.arg("--smssend-user-agent").arg(ua);
+        }
+        for key in ["--transport-runtime", "--okhttp-bridge-url", "--http1-only"] {
+            if let Some(value) = opts.get(key) {
+                cmd.arg(key).arg(value);
+            }
         }
         let output = cmd
             .output()
@@ -1850,12 +3246,172 @@ impl PalmchatLab {
         }
     }
 
-    fn run_smssend_test(
+    fn flow_encrypt_payload(
+        &mut self,
+        payload: &Value,
+        cipher_mode: i32,
+        use_new_key: bool,
+        trace_tag: &str,
+    ) -> Result<(String, String, String)> {
+        let raw = payload.to_string();
+        let json_obj = self.make_json_object(&raw)?;
+        self.shared
+            .borrow_mut()
+            .native(&format!("{trace_tag} step=setLxData start"));
+        let _ = self.call_static(
+            "setLxData",
+            "(Lorg/json/JSONObject;)V",
+            vec![json_obj.clone().into()],
+        )?;
+        self.shared
+            .borrow_mut()
+            .native(&format!("{trace_tag} step=setLxData done"));
+        self.shared
+            .borrow_mut()
+            .native(&format!("{trace_tag} step=createCKey start"));
+        let _ = self.call_static("createCKey", "()V", vec![])?;
+        self.shared
+            .borrow_mut()
+            .native(&format!("{trace_tag} step=createCKey done"));
+        apply_runtime_page_patch_entries(
+            &self.config.runtime_page_patches_after_create_ckey,
+            &self.emulator,
+            self.shared.clone(),
+            self.module_base,
+            "post-createCKey runtime page patch",
+        )?;
+        let ck_version = self
+            .call_static("getCkVersion", "()Ljava/lang/String;", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_string(value).ok())
+            .map(override_palmchat_ck_version)
+            .unwrap_or_else(|| override_palmchat_ck_version(String::new()));
+        self.shared
+            .borrow_mut()
+            .native(&format!("{trace_tag} step=getEncryptedCKey start"));
+        let encrypted_ckey =
+            self.call_static("getEncryptedCKey", "(Z)[B", vec![use_new_key.into()])?;
+        let encrypted_ckey_bytes = {
+            let emulator = self.emulator.clone();
+            let vm = emulator.get_dalvik_vm();
+            jni_value_to_bytes_with_vm(vm, encrypted_ckey)?
+        };
+        self.shared.borrow_mut().native(&format!(
+            "{trace_tag} step=getEncryptedCKey done bytes_len={}",
+            encrypted_ckey_bytes.len()
+        ));
+        self.shared
+            .borrow_mut()
+            .native(&format!("{trace_tag} step=cipherWithHashKey start"));
+        let cipher_value = self.call_static(
+            "cipherWithHashKey",
+            "(Lorg/json/JSONObject;IZ)[B",
+            vec![json_obj.into(), cipher_mode.into(), use_new_key.into()],
+        )?;
+        let cipher_bytes = {
+            let emulator = self.emulator.clone();
+            let vm = emulator.get_dalvik_vm();
+            jni_value_to_bytes_with_vm(vm, cipher_value)?
+        };
+        self.shared.borrow_mut().native(&format!(
+            "{trace_tag} step=cipherWithHashKey done bytes_len={}",
+            cipher_bytes.len()
+        ));
+        Ok((
+            ck_version,
+            hex::encode(encrypted_ckey_bytes).to_ascii_uppercase(),
+            hex::encode(cipher_bytes).to_ascii_uppercase(),
+        ))
+    }
+
+    fn flow_encrypt_payload_subprocess(
+        &mut self,
+        payload: &Value,
+        cipher_mode: i32,
+        use_new_key: bool,
+        trace_tag: &str,
+        opts: &HashMap<String, String>,
+    ) -> Result<(String, String, String)> {
+        let secret_pair = self
+            .messaging_service_secret_pair()
+            .ok_or_else(|| anyhow!("messaging_service_secret_pair unavailable"))?;
+        let secret_key = String::from_utf8(secret_pair.key)
+            .context("messaging_service secret_key is not valid utf-8")?;
+        let secret_iv = String::from_utf8(secret_pair.iv)
+            .context("messaging_service secret_iv is not valid utf-8")?;
+        let exe = std::env::current_exe().context("failed to resolve current executable path")?;
+        let trace_slug = trace_tag
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    ch
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        let json_out_path = self.config.trace_out_dir.join(format!(
+            "{}_{}.json",
+            trace_slug,
+            current_timestamp_millis()
+        ));
+        let mut cmd = Command::new(exe);
+        cmd.arg("palmchat").arg("invoke");
+        cmd.arg("--config")
+            .arg(opts.get("--config").cloned().unwrap_or_else(default_config_path));
+        if let Some(backend) = opts.get("--backend") {
+            cmd.arg("--backend").arg(backend);
+        } else {
+            cmd.arg("--backend").arg(self.emulator.backend.name());
+        }
+        cmd.arg("--method").arg("flowEncrypt");
+        cmd.arg("--arg1").arg(payload.to_string());
+        cmd.arg("--arg2").arg(cipher_mode.to_string());
+        cmd.arg("--arg3")
+            .arg(if use_new_key { "true" } else { "false" });
+        cmd.arg("--secret-key").arg(secret_key);
+        cmd.arg("--secret-iv").arg(secret_iv);
+        cmd.arg("--json-out").arg(&json_out_path);
+        let output = cmd
+            .output()
+            .context("failed to spawn subprocess flowEncrypt observation")?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return Err(anyhow!(
+                "subprocess flowEncrypt failed: status={} stderr={} stdout={}",
+                output.status,
+                stderr.trim(),
+                stdout.trim()
+            ));
+        }
+        let output_value = read_json_file(&json_out_path)
+            .with_context(|| format!("failed to read subprocess output {:?}", json_out_path))?;
+        let ck_version = output_value
+            .get("ck_version")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| anyhow!("subprocess flowEncrypt missing ck_version"))?;
+        let encrypted_ckey_hex = output_value
+            .get("encrypted_ckey_hex")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| anyhow!("subprocess flowEncrypt missing encrypted_ckey_hex"))?;
+        let cipher_hex = output_value
+            .get("cipher_hex")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| anyhow!("subprocess flowEncrypt missing cipher_hex"))?;
+        Ok((ck_version, encrypted_ckey_hex, cipher_hex))
+    }
+
+    fn run_smssend_test_internal(
         &mut self,
         control_feedback: &Value,
         cipher_hex: &str,
         use_new_key: bool,
         opts: &HashMap<String, String>,
+        ignore_verify_status_gate: bool,
     ) -> Value {
         let Some(feedback_obj) = control_feedback.as_object() else {
             return json!({
@@ -1863,14 +3419,22 @@ impl PalmchatLab {
                 "reason": "invalid_control_feedback_format",
             });
         };
-        let ready = feedback_obj
-            .get("ready_for_smssend")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        if !ready {
+        let mut blocked_reasons = feedback_obj
+            .get("blocked_reasons")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect::<Vec<_>>();
+        if ignore_verify_status_gate {
+            blocked_reasons.retain(|reason| reason != "verifyStatus_false");
+        }
+        if !blocked_reasons.is_empty() {
             return json!({
                 "status": "blocked",
                 "reason": "control_feedback_not_ready",
+                "blocked_reasons": blocked_reasons,
                 "control_feedback": control_feedback,
             });
         }
@@ -1900,6 +3464,7 @@ impl PalmchatLab {
             .and_then(|value| value.parse::<u64>().ok())
             .unwrap_or(20_000);
         let user_agent = opts.get("--smssend-user-agent").cloned();
+        let body_value = feedback_obj.get("body");
 
         let mut headers = HeaderMap::new();
         let header_map = feedback_obj
@@ -1919,97 +3484,1748 @@ impl PalmchatLab {
             };
             headers.insert(header_name, header_value);
         }
-        if let Some(ua) = user_agent.as_ref() {
-            if let Ok(header_value) = HeaderValue::from_str(ua) {
-                headers.insert(reqwest::header::USER_AGENT, header_value);
+        for (header_name, header_value) in
+            self.build_smssend_transport_headers(body_value, user_agent.as_deref())
+        {
+            if !headers.contains_key(&header_name) {
+                headers.insert(header_name, header_value);
+            }
+        }
+        let request_headers = header_map_to_json(&headers);
+
+        let transport_response =
+            match self.execute_smssend_request(url, &headers, &body_bytes, timeout_ms, opts) {
+                Ok(response) => response,
+                Err(err) => {
+                    return json!({
+                        "status": "blocked",
+                        "reason": "smssend_transport_failed",
+                        "error": format!("{err:#}"),
+                        "request_headers": request_headers,
+                        "control_feedback": control_feedback,
+                        "ignore_verify_status_gate": ignore_verify_status_gate,
+                    });
+                }
+            };
+        let encrypted_header =
+            header_value_case_insensitive(&transport_response.headers, "content-encrypted-zx")
+                .unwrap_or_default();
+        let decoded_bytes = if encrypted_header == "1" {
+            match self.call_static(
+                "cipherWithType",
+                "([BIZ)[B",
+                vec![
+                    JniValue::Object(DvmObject::ByteArray(transport_response.body_bytes.clone())),
+                    3.into(),
+                    use_new_key.into(),
+                ],
+            ) {
+                Ok(value) => jni_value_to_bytes(value)
+                    .unwrap_or_else(|_| transport_response.body_bytes.clone()),
+                Err(_) => transport_response.body_bytes.clone(),
+            }
+        } else {
+            transport_response.body_bytes.clone()
+        };
+        let decoded_utf8 = String::from_utf8_lossy(&decoded_bytes).to_string();
+        let decoded_json = serde_json::from_slice::<Value>(&decoded_bytes).ok();
+        let result_code = decoded_json
+            .as_ref()
+            .and_then(|value| value.get("resultCode"))
+            .and_then(Value::as_i64);
+        json!({
+            "status": "ok",
+            "http_status": transport_response.status,
+            "result_code": result_code,
+            "request_headers": request_headers,
+            "response_headers": string_map_to_json(&transport_response.headers),
+            "response_body_hex": hex::encode(&transport_response.body_bytes).to_ascii_uppercase(),
+            "response_decoded_hex": hex::encode(&decoded_bytes).to_ascii_uppercase(),
+            "response_decoded_utf8": decoded_utf8,
+            "response_decoded_json": decoded_json,
+            "transport": transport_response.transport,
+            "control_feedback": control_feedback,
+            "ignore_verify_status_gate": ignore_verify_status_gate,
+        })
+    }
+
+    fn build_smssend_transport_headers(
+        &self,
+        body_value: Option<&Value>,
+        requested_user_agent: Option<&str>,
+    ) -> Vec<(HeaderName, HeaderValue)> {
+        let mut out = Vec::new();
+        if let Some(user_agent_zx) = build_palmchat_user_agent_zx(
+            self.live_device_profile.as_ref(),
+            &self.app_version_info,
+            body_value,
+        ) {
+            if let Ok(value) = HeaderValue::from_str(&user_agent_zx) {
+                out.push((HeaderName::from_static("user-agent-zx"), value));
+            }
+        }
+        if let Some(user_agent_zx_version) =
+            build_palmchat_user_agent_zx_version(self.app_version_info.version_name.as_deref())
+        {
+            if let Ok(value) = HeaderValue::from_str(&user_agent_zx_version) {
+                out.push((HeaderName::from_static("user-agent-zx-version"), value));
+            }
+        }
+        let user_agent = requested_user_agent
+            .map(str::to_string)
+            .or_else(|| build_android_dalvik_user_agent(self.live_device_profile.as_ref()));
+        if let Some(user_agent_value) = user_agent {
+            if let Ok(value) = HeaderValue::from_str(&user_agent_value) {
+                out.push((reqwest::header::USER_AGENT, value));
+            }
+        }
+        out
+    }
+
+    fn execute_smssend_request(
+        &self,
+        url: &str,
+        headers: &HeaderMap,
+        body: &[u8],
+        timeout_ms: u64,
+        opts: &HashMap<String, String>,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let runtime =
+            PalmchatTransportRuntime::parse(opts.get("--transport-runtime").map(String::as_str))?;
+        let configured_bridge_url = opts
+            .get("--okhttp-bridge-url")
+            .cloned()
+            .or_else(|| std::env::var("RNIDBG_OKHTTP_BRIDGE_URL").ok())
+            .filter(|value| !value.trim().is_empty());
+        match runtime {
+            PalmchatTransportRuntime::Direct => {
+                self.execute_smssend_request_direct(url, headers, body, timeout_ms, opts)
+            }
+            PalmchatTransportRuntime::OkHttpBridge => {
+                if let Some(base_url) = configured_bridge_url {
+                    self.execute_smssend_request_remote_okhttp_bridge(
+                        &normalize_palmchat_bridge_url(&base_url)?,
+                        url,
+                        headers,
+                        body,
+                        timeout_ms,
+                    )
+                } else {
+                    self.execute_smssend_request_apk_okhttp(url, headers, body, timeout_ms)
+                }
+            }
+            PalmchatTransportRuntime::Auto => {
+                if let Some(base_url) = configured_bridge_url {
+                    self.execute_smssend_request_remote_okhttp_bridge(
+                        &normalize_palmchat_bridge_url(&base_url)?,
+                        url,
+                        headers,
+                        body,
+                        timeout_ms,
+                    )
+                } else {
+                    self.execute_smssend_request_direct(url, headers, body, timeout_ms, opts)
+                }
+            }
+        }
+    }
+
+    fn execute_plain_get_request(
+        &self,
+        url: &str,
+        timeout_ms: u64,
+        opts: &HashMap<String, String>,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let runtime =
+            PalmchatTransportRuntime::parse(opts.get("--transport-runtime").map(String::as_str))?;
+        let configured_bridge_url = opts
+            .get("--okhttp-bridge-url")
+            .cloned()
+            .or_else(|| std::env::var("RNIDBG_OKHTTP_BRIDGE_URL").ok())
+            .filter(|value| !value.trim().is_empty());
+        match runtime {
+            PalmchatTransportRuntime::Direct => {
+                self.execute_plain_get_request_direct(url, timeout_ms, opts)
+            }
+            PalmchatTransportRuntime::OkHttpBridge => {
+                if let Some(base_url) = configured_bridge_url {
+                    self.execute_plain_get_request_remote_okhttp_bridge(
+                        &normalize_palmchat_bridge_url(&base_url)?,
+                        url,
+                        timeout_ms,
+                    )
+                } else {
+                    self.execute_plain_get_request_apk_okhttp(url, timeout_ms)
+                }
+            }
+            PalmchatTransportRuntime::Auto => {
+                if let Some(base_url) = configured_bridge_url {
+                    self.execute_plain_get_request_remote_okhttp_bridge(
+                        &normalize_palmchat_bridge_url(&base_url)?,
+                        url,
+                        timeout_ms,
+                    )
+                } else {
+                    self.execute_plain_get_request_direct(url, timeout_ms, opts)
+                }
+            }
+        }
+    }
+
+    fn execute_smssend_request_direct(
+        &self,
+        url: &str,
+        headers: &HeaderMap,
+        body: &[u8],
+        timeout_ms: u64,
+        opts: &HashMap<String, String>,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let mut builder = Client::builder().timeout(Duration::from_millis(timeout_ms));
+        if opts
+            .get("--http1-only")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false)
+        {
+            builder = builder.http1_only();
+        }
+        let client = builder
+            .build()
+            .context("failed to build palmchat direct http client")?;
+        let response = client
+            .post(url)
+            .headers(headers.clone())
+            .body(body.to_vec())
+            .send()
+            .with_context(|| format!("failed to post palmchat smssend request: {url}"))?;
+        let status = response.status().as_u16();
+        let final_url = response.url().to_string();
+        let http_version = format!("{:?}", response.version());
+        let response_headers = response.headers().clone();
+        let body_bytes = response
+            .bytes()
+            .context("failed to read palmchat direct response bytes")?
+            .to_vec();
+        Ok(PalmchatHttpTransportResponse {
+            status,
+            headers: header_map_to_string_map(&response_headers),
+            body_bytes,
+            transport: json!({
+                "transport_runtime": "direct",
+                "flow": "reqwest_direct",
+                "http_version": http_version,
+                "final_url": final_url,
+                "request_body_size": body.len(),
+                "request_body_sha256": sha256_hex_bytes(body),
+                "request_content_type": headers
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok()),
+            }),
+        })
+    }
+
+    fn execute_plain_get_request_direct(
+        &self,
+        url: &str,
+        timeout_ms: u64,
+        opts: &HashMap<String, String>,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let mut builder = Client::builder().timeout(Duration::from_millis(timeout_ms));
+        if opts
+            .get("--http1-only")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false)
+        {
+            builder = builder.http1_only();
+        }
+        let client = builder
+            .build()
+            .context("failed to build palmchat direct http client")?;
+        let response = client
+            .get(url)
+            .send()
+            .with_context(|| format!("failed to get palmchat requestInfo request: {url}"))?;
+        let status = response.status().as_u16();
+        let final_url = response.url().to_string();
+        let http_version = format!("{:?}", response.version());
+        let response_headers = response.headers().clone();
+        let body_bytes = response
+            .bytes()
+            .context("failed to read palmchat direct response bytes")?
+            .to_vec();
+        Ok(PalmchatHttpTransportResponse {
+            status,
+            headers: header_map_to_string_map(&response_headers),
+            body_bytes,
+            transport: json!({
+                "transport_runtime": "direct",
+                "flow": "reqwest_direct_get",
+                "http_version": http_version,
+                "final_url": final_url,
+            }),
+        })
+    }
+
+    fn refresh_ip_info_preflight(
+        &mut self,
+        json_value: &mut Value,
+        opts: &HashMap<String, String>,
+        scope: &str,
+    ) -> Option<Value> {
+        let device_id = opts
+            .get("--device-id")
+            .cloned()
+            .and_then(|value| normalize_device_id_candidate(Some(value)))
+            .or_else(|| {
+                self.live_device_profile.as_ref().and_then(|profile| {
+                    normalize_device_id_candidate(profile.tray_device_id.clone())
+                        .or_else(|| normalize_device_id_candidate(profile.sdid.clone()))
+                })
+            })?;
+        let request_id = generate_xn3_like_id();
+        let url = format!(
+            "https://openapi-ipv6.lianxinapp.com/outerchannel/requestInfo?requestId={request_id}&deviceId={device_id}"
+        );
+        let mut builder = Client::builder().timeout(Duration::from_secs(20));
+        if opts
+            .get("--http1-only")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false)
+        {
+            builder = builder.http1_only();
+        }
+        let response = match builder
+            .build()
+            .context("failed to build ipInfo preflight client")
+            .and_then(|client| {
+                client
+                    .get(&url)
+                    .send()
+                    .with_context(|| format!("failed to fetch requestInfo preflight: {url}"))
+            }) {
+            Ok(response) => response,
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} ip_info_preflight failed stage=request err={err:#}"
+                ));
+                return Some(json!({
+                    "status": "error",
+                    "stage": "request",
+                    "request_url": url,
+                    "deviceId": device_id,
+                    "requestId": request_id,
+                    "error": err.to_string(),
+                }));
+            }
+        };
+        let status = response.status().as_u16();
+        let final_url = response.url().to_string();
+        let http_version = format!("{:?}", response.version());
+        let response_text = match response.text() {
+            Ok(text) => text,
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} ip_info_preflight failed stage=read status={} err={err:#}",
+                    status
+                ));
+                return Some(json!({
+                    "status": "error",
+                    "stage": "read",
+                    "request_url": url,
+                    "final_url": final_url,
+                    "deviceId": device_id,
+                    "requestId": request_id,
+                    "http_status": status,
+                    "http_version": http_version,
+                    "error": err.to_string(),
+                }));
+            }
+        };
+        let parsed = match serde_json::from_str::<Value>(&response_text) {
+            Ok(Value::Object(obj)) => Value::Object(obj),
+            Ok(other) => {
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} ip_info_preflight failed stage=parse status={} type={}",
+                    status, other
+                ));
+                return Some(json!({
+                    "status": "error",
+                    "stage": "parse",
+                    "request_url": url,
+                    "final_url": final_url,
+                    "deviceId": device_id,
+                    "requestId": request_id,
+                    "http_status": status,
+                    "http_version": http_version,
+                    "response_text": truncate_text(&response_text, 1200),
+                }));
+            }
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} ip_info_preflight failed stage=parse status={} err={err:#}",
+                    status
+                ));
+                return Some(json!({
+                    "status": "error",
+                    "stage": "parse",
+                    "request_url": url,
+                    "final_url": final_url,
+                    "deviceId": device_id,
+                    "requestId": request_id,
+                    "http_status": status,
+                    "http_version": http_version,
+                    "response_text": truncate_text(&response_text, 1200),
+                    "error": err.to_string(),
+                }));
+            }
+        };
+        let ip_info_compact = parsed.to_string();
+        let preserve_runtime_probe_ip_info = self
+            .live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.ip_info.clone()))
+            .is_some()
+            && read_runtime_probe_raw()
+                .as_ref()
+                .and_then(|(path, raw)| parse_runtime_probe_overrides(raw, path))
+                .and_then(|overrides| overrides.ip_info)
+                .is_some();
+        if let Some(profile) = self.live_device_profile.as_mut() {
+            if !preserve_runtime_probe_ip_info {
+                profile.ip_info = Some(ip_info_compact.clone());
+            }
+        }
+        if let Value::Object(map) = json_value {
+            map.insert("ipInfo".to_string(), Value::String(ip_info_compact.clone()));
+        }
+        self.shared.borrow_mut().native(&format!(
+            "{scope} ip_info_preflight done status={} bytes={} final_url={}",
+            status,
+            ip_info_compact.len(),
+            final_url
+        ));
+        Some(json!({
+            "status": "ok",
+            "request_url": url,
+            "final_url": final_url,
+            "deviceId": device_id,
+            "requestId": request_id,
+            "http_status": status,
+            "http_version": http_version,
+            "ip_info": parsed,
+            "ip_info_len": ip_info_compact.len(),
+        }))
+    }
+
+    fn execute_smssend_request_remote_okhttp_bridge(
+        &self,
+        base_url: &str,
+        url: &str,
+        headers: &HeaderMap,
+        body: &[u8],
+        timeout_ms: u64,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let health = palmchat_okhttp_bridge_health(base_url)?
+            .ok_or_else(|| anyhow!("okhttp bridge is not reachable at {base_url}"))?;
+        let request_url = format!("{}/request", base_url.trim_end_matches('/'));
+        let client = Client::builder()
+            .timeout(Duration::from_millis(timeout_ms))
+            .build()
+            .context("failed to build palmchat okhttp-bridge client")?;
+        let payload = client
+            .post(&request_url)
+            .json(&json!({
+                "method": "POST",
+                "url": url,
+                "headers": header_map_to_string_map(headers),
+                "body": Value::Null,
+                "body_b64": BASE64_STANDARD.encode(body),
+            }))
+            .send()
+            .with_context(|| format!("failed to call palmchat okhttp bridge: {request_url}"))?
+            .json::<Value>()
+            .with_context(|| {
+                format!("failed to parse palmchat okhttp bridge response: {request_url}")
+            })?;
+        if let Some(error) = payload.get("error").and_then(Value::as_str) {
+            return Err(anyhow!("okhttp bridge returned error: {error}"));
+        }
+        let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let body_bytes = payload_body_bytes_from_transport_json(&payload).unwrap_or_default();
+        Ok(PalmchatHttpTransportResponse {
+            status,
+            headers: json_value_to_string_map(payload.get("headers")),
+            body_bytes,
+            transport: json!({
+                "transport_runtime": "okhttp_bridge",
+                "bridge_mode": "remote",
+                "bridge_url": base_url,
+                "bridge_engine": health.get("engine").cloned().unwrap_or(Value::Null),
+                "bridge_status": status,
+                "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+                "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
+                "request_body_size": body.len(),
+                "request_body_sha256": sha256_hex_bytes(body),
+                "request_content_type": headers
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok()),
+            }),
+        })
+    }
+
+    fn execute_plain_get_request_remote_okhttp_bridge(
+        &self,
+        base_url: &str,
+        url: &str,
+        timeout_ms: u64,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let health = palmchat_okhttp_bridge_health(base_url)?
+            .ok_or_else(|| anyhow!("okhttp bridge is not reachable at {base_url}"))?;
+        let request_url = format!("{}/request", base_url.trim_end_matches('/'));
+        let client = Client::builder()
+            .timeout(Duration::from_millis(timeout_ms))
+            .build()
+            .context("failed to build palmchat okhttp-bridge client")?;
+        let payload = client
+            .post(&request_url)
+            .json(&json!({
+                "method": "GET",
+                "url": url,
+                "headers": {},
+            }))
+            .send()
+            .with_context(|| format!("failed to call palmchat okhttp bridge: {request_url}"))?
+            .json::<Value>()
+            .with_context(|| {
+                format!("failed to parse palmchat okhttp bridge response: {request_url}")
+            })?;
+        if let Some(error) = payload.get("error").and_then(Value::as_str) {
+            return Err(anyhow!("okhttp bridge returned error: {error}"));
+        }
+        let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let body_bytes = payload_body_bytes_from_transport_json(&payload).unwrap_or_default();
+        Ok(PalmchatHttpTransportResponse {
+            status,
+            headers: json_value_to_string_map(payload.get("headers")),
+            body_bytes,
+            transport: json!({
+                "transport_runtime": "okhttp_bridge",
+                "bridge_mode": "remote",
+                "bridge_url": base_url,
+                "bridge_engine": health.get("engine").cloned().unwrap_or(Value::Null),
+                "bridge_status": status,
+                "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+                "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
+            }),
+        })
+    }
+
+    fn execute_smssend_request_apk_okhttp(
+        &self,
+        url: &str,
+        headers: &HeaderMap,
+        body: &[u8],
+        timeout_ms: u64,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let script_path = palmchat_repo_root().join("scripts/run-generic-apk-okhttp.sh");
+        if !script_path.is_file() {
+            return Err(anyhow!(
+                "apk okhttp runner script not found: {}",
+                script_path.display()
+            ));
+        }
+        if !self.config.apk_path.is_file() {
+            return Err(anyhow!(
+                "palmchat apk not found for okhttp transport: {}",
+                self.config.apk_path.display()
+            ));
+        }
+        let mut command = Command::new(&script_path);
+        let content_type = headers
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("application/octet-stream; charset=utf-8");
+        command
+            .arg("--apk")
+            .arg(&self.config.apk_path)
+            .arg("--method")
+            .arg("POST")
+            .arg("--url")
+            .arg(url)
+            .arg("--content-type")
+            .arg(content_type)
+            .arg("--body-base64")
+            .arg(BASE64_STANDARD.encode(body));
+        for (key, value) in header_map_to_string_map(headers) {
+            command.arg("--header").arg(format!("{key}: {value}"));
+        }
+        let output = run_command_with_timeout(
+            &mut command,
+            Duration::from_millis(timeout_ms.saturating_add(60_000)),
+        )
+        .with_context(|| {
+            format!(
+                "failed to execute palmchat apk okhttp runner: {}",
+                script_path.display()
+            )
+        })?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            return Err(anyhow!(
+                "palmchat apk okhttp runner failed: status={:?}, stderr={}, stdout={}",
+                output.status.code(),
+                truncate_text(&stderr, 1200),
+                truncate_text(&stdout, 1200),
+            ));
+        }
+        let payload: Value = serde_json::from_slice(&output.stdout)
+            .context("failed to parse palmchat apk okhttp runner output")?;
+        if let Some(error) = payload.get("error").and_then(Value::as_str) {
+            return Err(anyhow!("palmchat apk okhttp returned error: {error}"));
+        }
+        let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let body_bytes = payload_body_bytes_from_transport_json(&payload).unwrap_or_default();
+        Ok(PalmchatHttpTransportResponse {
+            status,
+            headers: json_value_to_string_map(payload.get("headers")),
+            body_bytes,
+            transport: json!({
+                "transport_runtime": "okhttp_bridge",
+                "bridge_mode": "apk_cli",
+                "bridge_flow": "palmchat_apk_okhttp",
+                "apk_path": self.config.apk_path.display().to_string(),
+                "script_path": script_path.display().to_string(),
+                "bridge_engine": payload.get("engine").cloned().unwrap_or_else(|| Value::String("generic_apk_okhttp".to_string())),
+                "bridge_status": status,
+                "bridge_protocol": payload.get("protocol").cloned().unwrap_or(Value::Null),
+                "bridge_message": payload.get("message").cloned().unwrap_or(Value::Null),
+                "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+                "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
+                "request_body_size": body.len(),
+                "request_body_sha256": sha256_hex_bytes(body),
+                "request_content_type": headers
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok()),
+            }),
+        })
+    }
+
+    fn execute_plain_get_request_apk_okhttp(
+        &self,
+        url: &str,
+        timeout_ms: u64,
+    ) -> Result<PalmchatHttpTransportResponse> {
+        let script_path = palmchat_repo_root().join("scripts/run-generic-apk-okhttp.sh");
+        if !script_path.is_file() {
+            return Err(anyhow!(
+                "apk okhttp runner script not found: {}",
+                script_path.display()
+            ));
+        }
+        if !self.config.apk_path.is_file() {
+            return Err(anyhow!(
+                "palmchat apk not found for okhttp transport: {}",
+                self.config.apk_path.display()
+            ));
+        }
+        let mut command = Command::new(&script_path);
+        command
+            .arg("--apk")
+            .arg(&self.config.apk_path)
+            .arg("--method")
+            .arg("GET")
+            .arg("--url")
+            .arg(url);
+        let output = run_command_with_timeout(
+            &mut command,
+            Duration::from_millis(timeout_ms.saturating_add(60_000)),
+        )
+        .with_context(|| {
+            format!(
+                "failed to execute palmchat apk okhttp runner: {}",
+                script_path.display()
+            )
+        })?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            return Err(anyhow!(
+                "palmchat apk okhttp runner failed: status={:?}, stderr={}, stdout={}",
+                output.status.code(),
+                truncate_text(&stderr, 1200),
+                truncate_text(&stdout, 1200),
+            ));
+        }
+        let payload: Value = serde_json::from_slice(&output.stdout)
+            .context("failed to parse palmchat apk okhttp runner output")?;
+        if let Some(error) = payload.get("error").and_then(Value::as_str) {
+            return Err(anyhow!("palmchat apk okhttp returned error: {error}"));
+        }
+        let status = payload.get("status").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let body_bytes = payload_body_bytes_from_transport_json(&payload).unwrap_or_default();
+        Ok(PalmchatHttpTransportResponse {
+            status,
+            headers: json_value_to_string_map(payload.get("headers")),
+            body_bytes,
+            transport: json!({
+                "transport_runtime": "okhttp_bridge",
+                "bridge_mode": "apk_cli",
+                "bridge_flow": "palmchat_apk_okhttp_get",
+                "apk_path": self.config.apk_path.display().to_string(),
+                "script_path": script_path.display().to_string(),
+                "bridge_engine": payload.get("engine").cloned().unwrap_or_else(|| Value::String("generic_apk_okhttp".to_string())),
+                "bridge_status": status,
+                "bridge_protocol": payload.get("protocol").cloned().unwrap_or(Value::Null),
+                "bridge_message": payload.get("message").cloned().unwrap_or(Value::Null),
+                "response_body_size": payload.get("body_size").cloned().unwrap_or(Value::Null),
+                "response_body_utf8": payload.get("body_utf8").cloned().unwrap_or(Value::Null),
+            }),
+        })
+    }
+
+    fn apply_secret_keys_from_opts(
+        &mut self,
+        opts: &HashMap<String, String>,
+        scope: &str,
+    ) -> Result<Option<Value>> {
+        let secret_key = normalize_plain_candidate(opts.get("--secret-key").cloned());
+        let secret_iv = normalize_plain_candidate(opts.get("--secret-iv").cloned());
+        if secret_key.is_some() ^ secret_iv.is_some() {
+            return Err(anyhow!(
+                "--secret-key and --secret-iv must be provided together for {scope}"
+            ));
+        }
+        let (Some(secret_key), Some(secret_iv)) = (secret_key, secret_iv) else {
+            return Ok(None);
+        };
+        self.shared.borrow_mut().native(&format!(
+            "{scope} step=setSecretKeys start key_len={} iv_len={}",
+            secret_key.len(),
+            secret_iv.len()
+        ));
+        self.call_messaging_static(
+            "setSecretKeys",
+            "(Ljava/lang/String;Ljava/lang/String;)V",
+            vec![secret_key.clone().into(), secret_iv.clone().into()],
+        )?;
+        self.set_app_context_secret_pair(Some(PalmchatSecretPair {
+            key: secret_key.as_bytes().to_vec(),
+            iv: secret_iv.as_bytes().to_vec(),
+        }));
+        let skey_available = self
+            .call_static("skeyAvailable", "()Z", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_bool(value).ok());
+        self.shared.borrow_mut().native(&format!(
+            "{scope} step=setSecretKeys done skeyAvailable={}",
+            skey_available.unwrap_or(false)
+        ));
+        self.log_secret_slot_snapshot(&format!("{scope} setSecretKeys"));
+        Ok(Some(json!({
+            "applied": true,
+            "secret_key_len": secret_key.len(),
+            "secret_iv_len": secret_iv.len(),
+            "skey_available": skey_available,
+        })))
+    }
+
+    fn generate_smssend_message_token(&self, uid: &str) -> Option<String> {
+        let uid = normalize_plain_candidate(Some(uid.to_string()))?;
+        match self
+            .call_static("skeyAvailable", "()Z", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_bool(value).ok())
+        {
+            Some(true) => {}
+            Some(false) => {
+                self.shared.borrow_mut().native(&format!(
+                    "smssend message token skipped uid={uid} reason=skeyAvailable_false"
+                ));
+                return None;
+            }
+            None => {
+                self.shared.borrow_mut().native(&format!(
+                    "smssend message token proceeding uid={uid} reason=skeyAvailable_unknown"
+                ));
+            }
+        }
+        let raw = format!("{uid}_{}", current_timestamp_millis());
+        self.shared.borrow_mut().native(&format!(
+            "smssend message token start uid={uid} raw_len={}",
+            raw.len()
+        ));
+        let cipher_result = self.call_static(
+            "cipherWithType",
+            "([BIZ)[B",
+            vec![
+                JniValue::Object(DvmObject::ByteArray(raw.into_bytes())),
+                4.into(),
+                true.into(),
+            ],
+        );
+        let cipher_value = match cipher_result {
+            Ok(value) => {
+                self.shared.borrow_mut().native(&format!(
+                    "smssend message token cipherWithType return_debug={}",
+                    describe_jni_value(&value)
+                ));
+                value
+            }
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "smssend message token cipherWithType_error uid={uid} err={err:#}"
+                ));
+                return None;
+            }
+        };
+        let encrypted = match jni_value_to_bytes(cipher_value) {
+            Ok(bytes) => {
+                self.shared.borrow_mut().native(&format!(
+                    "smssend message token cipherWithType bytes_len={}",
+                    bytes.len()
+                ));
+                bytes
+            }
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "smssend message token cipherWithType decode_error uid={uid} err={err:#}"
+                ));
+                return None;
+            }
+        };
+        Some(BASE64_STANDARD.encode(encrypted))
+    }
+
+    fn ensure_stage1_auth_bootstrap(
+        &mut self,
+        opts: &HashMap<String, String>,
+        scope: &str,
+    ) -> Result<PalmchatRecoveredAuthState> {
+        let skey_available_before = self
+            .call_static("skeyAvailable", "()Z", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_bool(value).ok())
+            .unwrap_or(false);
+        let app_context_secret_present_before = self.app_context_secret_present();
+
+        let live_uid = self
+            .live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.account_uid.clone()));
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap seed uid_present={} sid_enc_present={} rk_enc_present={}",
+            live_uid.is_some(),
+            self.live_device_profile
+                .as_ref()
+                .and_then(|profile| profile.account_session_id_enc.as_ref())
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false),
+            self.live_device_profile
+                .as_ref()
+                .and_then(|profile| profile.account_refresh_key_enc.as_ref())
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+        ));
+        let live_session_id = self
+            .live_device_profile
+            .as_ref()
+            .and_then(|profile| profile.account_session_id_enc.as_deref())
+            .and_then(|value| self.decrypt_persisted_app_string(value));
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap decrypted sid_present={}",
+            live_session_id.is_some()
+        ));
+        let live_refresh_key = self
+            .live_device_profile
+            .as_ref()
+            .and_then(|profile| profile.account_refresh_key_enc.as_deref())
+            .and_then(|value| self.decrypt_persisted_app_string(value));
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap decrypted rk_present={} rk_len={}",
+            live_refresh_key.is_some(),
+            live_refresh_key.as_deref().unwrap_or_default().len()
+        ));
+
+        let cli_uid = normalize_plain_candidate(opts.get("--uid").cloned());
+        let cli_session_id = normalize_plain_candidate(opts.get("--session-id").cloned());
+        let initial_candidates = PalmchatRecoveredAuthCandidates {
+            cli_uid: cli_uid.clone(),
+            cli_session_id: cli_session_id.clone(),
+            live_uid,
+            live_session_id,
+            live_refresh_key,
+            java_uid: None,
+            java_session_id: None,
+            java_refresh_key: None,
+        };
+        let (uid, session_id, refresh_key, resolved_source) =
+            resolve_palmchat_recovered_auth_candidates(&initial_candidates);
+
+        let mut state = PalmchatRecoveredAuthState {
+            uid: uid.clone(),
+            session_id: session_id.clone(),
+            refresh_key: refresh_key.clone(),
+            source: resolved_source,
+            token_after_bootstrap: None,
+            skey_available_before,
+            skey_available_after: skey_available_before,
+            uid_present: uid.is_some(),
+            session_id_present: session_id.is_some(),
+            refresh_key_present: refresh_key.is_some(),
+            refresh_server_key_invoked: false,
+            messaging_service_secret_present: false,
+            app_context_secret_present_before,
+            app_context_secret_present_after: app_context_secret_present_before,
+            token_present_after: false,
+            failure_reason: None,
+        };
+
+        if skey_available_before {
+            state.source = "noop_existing_secret".to_string();
+            if let Some(pair) = self.messaging_service_secret_pair() {
+                state.messaging_service_secret_present = true;
+                if !app_context_secret_present_before {
+                    self.sync_app_context_secret_pair(pair, scope);
+                }
+            }
+            state.app_context_secret_present_after = self.app_context_secret_present();
+            state.token_after_bootstrap = state
+                .uid
+                .as_deref()
+                .and_then(|value| self.generate_smssend_message_token(value));
+            state.token_present_after = state.token_after_bootstrap.is_some();
+            if !state.uid_present {
+                state.failure_reason = Some("auth_bootstrap_missing_uid".to_string());
+            }
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap noop_existing_secret uid_present={} session_present={} token_present={}",
+                state.uid_present,
+                state.session_id_present,
+                state.token_present_after
+            ));
+            self.recovered_auth_state = Some(state.clone());
+            return Ok(state);
+        }
+
+        self.shared
+            .borrow_mut()
+            .native(&format!("{scope} auth_bootstrap step=st3.e(false)"));
+        let _ = self.call_java_static("defpackage/st3", "e", "(Z)V", vec![false.into()]);
+
+        let java_uid = self.account_utils_string("p");
+        let java_session_id = self.account_utils_string("o");
+        let java_refresh_key = self.account_utils_string("m");
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap java_fallback uid_present={} session_present={} refresh_present={}",
+            java_uid.is_some(),
+            java_session_id.is_some(),
+            java_refresh_key.is_some()
+        ));
+        let resolved_candidates = PalmchatRecoveredAuthCandidates {
+            cli_uid,
+            cli_session_id,
+            live_uid: initial_candidates.live_uid.clone(),
+            live_session_id: initial_candidates.live_session_id.clone(),
+            live_refresh_key: initial_candidates.live_refresh_key.clone(),
+            java_uid,
+            java_session_id,
+            java_refresh_key,
+        };
+        let (uid, session_id, refresh_key, resolved_source) =
+            resolve_palmchat_recovered_auth_candidates(&resolved_candidates);
+        state.uid = uid.clone();
+        state.session_id = session_id.clone();
+        state.refresh_key = refresh_key.clone();
+        state.source = resolved_source;
+        state.uid_present = state.uid.is_some();
+        state.session_id_present = state.session_id.is_some();
+        state.refresh_key_present = state.refresh_key.is_some();
+
+        if !state.uid_present {
+            state.failure_reason = Some("auth_bootstrap_missing_uid".to_string());
+            self.recovered_auth_state = Some(state.clone());
+            return Ok(state);
+        }
+        if !state.refresh_key_present {
+            state.failure_reason = Some("auth_bootstrap_missing_refresh_key".to_string());
+            self.recovered_auth_state = Some(state.clone());
+            return Ok(state);
+        }
+
+        let native_did = self
+            .try_call_java_static_string("defpackage/ac1", "v", "()Ljava/lang/String;", vec![])
+            .and_then(|value| normalize_plain_candidate(Some(value)))
+            .or_else(|| {
+                normalize_device_id_candidate(
+                    self.live_device_profile
+                        .as_ref()
+                        .and_then(|profile| profile.sdid.clone()),
+                )
+            })
+            .unwrap_or_default();
+        let query_did = self.compose_refresh_server_key_query_did();
+        let use_new_key = self
+            .try_call_java_static_bool("defpackage/nl0", "k", "()Z", vec![])
+            .unwrap_or(true);
+        let double_key_enabled = self
+            .try_call_java_static_bool("defpackage/g9", "d", "()Z", vec![])
+            .unwrap_or(false);
+        let double_key_1 = if double_key_enabled {
+            self.try_call_java_static_string(
+                "defpackage/g9",
+                "c",
+                "(Z)Ljava/lang/String;",
+                vec![true.into()],
+            )
+        } else {
+            None
+        };
+        let double_key_2 = if double_key_enabled {
+            self.try_call_java_static_string(
+                "defpackage/g9",
+                "c",
+                "(Z)Ljava/lang/String;",
+                vec![false.into()],
+            )
+        } else {
+            None
+        };
+        let ck_version = self
+            .call_static("getCkVersion", "()Ljava/lang/String;", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_string(value).ok())
+            .unwrap_or_default();
+        let refresh_url = build_refresh_server_key_url(
+            state.uid.as_deref().unwrap_or_default(),
+            state.session_id.as_deref(),
+            self.live_device_profile
+                .as_ref()
+                .and_then(|profile| normalize_plain_candidate(profile.account_exid.clone()))
+                .as_deref(),
+            opts.get("--device-id")
+                .cloned()
+                .and_then(|value| normalize_device_id_candidate(Some(value)))
+                .or_else(|| {
+                    self.live_device_profile.as_ref().and_then(|profile| {
+                        normalize_device_id_candidate(profile.tray_device_id.clone())
+                            .or_else(|| normalize_device_id_candidate(profile.sdid.clone()))
+                    })
+                })
+                .as_deref()
+                .unwrap_or_default(),
+            &query_did,
+        );
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap refresh_server_key url={refresh_url} uid={} session_present={} refresh_len={} query_did={} native_did={} ck_version={} use_new_key={} double_key_enabled={} k1_present={} k2_present={}",
+            state.uid.as_deref().unwrap_or_default(),
+            state.session_id_present,
+            state.refresh_key.as_deref().unwrap_or_default().len(),
+            query_did,
+            native_did,
+            ck_version,
+            use_new_key,
+            double_key_enabled,
+            double_key_1.is_some(),
+            double_key_2.is_some()
+        ));
+        state.refresh_server_key_invoked = true;
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap step=CreateConnectionDelegate.e enter"
+        ));
+        let wrapper_result = self.call_create_connection_delegate_refresh_wrapper(
+            state.uid.as_deref().unwrap_or_default(),
+            state.session_id.as_deref().unwrap_or_default(),
+            state.refresh_key.as_deref().unwrap_or_default(),
+        );
+        match &wrapper_result {
+            Ok(value) => self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap step=CreateConnectionDelegate.e exit return_debug={}",
+                describe_jni_value(value)
+            )),
+            Err(err) => self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap step=CreateConnectionDelegate.e exit err={err:#}"
+            )),
+        }
+        if let Some(pair) = self.messaging_service_secret_pair() {
+            state.messaging_service_secret_present = true;
+            if !app_context_secret_present_before {
+                self.sync_app_context_secret_pair(pair, scope);
+            }
+        }
+        state.app_context_secret_present_after = self.app_context_secret_present();
+        state.skey_available_after = self
+            .call_static("skeyAvailable", "()Z", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_bool(value).ok())
+            .unwrap_or(false);
+        state.token_after_bootstrap = state
+            .uid
+            .as_deref()
+            .and_then(|value| self.generate_smssend_message_token(value));
+        state.token_present_after = state.token_after_bootstrap.is_some();
+        if state.skey_available_after
+            && (state.token_present_after || state.messaging_service_secret_present)
+        {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap wrapper path ready skey_after={} token_present={} app_ctx_after={} messaging_pair={}",
+                state.skey_available_after,
+                state.token_present_after,
+                state.app_context_secret_present_after,
+                state.messaging_service_secret_present
+            ));
+            self.recovered_auth_state = Some(state.clone());
+            return Ok(state);
+        }
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap step=refreshServerKey.call enter"
+        ));
+        let refresh_result = self.call_create_connection_delegate_refresh_server_key(
+            state.session_id.as_deref().unwrap_or_default(),
+            state.refresh_key.as_deref().unwrap_or_default(),
+            &native_did,
+            &ck_version,
+            double_key_1.as_deref(),
+            double_key_2.as_deref(),
+            &refresh_url,
+            use_new_key,
+        );
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap step=refreshServerKey.call exit"
+        ));
+        let refresh_value = match refresh_result {
+            Ok(value) => value,
+            Err(err) => {
+                state.failure_reason = Some("auth_bootstrap_refresh_server_key_failed".to_string());
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} auth_bootstrap refresh_server_key_failed err={err:#}"
+                ));
+                self.recovered_auth_state = Some(state.clone());
+                return Ok(state);
+            }
+        };
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap refresh_server_key return_debug={}",
+            describe_jni_value(&refresh_value)
+        ));
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        if let Some(refresh_json) = jni_value_to_json_value_with_vm(vm, &refresh_value) {
+            self.shared.borrow_mut().native(&format!(
+                "{scope} auth_bootstrap refresh_server_key json={}",
+                refresh_json
+            ));
+            if let Some((skey, iv)) = extract_secret_pair_from_refresh_result(&refresh_json) {
+                self.shared.borrow_mut().native(&format!(
+                    "{scope} auth_bootstrap refresh_server_key extracted_secret_pair key_len={} iv_len={}",
+                    skey.len(),
+                    iv.len()
+                ));
+                if let Err(err) = self.call_messaging_static(
+                    "setSecretKeys",
+                    "(Ljava/lang/String;Ljava/lang/String;)V",
+                    vec![skey.clone().into(), iv.clone().into()],
+                ) {
+                    self.shared.borrow_mut().native(&format!(
+                        "{scope} auth_bootstrap refresh_server_key setSecretKeys_failed err={err:#}"
+                    ));
+                } else {
+                    self.set_app_context_secret_pair(Some(PalmchatSecretPair {
+                        key: skey.into_bytes(),
+                        iv: iv.into_bytes(),
+                    }));
+                }
             }
         }
 
-        let client = match Client::builder()
-            .timeout(Duration::from_millis(timeout_ms))
-            .build()
+        let _ = self.promote_refresh_secret_state_to_skey_flag_if_needed(scope);
+        self.log_secret_slot_snapshot(&format!("{scope} auth_bootstrap"));
+
+        if let Some(pair) = self.messaging_service_secret_pair() {
+            state.messaging_service_secret_present = true;
+            if !app_context_secret_present_before {
+                self.sync_app_context_secret_pair(pair, scope);
+            }
+        }
+        state.app_context_secret_present_after = self.app_context_secret_present();
+        state.skey_available_after = self
+            .call_static("skeyAvailable", "()Z", vec![])
+            .ok()
+            .and_then(|value| jni_value_to_bool(value).ok())
+            .unwrap_or(false);
+        state.token_after_bootstrap = state
+            .uid
+            .as_deref()
+            .and_then(|value| self.generate_smssend_message_token(value));
+        if state.token_after_bootstrap.is_none() {
+            if let Some(uid) = state.uid.as_deref() {
+                let extra_candidates = state
+                    .refresh_key
+                    .iter()
+                    .cloned()
+                    .chain(state.session_id.iter().cloned())
+                    .collect::<Vec<_>>();
+                if let Some(token) =
+                    self.try_recover_secret_pair_from_refresh_state(uid, scope, &extra_candidates)?
+                {
+                    state.token_after_bootstrap = Some(token);
+                    state.messaging_service_secret_present =
+                        self.messaging_service_secret_pair().is_some();
+                    state.app_context_secret_present_after = self.app_context_secret_present();
+                    state.skey_available_after = self
+                        .call_static("skeyAvailable", "()Z", vec![])
+                        .ok()
+                        .and_then(|value| jni_value_to_bool(value).ok())
+                        .unwrap_or(false);
+                }
+            }
+        }
+        state.token_present_after = state.token_after_bootstrap.is_some();
+        if !state.skey_available_after {
+            state.failure_reason = Some("auth_bootstrap_secret_not_ready".to_string());
+        }
+        self.shared.borrow_mut().native(&format!(
+            "{scope} auth_bootstrap result source={} uid_present={} session_present={} refresh_present={} skey_before={} skey_after={} token_present={} app_ctx_before={} app_ctx_after={} messaging_pair={}",
+            state.source,
+            state.uid_present,
+            state.session_id_present,
+            state.refresh_key_present,
+            state.skey_available_before,
+            state.skey_available_after,
+            state.token_present_after,
+            state.app_context_secret_present_before,
+            state.app_context_secret_present_after,
+            state.messaging_service_secret_present
+        ));
+        self.recovered_auth_state = Some(state.clone());
+        Ok(state)
+    }
+
+    fn derive_smssend_url_auth(&self, opts: &HashMap<String, String>) -> PalmchatSmssendUrlAuth {
+        let overrides = build_smssend_url_auth_overrides_from_opts(opts);
+        let recovered_token = self
+            .recovered_auth_state
+            .as_ref()
+            .and_then(|state| normalize_plain_candidate(state.token_after_bootstrap.clone()));
+        let uid = overrides
+            .uid
+            .clone()
+            .or_else(|| {
+                self.recovered_auth_state
+                    .as_ref()
+                    .and_then(|state| normalize_plain_candidate(state.uid.clone()))
+            })
+            .or_else(|| {
+                self.live_device_profile
+                    .as_ref()
+                    .and_then(|profile| normalize_plain_candidate(profile.account_uid.clone()))
+            });
+        let generated_token = if overrides.token.is_none() && recovered_token.is_none() {
+            uid.as_deref().and_then(|value| {
+                let token = self.generate_smssend_message_token(value);
+                if token.is_none() {
+                    self.shared.borrow_mut().native(&format!(
+                        "smssend url auth token generation failed uid={value}"
+                    ));
+                }
+                token
+            })
+        } else {
+            None
+        };
+        merge_smssend_url_auth_sources(
+            &overrides,
+            self.recovered_auth_state.as_ref(),
+            self.live_device_profile.as_ref(),
+            generated_token,
+        )
+    }
+
+    fn run_smssend_test(
+        &mut self,
+        control_feedback: &Value,
+        cipher_hex: &str,
+        use_new_key: bool,
+        opts: &HashMap<String, String>,
+    ) -> Value {
+        self.run_smssend_test_internal(control_feedback, cipher_hex, use_new_key, opts, false)
+    }
+
+    fn run_smssend_two_step(
+        &mut self,
+        stage1_value: &Value,
+        stage2_value: &Value,
+        stage2_control_feedback: &Value,
+        stage2_cipher_hex: &str,
+        cipher_mode: i32,
+        use_new_key: bool,
+        opts: &HashMap<String, String>,
+    ) -> Value {
+        let stage1_encrypt = if std::env::var_os("PALMCHAT_FLOW_ENCRYPT_FORCE_INLINE").is_none() {
+            match self.flow_encrypt_payload_subprocess(
+                stage1_value,
+                cipher_mode,
+                use_new_key,
+                "flow.two_step.stage1",
+                opts,
+            ) {
+                Ok(value) => {
+                    self.shared
+                        .borrow_mut()
+                        .native("flow.two_step.stage1 encrypt runner=subprocess");
+                    Ok(value)
+                }
+                Err(err) => {
+                    self.shared.borrow_mut().native(&format!(
+                        "flow.two_step.stage1 encrypt runner=subprocess failed reason={err:#}"
+                    ));
+                    Err(err)
+                }
+            }
+        } else {
+            self.flow_encrypt_payload(stage1_value, cipher_mode, use_new_key, "flow.two_step.stage1")
+        };
+        let (stage1_ck_version, stage1_encrypted_ckey_hex, stage1_cipher_hex) = match stage1_encrypt
         {
-            Ok(client) => client,
+            Ok(tuple) => tuple,
             Err(err) => {
                 return json!({
                     "status": "blocked",
-                    "reason": "build_http_client_failed",
+                    "reason": "stage1_encrypt_failed",
                     "error": err.to_string(),
                 });
             }
         };
-
-        match client.post(url).headers(headers.clone()).body(body_bytes).send() {
-            Ok(response) => {
-                let status = response.status().as_u16();
-                let response_headers = response.headers().clone();
-                let response_bytes = match response.bytes() {
-                    Ok(bytes) => bytes.to_vec(),
-                    Err(err) => {
-                        return json!({
-                            "status": "blocked",
-                            "reason": "read_response_failed",
-                            "http_status": status,
-                            "error": err.to_string(),
-                        });
-                    }
-                };
-                let encrypted_header = response_headers
-                    .get("content-encrypted-zx")
-                    .and_then(|value| value.to_str().ok())
-                    .unwrap_or_default()
-                    .to_string();
-                let decoded_bytes = if encrypted_header == "1" {
-                    match self.call_static(
-                        "cipherWithType",
-                        "([BIZ)[B",
-                        vec![
-                            JniValue::Object(DvmObject::ByteArray(response_bytes.clone())),
-                            3.into(),
-                            use_new_key.into(),
-                        ],
-                    ) {
-                        Ok(value) => jni_value_to_bytes(value).unwrap_or(response_bytes.clone()),
-                        Err(_) => response_bytes.clone(),
-                    }
-                } else {
-                    response_bytes.clone()
-                };
-                let decoded_utf8 = String::from_utf8_lossy(&decoded_bytes).to_string();
-                let decoded_json = serde_json::from_slice::<Value>(&decoded_bytes).ok();
-                let result_code = decoded_json
-                    .as_ref()
-                    .and_then(|value| value.get("resultCode"))
-                    .and_then(Value::as_i64);
-                let mut response_header_map = Map::new();
-                for (name, value) in response_headers.iter() {
-                    response_header_map.insert(
-                        name.to_string(),
-                        Value::String(value.to_str().unwrap_or_default().to_string()),
-                    );
-                }
-                json!({
-                    "status": "ok",
-                    "http_status": status,
-                    "result_code": result_code,
-                    "response_headers": response_header_map,
-                    "response_body_hex": hex::encode(&response_bytes).to_ascii_uppercase(),
-                    "response_decoded_hex": hex::encode(&decoded_bytes).to_ascii_uppercase(),
-                    "response_decoded_utf8": decoded_utf8,
-                    "response_decoded_json": decoded_json,
-                    "control_feedback": control_feedback,
-                })
-            }
-            Err(err) => json!({
+        let stage1_url_auth = self.derive_smssend_url_auth(opts);
+        let stage1_smssend_url = build_two_step_stage1_smssend_url(
+            stage2_control_feedback,
+            opts,
+            Some(&stage1_url_auth),
+        );
+        let stage1_feedback = build_data_to_control_feedback_with_url(
+            stage1_value,
+            &stage1_encrypted_ckey_hex,
+            &stage1_cipher_hex,
+            &stage1_ck_version,
+            stage1_smssend_url.clone(),
+        );
+        let stage1_result = self.run_smssend_test_internal(
+            &stage1_feedback,
+            &stage1_cipher_hex,
+            use_new_key,
+            opts,
+            true,
+        );
+        let stage1_result_code = stage1_result.get("result_code").and_then(Value::as_i64);
+        let stage2_gate_pass = matches!(stage1_result_code, Some(1900 | 1901 | 202));
+        let stage2_result = if stage2_gate_pass {
+            self.run_smssend_test_internal(
+                stage2_control_feedback,
+                stage2_cipher_hex,
+                use_new_key,
+                opts,
+                false,
+            )
+        } else {
+            json!({
                 "status": "blocked",
-                "reason": "smssend_http_failed",
-                "error": err.to_string(),
-                "control_feedback": control_feedback,
-            }),
+                "reason": "stage1_result_not_captcha_gate",
+                "stage1_result_code": stage1_result_code,
+                "stage2_expected": [1900, 1901, 202],
+                "stage2_payload": stage2_value,
+            })
+        };
+        json!({
+            "status": "ok",
+            "stage1_payload": stage1_value,
+            "stage1_smssend_url": stage1_smssend_url,
+            "stage1_encrypt": {
+                "ck_version": stage1_ck_version,
+                "encrypted_ckey_bytes": stage1_encrypted_ckey_hex.len() / 2,
+                "cipher_bytes": stage1_cipher_hex.len() / 2,
+                "cipher_sha256": hex::decode(&stage1_cipher_hex)
+                    .ok()
+                    .map(|bytes| sha256_hex_bytes(&bytes)),
+            },
+            "stage1_feedback": stage1_feedback,
+            "stage1_result": stage1_result,
+            "stage2_feedback": stage2_control_feedback,
+            "stage2_result": stage2_result,
+            "stage2_gate_pass": stage2_gate_pass,
+            "gate_expected_result_codes": [1900, 1901, 202],
+        })
+    }
+
+    fn build_runtime_mh_request_body_map(&self) -> Map<String, Value> {
+        let profile = self.live_device_profile.as_ref();
+        let (android_id, imei_value, mac_value, sdid_value, did_value, device_label) = {
+            let state = self.identity_state.borrow();
+            let imei = normalize_ac1_imei_candidate(Some(state.effective_imei()))
+                .or_else(|| Some("Unknown".to_string()));
+            let android_id = state.effective_android_id();
+            let mac = state.effective_mac();
+            let imei_segment = imei.clone().unwrap_or_else(|| "Unknown".to_string());
+            let did = (!android_id.trim().is_empty())
+                .then(|| format!("{imei_segment}_{}_{android_id}", mac.trim()));
+            let sdid = if !state.effective_sdid().trim().is_empty() {
+                state.effective_sdid()
+            } else {
+                state.effective_local_smid()
+            };
+            let device_label = normalize_device_label_candidate(Some(
+                state.effective_device_label(),
+            ))
+            .or_else(|| {
+                profile
+                    .and_then(|value| normalize_device_label_candidate(value.device_label.clone()))
+            });
+            (android_id, imei, mac, sdid, did, device_label)
+        };
+        let channel_id = profile
+            .and_then(|value| normalize_plain_candidate(value.channel_id.clone()))
+            .unwrap_or_default();
+        let version_code = profile
+            .and_then(|value| normalize_plain_candidate(value.app_version_code.clone()))
+            .unwrap_or_else(|| "unknown".to_string());
+        let oaid = profile
+            .and_then(|value| normalize_plain_candidate(value.oaid.clone()))
+            .unwrap_or_default();
+        let ip_info = profile
+            .and_then(|value| normalize_plain_candidate(value.ip_info.clone()))
+            .unwrap_or_default();
+
+        let mut map = Map::new();
+        map.insert("channelId".to_string(), Value::String(channel_id.clone()));
+        if let Some(did) = did_value {
+            map.insert("did".to_string(), Value::String(did));
+        }
+        map.insert("platform".to_string(), Value::String("android".to_string()));
+        map.insert("versionCode".to_string(), Value::String(version_code));
+        map.insert(
+            "imei".to_string(),
+            Value::String(imei_value.clone().unwrap_or_else(|| "Unknown".to_string())),
+        );
+        map.insert("mac".to_string(), Value::String(mac_value.clone()));
+        map.insert("dhid".to_string(), Value::String(String::new()));
+        map.insert("autoLogin".to_string(), Value::String("0".to_string()));
+        map.insert("sdid".to_string(), Value::String(sdid_value));
+        map.insert("oaid".to_string(), Value::String(oaid));
+        map.insert("oneId".to_string(), Value::String(String::new()));
+
+        let mut app_list_map = Map::new();
+        let mut app_list_events = Vec::new();
+        ensure_app_list_payload(
+            &mut app_list_map,
+            imei_value.as_deref(),
+            Some(channel_id.as_str()),
+            &self.config.package_name,
+            profile
+                .map(|value| value.installed_packages.as_slice())
+                .filter(|packages| !packages.is_empty()),
+            true,
+            &mut app_list_events,
+        );
+        if let Some(value) = app_list_map.get("appList").and_then(Value::as_str) {
+            map.insert("appList".to_string(), Value::String(value.to_string()));
+        }
+
+        let mut dfp_map = Map::new();
+        dfp_map.insert(
+            "imei".to_string(),
+            imei_value.clone().map(Value::String).unwrap_or(Value::Null),
+        );
+        dfp_map.insert("mac".to_string(), Value::String(mac_value));
+        let mut dfp_events = Vec::new();
+        ensure_dfp_payload(
+            &mut dfp_map,
+            Some(android_id.as_str()),
+            profile.and_then(|value| value.app_version_name.as_deref()),
+            Some(&self.config.package_name),
+            device_label.as_deref(),
+            profile,
+            &mut dfp_events,
+        );
+        if let Some(value) = dfp_map.get("dfp").and_then(Value::as_str) {
+            map.insert("dfp".to_string(), Value::String(value.to_string()));
+        }
+
+        map.insert("appId".to_string(), Value::String("ZX0001".to_string()));
+        map.insert("ipInfo".to_string(), Value::String(ip_info));
+        map.insert("androidId".to_string(), Value::String(android_id));
+        map
+    }
+
+    fn try_build_two_step_stage1_payload_via_producer(
+        &mut self,
+        stage2_value: &Value,
+        stage2_control_feedback: &Value,
+        stage1_override: Option<&Value>,
+        opts: &HashMap<String, String>,
+    ) -> Result<Value> {
+        let stage1_url_auth = self.derive_smssend_url_auth(opts);
+        let request_url = build_two_step_stage1_smssend_url(
+            stage2_control_feedback,
+            opts,
+            Some(&stage1_url_auth),
+        );
+        let base_value = match self.try_capture_mh_base_request_body_via_producer(&request_url, opts)
+        {
+            Ok(value) => {
+                self.shared.borrow_mut().native(&format!(
+                    "producer stage1 base source=mh.a/sw4.d request_url={} keys={}",
+                    request_url,
+                    value.as_object().map(|obj| obj.len()).unwrap_or_default()
+                ));
+                value
+            }
+            Err(err) => {
+                self.shared.borrow_mut().native(&format!(
+                    "producer stage1 base fallback source=mh.mirror reason={err:#}"
+                ));
+                Value::Object(self.build_runtime_mh_request_body_map())
+            }
+        };
+        let mut stage1_value = build_two_step_stage1_from_mh_base(&base_value, stage2_value);
+        if let Some(ip_info) = self
+            .live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.ip_info.clone()))
+        {
+            if let Value::Object(map) = &mut stage1_value {
+                map.insert("ipInfo".to_string(), Value::String(ip_info));
+            }
+        }
+        let producer_stage1_app_list = self.live_device_profile.as_ref().and_then(|profile| {
+            let stage1_package_names = vec![self.config.package_name.clone()];
+            let imei = {
+                let state = self.identity_state.borrow();
+                normalize_ac1_imei_candidate(Some(state.effective_imei()))
+            };
+            let channel_id = normalize_plain_candidate(profile.channel_id.clone())?;
+            let mut map = Map::new();
+            let mut events = Vec::new();
+            ensure_app_list_payload(
+                &mut map,
+                imei.as_deref(),
+                Some(channel_id.as_str()),
+                &self.config.package_name,
+                Some(stage1_package_names.as_slice()),
+                true,
+                &mut events,
+            );
+            map.get("appList")
+                .and_then(Value::as_str)
+                .map(|value| value.to_string())
+        });
+        if let Some(app_list) = producer_stage1_app_list {
+            if let Value::Object(map) = &mut stage1_value {
+                map.insert("appList".to_string(), Value::String(app_list));
+            }
+            self.shared
+                .borrow_mut()
+                .native("producer stage1 appList source=minimal_package_only");
+        }
+        apply_explicit_stage1_override(&mut stage1_value, stage1_override);
+        self.shared.borrow_mut().native(&format!(
+            "producer stage1 payload source=mh.base+stage2 request_url={} keys={}",
+            request_url,
+            stage1_value
+                .as_object()
+                .map(|obj| obj.len())
+                .unwrap_or_default()
+        ));
+        Ok(stage1_value)
+    }
+
+    fn try_capture_mh_base_request_body_via_producer(
+        &mut self,
+        request_url: &str,
+        opts: &HashMap<String, String>,
+    ) -> Result<Value> {
+        if std::env::var_os("PALMCHAT_MH_BASE_SKIP_SUBPROCESS").is_none() {
+            match self.capture_mh_base_request_body_subprocess(request_url, opts) {
+                Ok(value) => {
+                    self.shared
+                        .borrow_mut()
+                        .native("producer stage1 capture runner=subprocess");
+                    return Ok(value);
+                }
+                Err(err) => {
+                    self.shared.borrow_mut().native(&format!(
+                        "producer stage1 capture runner=subprocess failed reason={err:#}"
+                    ));
+                }
+            }
+        }
+
+        if std::env::var_os("PALMCHAT_MH_BASE_FORCE_SECONDARY_RUNNER").is_none() {
+            match self.capture_mh_base_request_body_inline(request_url) {
+                Ok(value) => {
+                    self.shared
+                        .borrow_mut()
+                        .native("producer stage1 capture runner=main");
+                    return Ok(value);
+                }
+                Err(err) => {
+                    self.shared.borrow_mut().native(&format!(
+                        "producer stage1 capture runner=main failed reason={err:#}"
+                    ));
+                }
+            }
+        }
+
+        let mut producer_config = self.config.clone();
+        producer_config.trace_out_dir = self
+            .config
+            .trace_out_dir
+            .join(format!("mh_base_runner_{}", current_timestamp_millis()));
+        let previous_base_path = std::env::var_os("BASE_PATH");
+        let previous_target_sdk = std::env::var_os("ANDROID_APP_TARGET_SDK");
+        let result = (|| {
+            let mut producer_lab = Self::load_from_config(producer_config)?;
+            producer_lab.capture_mh_base_request_body_inline(request_url)
+        })();
+        if let Some(value) = previous_base_path {
+            std::env::set_var("BASE_PATH", value);
+        } else {
+            std::env::remove_var("BASE_PATH");
+        }
+        if let Some(value) = previous_target_sdk {
+            std::env::set_var("ANDROID_APP_TARGET_SDK", value);
+        } else {
+            std::env::remove_var("ANDROID_APP_TARGET_SDK");
+        }
+        result
+    }
+
+    fn capture_mh_base_request_body_subprocess(
+        &mut self,
+        request_url: &str,
+        opts: &HashMap<String, String>,
+    ) -> Result<Value> {
+        let exe = std::env::current_exe().context("failed to resolve current executable path")?;
+        let json_out_path = self.config.trace_out_dir.join(format!(
+            "mh_base_subprocess_{}.json",
+            current_timestamp_millis()
+        ));
+        let mut cmd = Command::new(exe);
+        cmd.arg("palmchat").arg("invoke");
+        cmd.arg("--config")
+            .arg(opts.get("--config").cloned().unwrap_or_else(default_config_path));
+        if let Some(backend) = opts.get("--backend") {
+            cmd.arg("--backend").arg(backend);
+        } else {
+            cmd.arg("--backend").arg(self.emulator.backend.name());
+        }
+        cmd.arg("--method").arg("mhBaseArgs");
+        cmd.arg("--arg1").arg(request_url);
+        cmd.arg("--json-out").arg(&json_out_path);
+        for key in [
+            "--privacy-agree",
+            "--read-phone-state",
+            "--priv-info-init",
+            "--android-id",
+            "--imei",
+            "--mac",
+            "--process-name",
+            "--seed-device-id",
+            "--seed-local-smid",
+            "--seed-dhid",
+            "--seed-sdid",
+            "--seed-imei",
+            "--seed-mac",
+            "--seed-oneid",
+            "--seed-oaid",
+            "--seed-android-id",
+            "--seed-channel-id",
+            "--seed-appid",
+            "--seed-ip-info",
+            "--seed-device-label",
+            "--secret-key",
+            "--secret-iv",
+        ] {
+            if let Some(value) = opts.get(key) {
+                cmd.arg(key).arg(value);
+            }
+        }
+        let output = cmd
+            .output()
+            .context("failed to spawn subprocess mhBaseArgs observation")?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return Err(anyhow!(
+                "subprocess mhBaseArgs failed: status={} stderr={} stdout={}",
+                output.status,
+                stderr.trim(),
+                stdout.trim()
+            ));
+        }
+        let output_value = read_json_file(&json_out_path)
+            .with_context(|| format!("failed to read subprocess output {:?}", json_out_path))?;
+        let body_json = output_value
+            .get("body_json")
+            .cloned()
+            .ok_or_else(|| anyhow!("subprocess mhBaseArgs missing body_json"))?;
+        match body_json {
+            Value::Object(_) => Ok(body_json),
+            other => Err(anyhow!(
+                "unexpected subprocess mhBaseArgs body_json type: {other}"
+            )),
+        }
+    }
+
+    fn capture_mh_base_request_body_inline(&mut self, request_url: &str) -> Result<Value> {
+        let app_context = self.app_context_object()?;
+        let _ = self.call_java_instance(
+            "com/zenmen/palmchat/privinfo/PrivInfoManager",
+            "init",
+            "(Landroid/content/Context;)V",
+            vec![app_context.clone().into()],
+        )?;
+        let _ = self.call_java_static(
+            "defpackage/ac1",
+            "B",
+            "(Landroid/content/Context;)V",
+            vec![app_context.clone().into()],
+        )?;
+        let _ = self.call_java_instance(
+            "defpackage/ts0",
+            "I",
+            "(Landroid/content/Context;)V",
+            vec![app_context.into()],
+        )?;
+        let sw4_value = self.call_java_static(
+            "defpackage/mh",
+            "a",
+            "(Ljava/lang/String;)Ldefpackage/sw4;",
+            vec![request_url.to_string().into()],
+        )?;
+        let JniValue::Object(sw4_object) = sw4_value else {
+            return Err(anyhow!(
+                "unexpected mh.a return type: {}",
+                describe_jni_value(&sw4_value)
+            ));
+        };
+        let sw4_body_value = self.call_java_method_on_object(
+            "defpackage/sw4",
+            &sw4_object,
+            "d",
+            "()Lorg/json/JSONObject;",
+            vec![],
+        )?;
+        let emulator = self.emulator.clone();
+        let vm = emulator.get_dalvik_vm();
+        let sw4_body_json = jni_value_to_json_value_with_vm(vm, &sw4_body_value);
+        match sw4_body_json {
+            Some(Value::Object(body)) => Ok(Value::Object(body)),
+            Some(Value::Null) | None => Err(anyhow!("mh.a(...).d() returned null")),
+            Some(other) => Err(anyhow!("unexpected mh.a(...).d() json type: {other}")),
         }
     }
 
     fn run_invoke(&mut self, opts: &HashMap<String, String>) -> Result<Value> {
+        self.reset_identity_probe_state(opts);
         let method = required_option(opts, "--method")?;
         let arg1 = opts.get("--arg1").cloned().unwrap_or_default();
         let arg2 = opts.get("--arg2").cloned().unwrap_or_default();
@@ -2021,6 +5237,69 @@ impl PalmchatLab {
                 json!({
                     "method": method,
                     "output_bool": jni_value_to_bool(value)?,
+                })
+            }
+            "wksecA" => {
+                let value = self.call_java_static("com/wifi/open/sec/WKSec", "a", "()I", vec![])?;
+                json!({
+                    "method": method,
+                    "output_int": jni_value_to_int(value)?,
+                })
+            }
+            "wksecC" => {
+                let value = self.call_java_static("com/wifi/open/sec/WKSec", "c", "()Z", vec![])?;
+                json!({
+                    "method": method,
+                    "output_bool": jni_value_to_bool(value)?,
+                })
+            }
+            "ac1AppList" => {
+                let _ = self.capture_app_init_upstream_observation();
+                let app_context = self.app_context_object()?;
+                let _ = self.call_java_static(
+                    "defpackage/ac1",
+                    "B",
+                    "(Landroid/content/Context;)V",
+                    vec![app_context.into()],
+                )?;
+                let value =
+                    self.call_java_static("defpackage/ac1", "s", "()Ljava/lang/String;", vec![])?;
+                json!({
+                    "method": method,
+                    "output": jni_value_to_string(value)?,
+                })
+            }
+            "fm1Dfp" => {
+                let _ = self.capture_app_init_upstream_observation();
+                let app_context = self.app_context_object()?;
+                let _ = self.call_java_static(
+                    "defpackage/ac1",
+                    "B",
+                    "(Landroid/content/Context;)V",
+                    vec![app_context.into()],
+                )?;
+                let value = self.call_java_static(
+                    "defpackage/fm1",
+                    "k",
+                    "()Lorg/json/JSONObject;",
+                    vec![],
+                )?;
+                let JniValue::Object(object) = value else {
+                    return Err(anyhow!(
+                        "unexpected fm1.k return type: {}",
+                        describe_jni_value(&value)
+                    ));
+                };
+                let rendered = self.call_java_method_on_object(
+                    "org/json/JSONObject",
+                    &object,
+                    "toString",
+                    "()Ljava/lang/String;",
+                    vec![],
+                )?;
+                json!({
+                    "method": method,
+                    "output": jni_value_to_string(rendered)?,
                 })
             }
             "createCKey" => {
@@ -2056,11 +5335,127 @@ impl PalmchatLab {
             }
             "appInitProbe" => self.run_app_init_probe(opts)?,
             "gateProbe" => self.run_gate_probe(opts)?,
+            "producerInitProbe" => {
+                let app_context = self.app_context_object()?;
+                let _ = self.call_java_instance(
+                    "com/zenmen/palmchat/privinfo/PrivInfoManager",
+                    "init",
+                    "(Landroid/content/Context;)V",
+                    vec![app_context.clone().into()],
+                )?;
+                let oauth_result = self.call_java_static(
+                    "com/lantern/auth/openapi/OAuthApi",
+                    "onAppCreate",
+                    "()V",
+                    vec![],
+                );
+                let _ = self.call_java_instance(
+                    "com/zenmen/palmchat/AppContext",
+                    "initFramework",
+                    "()V",
+                    vec![],
+                )?;
+                let _ = self.call_java_instance(
+                    "com/zenmen/palmchat/AppContext",
+                    "initDeviceInfos",
+                    "(Landroid/content/Context;)V",
+                    vec![app_context.clone().into()],
+                )?;
+                let app_list =
+                    self.call_java_static("defpackage/ac1", "s", "()Ljava/lang/String;", vec![])?;
+                let fm1_value = self.call_java_static(
+                    "defpackage/fm1",
+                    "k",
+                    "()Lorg/json/JSONObject;",
+                    vec![],
+                )?;
+                let fm1_output = match fm1_value {
+                    JniValue::Object(object) => {
+                        let rendered = self.call_java_method_on_object(
+                            "org/json/JSONObject",
+                            &object,
+                            "toString",
+                            "()Ljava/lang/String;",
+                            vec![],
+                        )?;
+                        Some(jni_value_to_string(rendered)?)
+                    }
+                    JniValue::Null => None,
+                    other => {
+                        return Err(anyhow!(
+                            "unexpected fm1.k return type after init: {}",
+                            describe_jni_value(&other)
+                        ));
+                    }
+                };
+                json!({
+                    "method": method,
+                    "oauth_on_app_create": oauth_result.is_ok(),
+                    "ac1_app_list": jni_value_to_string(app_list)?,
+                    "fm1_dfp": fm1_output,
+                })
+            }
+            "mhBaseArgs" => {
+                let request_url = if arg1.trim().is_empty() {
+                    format!(
+                        "https://short.lianxinapp.com/one/ax/auth.login.by.sendsms?requestId={}&deviceId={}",
+                        generate_xn3_like_id(),
+                        self.live_device_profile
+                            .as_ref()
+                            .and_then(|profile| normalize_device_id_candidate(profile.tray_device_id.clone()))
+                            .unwrap_or_else(generate_xn3_like_id)
+                    )
+                } else {
+                    arg1.clone()
+                };
+                let sw4_body_json = self.capture_mh_base_request_body_inline(&request_url)?;
+                json!({
+                    "method": method,
+                    "request_url": request_url,
+                    "body_json": sw4_body_json.clone(),
+                    "body_string": sw4_body_json.to_string(),
+                    "app_list": self
+                        .call_java_static("defpackage/ac1", "s", "()Ljava/lang/String;", vec![])
+                        .ok()
+                    .and_then(|value| jni_value_to_string(value).ok()),
+                })
+            }
+            "flowEncrypt" => {
+                let raw = if arg1.trim().is_empty() {
+                    "{}".to_string()
+                } else {
+                    arg1.clone()
+                };
+                let cipher_mode = arg2.parse::<i32>().unwrap_or(2);
+                let use_new_key = parse_bool_like(&arg3);
+                self.apply_secret_keys_from_opts(opts, "invoke.flowEncrypt")?;
+                let payload = serde_json::from_str::<Value>(&raw)
+                    .unwrap_or_else(|_| Value::String(raw.clone()));
+                let (ck_version, encrypted_ckey_hex, cipher_hex) = self.flow_encrypt_payload(
+                    &payload,
+                    cipher_mode,
+                    use_new_key,
+                    "invoke.flowEncrypt",
+                )?;
+                json!({
+                    "method": method,
+                    "arg1_json": payload,
+                    "arg2_mode": cipher_mode,
+                    "arg3_bool": use_new_key,
+                    "ck_version": ck_version,
+                    "encrypted_ckey_hex": encrypted_ckey_hex,
+                    "cipher_hex": cipher_hex,
+                })
+            }
             "getEncryptedCKey" => {
                 let use_new_key = parse_bool_like(&arg1);
                 let value =
                     self.call_static("getEncryptedCKey", "(Z)[B", vec![use_new_key.into()])?;
-                let bytes = jni_value_to_bytes(value)?;
+                let bytes = {
+                    let emulator = self.emulator.clone();
+                    let vm = emulator.get_dalvik_vm();
+                    jni_value_to_bytes_with_vm(vm, value)?
+                };
                 json!({
                     "method": method,
                     "arg1_bool": use_new_key,
@@ -2176,7 +5571,7 @@ impl PalmchatLab {
             }
             _ => {
                 return Err(anyhow!(
-                    "unsupported method: {method}; supported=skeyAvailable|createCKey|setSecretKeys|getCkVersion|ckDiag|appInitProbe|gateProbe|getEncryptedCKey|setLxData|cipherWithHashKey|cipherWithType"
+                    "unsupported method: {method}; supported=skeyAvailable|wksecA|wksecC|ac1AppList|fm1Dfp|producerInitProbe|mhBaseArgs|flowEncrypt|createCKey|setSecretKeys|getCkVersion|ckDiag|appInitProbe|gateProbe|getEncryptedCKey|setLxData|cipherWithHashKey|cipherWithType"
                 ));
             }
         };
@@ -2191,29 +5586,15 @@ impl PalmchatLab {
         let mut value =
             serde_json::from_str::<Value>(raw).unwrap_or(Value::String(raw.to_string()));
         let mut changed_fields = Vec::new();
+        let preserve_existing_new_sms_version_code = phase.contains("bridge_stage1");
 
         if let Value::Object(map) = &mut value {
-            if let Some(version_code) = self.app_version_info.version_code.as_ref() {
-                let normalized = version_code
-                    .parse::<i64>()
-                    .ok()
-                    .map(|parsed| Value::Number(parsed.into()))
-                    .unwrap_or_else(|| Value::String(version_code.clone()));
-                let previous = map.get("versionCode").cloned().unwrap_or(Value::Null);
-                if previous != normalized {
-                    map.insert("versionCode".to_string(), normalized.clone());
-                    changed_fields.push(format!("versionCode:{}=>{}", previous, normalized));
-                }
-            }
-
-            if let Some(version_name) = self.app_version_info.version_name.as_ref() {
-                let normalized = Value::String(version_name.clone());
-                let previous = map.get("versionName").cloned().unwrap_or(Value::Null);
-                if previous != normalized {
-                    map.insert("versionName".to_string(), normalized.clone());
-                    changed_fields.push(format!("versionName:{}=>{}", previous, normalized));
-                }
-            }
+            apply_app_version_normalization(
+                map,
+                &self.app_version_info,
+                preserve_existing_new_sms_version_code,
+                &mut changed_fields,
+            );
         } else if self.app_version_info.version_code.is_some()
             || self.app_version_info.version_name.is_some()
         {
@@ -2253,7 +5634,461 @@ impl PalmchatLab {
             .map(|value| parse_bool_like(value))
             .unwrap_or(false);
 
-        let (normalized_raw, json_value) = self.normalize_flow_arg1_json(&raw, "flow");
+        let (mut normalized_raw, mut json_value) = self.normalize_flow_arg1_json(&raw, "flow");
+        let ip_info_preflight = self.refresh_ip_info_preflight(&mut json_value, opts, "flow");
+        if ip_info_preflight
+            .as_ref()
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str)
+            == Some("ok")
+        {
+            normalized_raw = json_value.to_string();
+        }
+        let no_empty_params = opts
+            .get("--no-empty-params")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(false);
+        let mut empty_param_cleanup = Vec::<String>::new();
+        if no_empty_params {
+            let identity_imei_seed =
+                normalize_device_id_candidate(Some(self.identity_state.borrow().effective_imei()));
+            let identity_android_seed = normalize_plain_candidate(Some(
+                self.identity_state.borrow().effective_android_id(),
+            ));
+            let identity_sdid_seed =
+                normalize_device_id_candidate(Some(self.identity_state.borrow().effective_sdid()));
+            let live_profile_oaid_seed = self
+                .live_device_profile
+                .as_ref()
+                .and_then(|profile| normalize_plain_candidate(profile.oaid.clone()));
+            let live_profile_channel_seed = self
+                .live_device_profile
+                .as_ref()
+                .and_then(|profile| normalize_plain_candidate(profile.channel_id.clone()));
+            if let Value::Object(map) = &mut json_value {
+                let new_sms_profile = is_new_sms_v7_profile(map);
+                let did_segments = map
+                    .get("did")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .split('_')
+                    .map(str::to_string)
+                    .collect::<Vec<_>>();
+                let did_imei = did_segments
+                    .get(0)
+                    .map(|v| v.trim().to_string())
+                    .and_then(|v| normalize_device_id_candidate(Some(v)));
+                let did_mac = did_segments
+                    .get(1)
+                    .map(|v| v.trim().to_string())
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let did_android_id = did_segments
+                    .get(2)
+                    .map(|v| v.trim().to_string())
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let app_list_value = parse_json_string_or_object(map.get("appList"));
+                let app_list_obj = app_list_value.as_ref().and_then(Value::as_object);
+                let app_list_imei = app_list_obj
+                    .and_then(|obj| extract_non_empty_string(obj, "imei"))
+                    .and_then(|v| normalize_device_id_candidate(Some(v)));
+                let persistent_device_seed = opts
+                    .get("--seed-device-id")
+                    .cloned()
+                    .or_else(|| extract_non_empty_string(map, "device_id"))
+                    .or_else(|| extract_non_empty_string(map, "sdid"))
+                    .or_else(|| extract_non_empty_string(map, "local_smid"))
+                    .and_then(|v| normalize_device_id_candidate(Some(v)));
+                let runtime_device_seed = opts
+                    .get("--seed-dhid")
+                    .cloned()
+                    .or_else(|| opts.get("--device-id").cloned())
+                    .or_else(|| extract_non_empty_string(map, "dhid"))
+                    .or_else(|| extract_non_empty_string(map, "oneId"))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let fallback_persistent_device_seed =
+                    persistent_device_seed.clone().or_else(|| {
+                        extract_non_empty_string(map, "oaid")
+                            .and_then(|v| normalize_device_id_candidate(Some(v)))
+                    });
+                let local_smid_seed = opts
+                    .get("--seed-local-smid")
+                    .cloned()
+                    .or_else(|| extract_non_empty_string(map, "local_smid"))
+                    .or_else(|| {
+                        if new_sms_profile {
+                            None
+                        } else {
+                            fallback_persistent_device_seed
+                                .clone()
+                                .map(|v| format!("YX{v}"))
+                        }
+                    })
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let dhid_seed = opts
+                    .get("--seed-dhid")
+                    .cloned()
+                    .or_else(|| extract_non_empty_string(map, "dhid"))
+                    .or_else(|| {
+                        if new_sms_profile {
+                            None
+                        } else {
+                            runtime_device_seed.clone()
+                        }
+                    })
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let channel_id_seed = extract_non_empty_string(map, "channelId")
+                    .or_else(|| opts.get("--seed-channel-id").cloned())
+                    .or_else(|| {
+                        app_list_obj.and_then(|obj| extract_non_empty_string(obj, "channelId"))
+                    })
+                    .or(live_profile_channel_seed.clone())
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let live_profile_ip_info_seed = self
+                    .live_device_profile
+                    .as_ref()
+                    .and_then(|profile| normalize_plain_candidate(profile.ip_info.clone()));
+                let android_id_seed = extract_non_empty_string(map, "androidId")
+                    .or_else(|| opts.get("--seed-android-id").cloned())
+                    .or(did_android_id)
+                    .or(identity_android_seed)
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let imei_seed = opts
+                    .get("--seed-imei")
+                    .cloned()
+                    .or_else(|| extract_non_empty_string(map, "imei"))
+                    .or(app_list_imei)
+                    .or(did_imei)
+                    .or(identity_imei_seed)
+                    .or_else(|| {
+                        if new_sms_profile {
+                            None
+                        } else {
+                            fallback_persistent_device_seed
+                                .as_deref()
+                                .map(derive_synthetic_imei)
+                        }
+                    })
+                    .and_then(|v| normalize_device_id_candidate(Some(v)));
+                let mac_seed = opts
+                    .get("--seed-mac")
+                    .cloned()
+                    .or_else(|| extract_non_empty_string(map, "mac"))
+                    .or(did_mac)
+                    .or_else(|| {
+                        if new_sms_profile {
+                            None
+                        } else {
+                            Some("02:00:00:00:00:00".to_string())
+                        }
+                    })
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let one_id_seed = opts
+                    .get("--seed-oneid")
+                    .cloned()
+                    .or_else(|| extract_non_empty_string(map, "oneId"))
+                    .or_else(|| {
+                        if new_sms_profile {
+                            None
+                        } else {
+                            runtime_device_seed.clone()
+                        }
+                    })
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let sdid_seed = extract_non_empty_string(map, "sdid")
+                    .or_else(|| opts.get("--seed-sdid").cloned())
+                    .or(identity_sdid_seed.clone())
+                    .or(persistent_device_seed.clone())
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let oaid_seed = extract_non_empty_string(map, "oaid")
+                    .or_else(|| opts.get("--seed-oaid").cloned())
+                    .or(live_profile_oaid_seed.clone())
+                    .or_else(|| {
+                        fallback_persistent_device_seed
+                            .as_deref()
+                            .map(derive_hex_token_from_seed)
+                    })
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let app_id_seed = extract_non_empty_string(map, "appId")
+                    .or_else(|| opts.get("--seed-appid").cloned())
+                    .or_else(|| Some("ZX0001".to_string()))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let platform_seed = extract_non_empty_string(map, "platform")
+                    .or_else(|| Some("android".to_string()))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let country_code_seed = extract_non_empty_string(map, "countryCode")
+                    .or_else(|| Some("86".to_string()))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let auto_login_seed = extract_non_empty_string(map, "autoLogin")
+                    .or_else(|| Some("0".to_string()))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let dfp_seed = extract_non_empty_string(map, "dfp")
+                    .or_else(|| Some("{}".to_string()))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                let ip_info_seed = extract_non_empty_string(map, "ipInfo")
+                    .or_else(|| opts.get("--seed-ip-info").cloned())
+                    .or(live_profile_ip_info_seed.clone())
+                    .or_else(|| Some("{}".to_string()))
+                    .and_then(|v| normalize_plain_candidate(Some(v)));
+                force_override_with_seed(
+                    map,
+                    "device_id",
+                    if new_sms_profile {
+                        None
+                    } else {
+                        opts.get("--seed-device-id").cloned()
+                    },
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "local_smid",
+                    if new_sms_profile {
+                        None
+                    } else {
+                        opts.get("--seed-local-smid").cloned()
+                    },
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "dhid",
+                    opts.get("--seed-dhid").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "sdid",
+                    opts.get("--seed-sdid").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "imei",
+                    opts.get("--seed-imei").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "mac",
+                    opts.get("--seed-mac").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "oneId",
+                    opts.get("--seed-oneid").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "oaid",
+                    opts.get("--seed-oaid").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "androidId",
+                    opts.get("--seed-android-id").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "channelId",
+                    opts.get("--seed-channel-id").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "appId",
+                    opts.get("--seed-appid").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                force_override_with_seed(
+                    map,
+                    "ipInfo",
+                    opts.get("--seed-ip-info").cloned(),
+                    &mut empty_param_cleanup,
+                );
+                if !new_sms_profile {
+                    fill_or_override_if_null_like(
+                        map,
+                        "device_id",
+                        fallback_persistent_device_seed.clone(),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_if_null_like(
+                        map,
+                        "local_smid",
+                        local_smid_seed,
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_if_null_like(
+                        map,
+                        "dhid",
+                        dhid_seed.clone(),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_if_null_like(
+                        map,
+                        "imei",
+                        imei_seed.clone(),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_if_null_like(
+                        map,
+                        "mac",
+                        mac_seed.clone(),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_if_null_like(
+                        map,
+                        "oneId",
+                        one_id_seed.clone(),
+                        &mut empty_param_cleanup,
+                    );
+                }
+                fill_or_override_if_null_like(map, "sdid", sdid_seed, &mut empty_param_cleanup);
+                fill_or_override_if_null_like(map, "oaid", oaid_seed, &mut empty_param_cleanup);
+                fill_or_override_if_null_like(map, "appId", app_id_seed, &mut empty_param_cleanup);
+                fill_or_override_if_null_like(
+                    map,
+                    "platform",
+                    platform_seed,
+                    &mut empty_param_cleanup,
+                );
+                fill_or_override_if_null_like(
+                    map,
+                    "countryCode",
+                    country_code_seed,
+                    &mut empty_param_cleanup,
+                );
+                fill_or_override_if_null_like(
+                    map,
+                    "autoLogin",
+                    auto_login_seed,
+                    &mut empty_param_cleanup,
+                );
+                fill_or_override_if_null_like(
+                    map,
+                    "channelId",
+                    channel_id_seed,
+                    &mut empty_param_cleanup,
+                );
+                fill_or_override_if_null_like(
+                    map,
+                    "androidId",
+                    android_id_seed,
+                    &mut empty_param_cleanup,
+                );
+                fill_or_override_if_null_like(map, "dfp", dfp_seed, &mut empty_param_cleanup);
+                fill_or_override_if_null_like(
+                    map,
+                    "ipInfo",
+                    ip_info_seed,
+                    &mut empty_param_cleanup,
+                );
+                if new_sms_profile {
+                    fill_or_override_null_like_value(
+                        map,
+                        "imei",
+                        imei_seed.clone().map(Value::String).unwrap_or(Value::Null),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_null_like_value(
+                        map,
+                        "mac",
+                        Value::String(mac_seed.clone().unwrap_or_default()),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_null_like_value(
+                        map,
+                        "dhid",
+                        Value::String(dhid_seed.clone().unwrap_or_default()),
+                        &mut empty_param_cleanup,
+                    );
+                    fill_or_override_null_like_value(
+                        map,
+                        "oneId",
+                        Value::String(one_id_seed.clone().unwrap_or_default()),
+                        &mut empty_param_cleanup,
+                    );
+                }
+                if map_value_missing_or_null_like(map, "paramNum") {
+                    map.insert("paramNum".to_string(), json!(4));
+                    empty_param_cleanup.push("paramNum=4".to_string());
+                }
+                let final_imei = extract_non_empty_string(map, "imei")
+                    .and_then(|v| normalize_device_id_candidate(Some(v)));
+                if let Some(recomputed_did) = recompute_nullable_did(map) {
+                    let current_did = map
+                        .get("did")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                        .unwrap_or_default();
+                    if current_did != recomputed_did {
+                        map.insert("did".to_string(), Value::String(recomputed_did.clone()));
+                        empty_param_cleanup.push(format!("did={recomputed_did}"));
+                    }
+                }
+                let app_list_channel_id = map
+                    .get("channelId")
+                    .and_then(Value::as_str)
+                    .map(|v| v.to_string());
+                ensure_app_list_payload(
+                    map,
+                    final_imei.as_deref(),
+                    app_list_channel_id.as_deref(),
+                    &self.config.package_name,
+                    self.live_device_profile
+                        .as_ref()
+                        .map(|profile| profile.installed_packages.as_slice())
+                        .filter(|packages| !packages.is_empty()),
+                    new_sms_profile || opts.contains_key("--seed-channel-id"),
+                    &mut empty_param_cleanup,
+                );
+                let dfp_android_id = map
+                    .get("androidId")
+                    .and_then(Value::as_str)
+                    .map(|value| value.to_string());
+                ensure_dfp_payload(
+                    map,
+                    dfp_android_id.as_deref(),
+                    self.app_version_info.version_name.as_deref(),
+                    Some(&self.config.package_name),
+                    opts.get("--seed-device-label")
+                        .map(String::as_str)
+                        .or_else(|| {
+                            self.live_device_profile
+                                .as_ref()
+                                .and_then(|profile| profile.device_label.as_deref())
+                        }),
+                    self.live_device_profile.as_ref(),
+                    &mut empty_param_cleanup,
+                );
+                if new_sms_profile {
+                    prune_new_sms_auto_noise_fields(map, &mut empty_param_cleanup);
+                }
+                let required_keys = v7_required_non_empty_keys(map);
+                let unresolved = collect_null_like_keys(map, &required_keys);
+                if !unresolved.is_empty() {
+                    self.shared.borrow_mut().native(&format!(
+                        "flow no-empty-params unresolved=[{}]",
+                        unresolved.join(", ")
+                    ));
+                    return Err(anyhow!(
+                        "no-empty-params unresolved required fields: {}",
+                        unresolved.join(", ")
+                    ));
+                }
+                if !empty_param_cleanup.is_empty() {
+                    normalized_raw = json_value.to_string();
+                    self.shared.borrow_mut().native(&format!(
+                        "flow no-empty-params filled=[{}]",
+                        empty_param_cleanup.join(", ")
+                    ));
+                }
+            }
+        }
         let bridge_stage1_value = opts
             .get("--bridge-stage1-json")
             .map(|value| self.normalize_flow_arg1_json(value, "flow.bridge_stage1").1);
@@ -2262,6 +6097,7 @@ impl PalmchatLab {
         let v7_base_field_production = build_v7_base_field_production(&json_value);
         let v7_identity_dependency_graph = build_v7_identity_dependency_graph(&json_value);
         let v7_identity_gate_diagnostics = build_v7_identity_gate_diagnostics();
+        self.sync_identity_state_from_effective_body(&json_value, opts);
         let app_init_upstream_observation = self.capture_app_init_upstream_observation()?;
         let v7_captcha_upstream_production =
             build_v7_captcha_upstream_production(bridge_stage1_value.as_ref(), &json_value);
@@ -2274,6 +6110,35 @@ impl PalmchatLab {
             &app_init_upstream_observation,
             &v7_captcha_business_surface,
         );
+        let mut effective_opts = opts.clone();
+        let secret_keys_seeded = self.apply_secret_keys_from_opts(&effective_opts, "flow")?;
+        let auth_bootstrap = self.ensure_stage1_auth_bootstrap(&effective_opts, "flow")?;
+        let smssend_url_injected = if let Value::Object(stage2_obj) = &json_value {
+            let empty = Map::new();
+            let stage1_obj = bridge_stage1_value
+                .as_ref()
+                .and_then(Value::as_object)
+                .unwrap_or(&empty);
+            let smssend_url_auth = self.derive_smssend_url_auth(&effective_opts);
+            prepare_smssend_test_url_opts(
+                stage1_obj,
+                stage2_obj,
+                &mut effective_opts,
+                Some(&smssend_url_auth),
+                self.live_device_profile.as_ref(),
+            )
+        } else {
+            None
+        };
+        if let Some(injected) = smssend_url_injected.as_ref() {
+            self.shared.borrow_mut().native(&format!(
+                "flow smssend url injected strategy={}",
+                injected
+                    .get("strategy")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
+            ));
+        }
         let json_obj = self.make_json_object(&normalized_raw)?;
         self.shared.borrow_mut().native("flow step=setLxData start");
         let _ = self.call_static(
@@ -2304,7 +6169,11 @@ impl PalmchatLab {
             .native("flow step=getEncryptedCKey start");
         let encrypted_ckey =
             self.call_static("getEncryptedCKey", "(Z)[B", vec![use_new_key.into()])?;
-        let encrypted_ckey_bytes = jni_value_to_bytes(encrypted_ckey)?;
+        let encrypted_ckey_bytes = {
+            let emulator = self.emulator.clone();
+            let vm = emulator.get_dalvik_vm();
+            jni_value_to_bytes_with_vm(vm, encrypted_ckey)?
+        };
         self.shared.borrow_mut().native(&format!(
             "flow step=getEncryptedCKey done bytes_len={}",
             encrypted_ckey_bytes.len()
@@ -2322,7 +6191,11 @@ impl PalmchatLab {
             "flow step=cipherWithHashKey return={}",
             cipher_return_debug
         ));
-        let cipher_bytes = jni_value_to_bytes(cipher_value).ok();
+        let cipher_bytes = {
+            let emulator = self.emulator.clone();
+            let vm = emulator.get_dalvik_vm();
+            jni_value_to_bytes_with_vm(vm, cipher_value).ok()
+        };
         let encrypted_ckey_hex = hex::encode(&encrypted_ckey_bytes).to_ascii_uppercase();
         let cipher_hex = cipher_bytes
             .as_ref()
@@ -2345,22 +6218,90 @@ impl PalmchatLab {
             &encrypted_ckey_hex,
             &cipher_hex,
             &ck_version,
-            opts,
+            &effective_opts,
         );
-        let smssend_test = if opts
+        let auth_bootstrap_block_reason = auth_bootstrap
+            .failure_reason
+            .as_ref()
+            .map(ToString::to_string);
+        let smssend_enabled = effective_opts
             .get("--smssend-test")
             .map(|value| parse_bool_like(value))
-            .unwrap_or(false)
-        {
-            Some(self.run_smssend_test(
-                &data_to_control_feedback,
-                &cipher_hex,
-                use_new_key,
-                opts,
-            ))
+            .unwrap_or(false);
+        let stage2_verify_status = json_value
+            .get("verifyStatus")
+            .map(|value| match value {
+                Value::Bool(v) => *v,
+                Value::String(v) => parse_bool_like(v),
+                Value::Number(v) => v.as_i64().unwrap_or_default() != 0,
+                _ => false,
+            })
+            .unwrap_or(false);
+        let smssend_two_step_enabled = effective_opts
+            .get("--smssend-two-step")
+            .map(|value| parse_bool_like(value))
+            .unwrap_or(stage2_verify_status);
+        let smssend_two_step =
+            if smssend_enabled && smssend_two_step_enabled && auth_bootstrap_block_reason.is_none()
+            {
+                let stage1_two_step = match self.try_build_two_step_stage1_payload_via_producer(
+                    &json_value,
+                    &data_to_control_feedback,
+                    bridge_stage1_value.as_ref(),
+                    &effective_opts,
+                ) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        self.shared
+                            .borrow_mut()
+                            .native(&format!("producer stage1 payload fallback reason={err:#}"));
+                        build_two_step_stage1_payload(&json_value, &self.config.package_name)
+                    }
+                };
+                Some(self.run_smssend_two_step(
+                    &stage1_two_step,
+                    &json_value,
+                    &data_to_control_feedback,
+                    &cipher_hex,
+                    cipher_mode,
+                    use_new_key,
+                    &effective_opts,
+                ))
+            } else {
+                None
+            };
+        let smssend_test = if smssend_enabled {
+            if let Some(reason) = auth_bootstrap_block_reason.as_ref() {
+                Some(json!({
+                    "status": "blocked",
+                    "reason": reason,
+                    "auth_bootstrap": auth_bootstrap,
+                }))
+            } else if let Some(two_step) = smssend_two_step.as_ref() {
+                two_step.get("stage2_result").cloned().or_else(|| {
+                    Some(json!({
+                        "status": "blocked",
+                        "reason": "missing_stage2_result",
+                        "smssend_two_step": two_step,
+                    }))
+                })
+            } else {
+                Some(self.run_smssend_test(
+                    &data_to_control_feedback,
+                    &cipher_hex,
+                    use_new_key,
+                    &effective_opts,
+                ))
+            }
         } else {
             None
         };
+        let v7_payload_debug_surface = build_v7_payload_debug_surface(
+            bridge_stage1_value.as_ref(),
+            &json_value,
+            &cipher_hex,
+            smssend_two_step.as_ref(),
+        );
 
         let mut output = json!({
             "flow": "setLxData->createCKey->getEncryptedCKey->cipherWithHashKey",
@@ -2373,15 +6314,21 @@ impl PalmchatLab {
             "app_init_upstream_observation": app_init_upstream_observation,
             "v7_captcha_upstream_production": v7_captcha_upstream_production,
             "v7_retry_payload_views": v7_retry_payload_views,
+            "v7_payload_debug_surface": v7_payload_debug_surface,
             "v7_captcha_business_surface": v7_captcha_business_surface,
             "palmchat_project_planes": palmchat_project_planes,
+            "ip_info_preflight": ip_info_preflight,
+            "auth_bootstrap": auth_bootstrap,
+            "secret_keys_seeded": secret_keys_seeded,
             "app_version_from_original": {
                 "versionCode": self.app_version_info.version_code,
                 "versionName": self.app_version_info.version_name,
                 "source": self.app_version_info.source,
             },
+            "live_device_profile": self.live_device_profile,
             "arg2_mode": cipher_mode,
             "arg3_bool": use_new_key,
+            "no_empty_params": no_empty_params,
             "setLxData": "ok",
             "createCKey": "ok",
             "ck_version": ck_version,
@@ -2396,10 +6343,27 @@ impl PalmchatLab {
             "cipher_null": cipher_bytes.is_none(),
         });
         if let Value::Object(map) = &mut output {
+            if let Some(injected) = smssend_url_injected {
+                map.insert("smssend_url_injected".to_string(), injected);
+            }
+            if !empty_param_cleanup.is_empty() {
+                map.insert(
+                    "no_empty_params_filled".to_string(),
+                    Value::Array(
+                        empty_param_cleanup
+                            .iter()
+                            .map(|v| Value::String(v.clone()))
+                            .collect(),
+                    ),
+                );
+            }
             map.insert(
                 "data_to_control_feedback".to_string(),
                 data_to_control_feedback,
             );
+            if let Some(two_step) = smssend_two_step {
+                map.insert("smssend_two_step".to_string(), two_step);
+            }
             if let Some(smssend) = smssend_test {
                 map.insert("smssend_test".to_string(), smssend);
             }
@@ -2435,6 +6399,7 @@ impl PalmchatLab {
         let v7_base_field_production = build_v7_base_field_production(&flow_seed_value);
         let v7_identity_dependency_graph = build_v7_identity_dependency_graph(&flow_seed_value);
         let v7_identity_gate_diagnostics = build_v7_identity_gate_diagnostics();
+        self.sync_identity_state_from_effective_body(&flow_seed_value, opts);
         let app_init_upstream_observation = self.capture_app_init_upstream_observation()?;
         let v7_captcha_upstream_production =
             build_v7_captcha_upstream_production(bridge_stage1_value.as_ref(), &flow_seed_value);
@@ -2810,7 +6775,11 @@ struct PalmchatJni {
     shared: Rc<RefCell<SharedState>>,
     package_name: String,
     apk_path: String,
+    app_context_fs: PalmchatAppContextFs,
     identity_state: Rc<RefCell<PalmchatIdentityRuntimeState>>,
+    live_device_profile: Option<PalmchatLiveDeviceProfile>,
+    app_context_secret_pair: Rc<RefCell<Option<PalmchatSecretPair>>>,
+    asset_manager_native_ptr: u64,
 }
 
 impl PalmchatJni {
@@ -2818,13 +6787,21 @@ impl PalmchatJni {
         shared: Rc<RefCell<SharedState>>,
         package_name: String,
         apk_path: PathBuf,
+        app_context_fs: PalmchatAppContextFs,
         identity_state: Rc<RefCell<PalmchatIdentityRuntimeState>>,
+        live_device_profile: Option<PalmchatLiveDeviceProfile>,
+        app_context_secret_pair: Rc<RefCell<Option<PalmchatSecretPair>>>,
+        asset_manager_native_ptr: u64,
     ) -> Self {
         Self {
             shared,
             package_name,
             apk_path: apk_path.to_string_lossy().to_string(),
+            app_context_fs,
             identity_state,
+            live_device_profile,
+            app_context_secret_pair,
+            asset_manager_native_ptr,
         }
     }
 
@@ -2850,6 +6827,238 @@ impl PalmchatJni {
         } else {
             JniValue::Null
         }
+    }
+
+    fn live_wifi_ssid(&self) -> String {
+        self.live_device_profile
+            .as_ref()
+            .and_then(|profile| profile.wifi_ssid.clone())
+            .unwrap_or_default()
+    }
+
+    fn live_wm4_network_type(&self) -> String {
+        normalize_wm4_network_type(
+            self.live_device_profile
+                .as_ref()
+                .and_then(|profile| profile.network_type.as_deref()),
+        )
+    }
+
+    fn live_wm4_real_network_type(&self) -> String {
+        let profile = self.live_device_profile.as_ref();
+        normalize_wm4_real_network_type(
+            profile.and_then(|value| value.network_type.as_deref()),
+            profile.and_then(|value| value.mobile_data_enabled),
+        )
+    }
+
+    fn effective_app_list_string(&self) -> Option<String> {
+        let profile = self.live_device_profile.as_ref()?;
+        let imei = {
+            let state = self.identity_state.borrow();
+            normalize_ac1_imei_candidate(Some(state.effective_imei()))
+        };
+        let channel_id = normalize_plain_candidate(profile.channel_id.clone())?;
+        let mut map = Map::new();
+        let mut events = Vec::new();
+        ensure_app_list_payload(
+            &mut map,
+            imei.as_deref(),
+            Some(channel_id.as_str()),
+            &self.package_name,
+            Some(profile.installed_packages.as_slice()),
+            true,
+            &mut events,
+        );
+        map.get("appList")
+            .and_then(Value::as_str)
+            .map(|value| value.to_string())
+    }
+
+    fn effective_dfp_json(&self) -> Option<String> {
+        let profile = self.live_device_profile.as_ref()?;
+        let (android_id, imei, mac, device_label) = {
+            let state = self.identity_state.borrow();
+            let device_label =
+                normalize_device_label_candidate(Some(state.effective_device_label()))
+                    .or_else(|| normalize_device_label_candidate(profile.device_label.clone()));
+            (
+                state.effective_android_id(),
+                state.effective_imei(),
+                state.effective_mac(),
+                device_label,
+            )
+        };
+        let mut map = Map::new();
+        map.insert(
+            "imei".to_string(),
+            if imei.trim().is_empty() {
+                Value::Null
+            } else {
+                Value::String(imei)
+            },
+        );
+        map.insert("mac".to_string(), Value::String(mac));
+        let mut events = Vec::new();
+        ensure_dfp_payload(
+            &mut map,
+            Some(android_id.as_str()),
+            profile.app_version_name.as_deref(),
+            Some(&self.package_name),
+            device_label.as_deref(),
+            Some(profile),
+            &mut events,
+        );
+        map.get("dfp")
+            .and_then(Value::as_str)
+            .map(|value| value.to_string())
+    }
+
+    fn effective_app_id(&self) -> String {
+        "ZX0001".to_string()
+    }
+
+    fn effective_ip_info(&self) -> String {
+        self.live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.ip_info.clone()))
+            .unwrap_or_default()
+    }
+
+    fn effective_oaid(&self) -> String {
+        self.live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.oaid.clone()))
+            .unwrap_or_default()
+    }
+
+    fn effective_channel_id(&self) -> String {
+        self.live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.channel_id.clone()))
+            .unwrap_or_default()
+    }
+
+    fn effective_version_code(&self) -> String {
+        self.live_device_profile
+            .as_ref()
+            .and_then(|profile| normalize_plain_candidate(profile.app_version_code.clone()))
+            .unwrap_or_else(|| "unknown".to_string())
+    }
+
+    fn effective_nullable_did(&self) -> Option<String> {
+        let (android_id, imei, mac) = {
+            let state = self.identity_state.borrow();
+            (
+                normalize_plain_candidate(Some(state.effective_android_id())),
+                normalize_device_id_candidate(Some(state.effective_imei())),
+                state.effective_mac().trim().to_string(),
+            )
+        };
+        let android_id = android_id?;
+        let imei_segment = imei.unwrap_or_else(|| "null".to_string());
+        Some(format!("{imei_segment}_{mac}_{android_id}"))
+    }
+
+    fn build_mh_request_body_map(&self) -> Map<String, Value> {
+        let (android_id, imei_value, mac_value, sdid_value) = {
+            let state = self.identity_state.borrow();
+            let imei = normalize_device_id_candidate(Some(state.effective_imei()));
+            let sdid = if !state.effective_sdid().trim().is_empty() {
+                state.effective_sdid()
+            } else {
+                state.effective_local_smid()
+            };
+            (
+                state.effective_android_id(),
+                imei,
+                state.effective_mac(),
+                sdid,
+            )
+        };
+
+        let mut map = Map::new();
+        map.insert(
+            "channelId".to_string(),
+            Value::String(self.effective_channel_id()),
+        );
+        if let Some(did) = self.effective_nullable_did() {
+            map.insert("did".to_string(), Value::String(did));
+        }
+        map.insert("platform".to_string(), Value::String("android".to_string()));
+        map.insert(
+            "versionCode".to_string(),
+            Value::String(self.effective_version_code()),
+        );
+        map.insert(
+            "imei".to_string(),
+            imei_value.map(Value::String).unwrap_or(Value::Null),
+        );
+        map.insert("mac".to_string(), Value::String(mac_value));
+        map.insert("dhid".to_string(), Value::String(String::new()));
+        map.insert("autoLogin".to_string(), Value::String("0".to_string()));
+        map.insert("sdid".to_string(), Value::String(sdid_value));
+        map.insert("oaid".to_string(), Value::String(self.effective_oaid()));
+        map.insert("oneId".to_string(), Value::String(String::new()));
+        if let Some(dfp) = self.effective_dfp_json() {
+            map.insert("dfp".to_string(), Value::String(dfp));
+        }
+        if let Some(app_list) = self.effective_app_list_string() {
+            map.insert("appList".to_string(), Value::String(app_list));
+        }
+        map.insert("appId".to_string(), Value::String(self.effective_app_id()));
+        map.insert(
+            "ipInfo".to_string(),
+            Value::String(self.effective_ip_info()),
+        );
+        map.insert("androidId".to_string(), Value::String(android_id));
+        map
+    }
+
+    fn current_app_context_secret_pair(&self) -> Option<PalmchatSecretPair> {
+        self.app_context_secret_pair.borrow().clone()
+    }
+
+    fn set_app_context_secret_pair(&self, pair: Option<PalmchatSecretPair>) {
+        *self.app_context_secret_pair.borrow_mut() = pair;
+    }
+
+    fn asset_manager_object(&self, vm: &mut DalvikVM64<()>) -> DvmObject {
+        let class = vm
+            .resolve_class("android/content/res/AssetManager")
+            .map(|(_, class)| class)
+            .expect("failed to resolve android/content/res/AssetManager");
+        new_mut_data_object(class, self.asset_manager_native_ptr as i64)
+    }
+
+    fn secret_pair_object(&self, vm: &mut DalvikVM64<()>, pair: &PalmchatSecretPair) -> DvmObject {
+        let class = vm
+            .resolve_class("android/util/Pair")
+            .map(|(_, class)| class)
+            .expect("failed to resolve android/util/Pair");
+        new_mut_data_object(
+            class,
+            PalmchatPairState {
+                first: Some(DvmObject::ByteArray(pair.key.clone())),
+                second: Some(DvmObject::ByteArray(pair.iv.clone())),
+            },
+        )
+    }
+
+    fn app_context_state(&self) -> PalmchatAppContextState {
+        PalmchatAppContextState {
+            package_name: self.package_name.clone(),
+            apk_path: self.apk_path.clone(),
+            fs: self.app_context_fs.clone(),
+        }
+    }
+
+    fn file_object(&self, vm: &mut DalvikVM64<()>, requested_path: &str) -> DvmObject {
+        let class = vm
+            .resolve_class("java/io/File")
+            .map(|(_, class)| class)
+            .expect("failed to resolve java/io/File");
+        new_mut_data_object(class, self.app_context_fs.file_state_for_path(requested_path))
     }
 }
 
@@ -2915,20 +7124,50 @@ impl Jni<()> for PalmchatJni {
                     return new_mut_data_object(class.clone(), JsonObjectState::from_raw(&raw))
                         .into();
                 }
+                "android/util/Pair-><init>(Ljava/lang/Object;Ljava/lang/Object;)V" => {
+                    let first = args.get::<DvmObject>(vm);
+                    let second = args.get::<DvmObject>(vm);
+                    return new_mut_data_object(
+                        class.clone(),
+                        PalmchatPairState {
+                            first: Some(first),
+                            second: Some(second),
+                        },
+                    )
+                    .into();
+                }
+                "java/io/File-><init>(Ljava/lang/String;)V" => {
+                    let path = args.get::<String>(vm);
+                    return self.file_object(vm, &path).into();
+                }
+                "java/io/File-><init>(Ljava/lang/String;Ljava/lang/String;)V" => {
+                    let parent = args.get::<String>(vm);
+                    let child = args.get::<String>(vm);
+                    let joined = PathBuf::from(parent)
+                        .join(child)
+                        .to_string_lossy()
+                        .to_string();
+                    return self.file_object(vm, &joined).into();
+                }
+                "java/io/File-><init>(Ljava/io/File;Ljava/lang/String;)V" => {
+                    let parent = args.get::<DvmObject>(vm);
+                    let child = args.get::<String>(vm);
+                    let parent_path = data_ref::<PalmchatFileState>(&parent)
+                        .map(|state| state.guest_path.clone())
+                        .unwrap_or_else(|| string_from_object(&parent));
+                    let joined = PathBuf::from(parent_path)
+                        .join(child)
+                        .to_string_lossy()
+                        .to_string();
+                    return self.file_object(vm, &joined).into();
+                }
                 _ => return DvmObject::new_simple(class.clone()).into(),
             }
         }
 
         match signature.as_str() {
             "com/zenmen/palmchat/AppContext->getContext()Lcom/zenmen/palmchat/AppContext;" => {
-                return new_mut_data_object(
-                    class.clone(),
-                    PalmchatAppContextState {
-                        package_name: self.package_name.clone(),
-                        apk_path: self.apk_path.clone(),
-                    },
-                )
-                .into();
+                return new_mut_data_object(class.clone(), self.app_context_state()).into();
             }
             "defpackage/r75->l()Z" => {
                 let result = self.identity_state.borrow().effective_privacy_agree();
@@ -2936,6 +7175,27 @@ impl Jni<()> for PalmchatJni {
                     .borrow_mut()
                     .jni(&format!("probe r75.l -> {}", result));
                 return result.into();
+            }
+            "defpackage/st3->e(Z)V" => {
+                let value = args.get::<i32>(vm) != 0;
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe st3.e -> {}", value));
+                return JniValue::Void;
+            }
+            "defpackage/g9->d()Z" => {
+                self.shared.borrow_mut().jni("probe g9.d -> false");
+                return false.into();
+            }
+            "defpackage/g9->c(Z)Ljava/lang/String;" => {
+                let is_k1 = args.get::<i32>(vm) != 0;
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe g9.c({}) -> empty", is_k1));
+                return String::new().into();
+            }
+            "defpackage/nl0->k()Z" => {
+                return true.into();
             }
             "defpackage/tg4->b(Landroid/content/Context;[Ljava/lang/String;)Z" => {
                 let _context = args.get::<DvmObject>(vm);
@@ -2970,6 +7230,16 @@ impl Jni<()> for PalmchatJni {
                     .jni("probe PrivInfoManager.init -> isInit=true");
                 return JniValue::Void;
             }
+            "defpackage/ac1->B(Landroid/content/Context;)V" => {
+                let _context = args.get::<DvmObject>(vm);
+                self.shared.borrow_mut().jni("probe ac1.B -> noop");
+                return JniValue::Void;
+            }
+            "defpackage/ts0->I(Landroid/content/Context;)V" => {
+                let _context = args.get::<DvmObject>(vm);
+                self.shared.borrow_mut().jni("probe ts0.I -> noop");
+                return JniValue::Void;
+            }
             "com/zenmen/palmchat/privinfo/PrivInfoManager->getAndroidID()Ljava/lang/String;" => {
                 let state = self.identity_state.borrow();
                 let result = if state.priv_info_initialized {
@@ -2997,6 +7267,33 @@ impl Jni<()> for PalmchatJni {
                 };
                 return result.into();
             }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->getSsid()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if state.priv_info_initialized {
+                    self.live_wifi_ssid()
+                } else {
+                    String::new()
+                };
+                return result.into();
+            }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->getNetworkType()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if state.priv_info_initialized {
+                    self.live_wm4_network_type()
+                } else {
+                    String::new()
+                };
+                return result.into();
+            }
+            "com/zenmen/palmchat/privinfo/PrivInfoManager->getRealNetworkType()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if state.priv_info_initialized {
+                    self.live_wm4_real_network_type()
+                } else {
+                    String::new()
+                };
+                return result.into();
+            }
             "defpackage/wm4->h()Ljava/lang/String;" => {
                 let result = self.identity_state.borrow().effective_android_id();
                 return result.into();
@@ -3008,6 +7305,160 @@ impl Jni<()> for PalmchatJni {
             "defpackage/wm4->n()Ljava/lang/String;" => {
                 let result = self.identity_state.borrow().effective_mac();
                 return result.into();
+            }
+            "defpackage/wm4->q()Ljava/lang/String;" => {
+                let result = self.live_wm4_network_type();
+                return result.into();
+            }
+            "defpackage/wm4->s()Ljava/lang/String;" => {
+                let result = self.live_wm4_real_network_type();
+                return result.into();
+            }
+            "defpackage/wm4->w()Ljava/lang/String;" => {
+                let result = self.live_wifi_ssid();
+                return result.into();
+            }
+            "com/wifi/open/sec/SmDuManager->getDeviceId()Ljava/lang/String;" => {
+                let result = self.identity_state.borrow().effective_sdid();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe SmDuManager.getDeviceId -> {}", result));
+                return result.into();
+            }
+            "com/wifi/open/sec/SmDuManager->getDuLabel()Ljava/lang/String;" => {
+                let result = self.identity_state.borrow().effective_device_label();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe SmDuManager.getDuLabel -> {}", result));
+                return result.into();
+            }
+            "com/zenmen/palmchat/utils/SmidHelper->o()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if !state.effective_sdid().trim().is_empty() {
+                    state.effective_sdid()
+                } else {
+                    state.effective_local_smid()
+                };
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe SmidHelper.o -> {}", result));
+                return result.into();
+            }
+            "defpackage/ac1->v()Ljava/lang/String;" => {
+                let state = self.identity_state.borrow();
+                let result = if !state.effective_sdid().trim().is_empty() {
+                    state.effective_sdid()
+                } else {
+                    state.effective_local_smid()
+                };
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe ac1.v -> {}", result));
+                return result.into();
+            }
+            "defpackage/mh->a(Ljava/lang/String;)Ldefpackage/sw4;" => {
+                let request_url = args.get::<String>(vm);
+                let sw4_class = vm
+                    .resolve_class("defpackage/sw4")
+                    .map(|(_, class)| class)
+                    .expect("failed to resolve defpackage/sw4");
+                let state = PalmchatSw4State {
+                    url: request_url.clone(),
+                    body_map: self.build_mh_request_body_map(),
+                    encrypted_body_type: 1,
+                    encrypted_request: true,
+                };
+                self.shared.borrow_mut().jni(&format!(
+                    "probe mh.a -> sw4(url_len={} keys={})",
+                    request_url.len(),
+                    state.body_map.len()
+                ));
+                let object = new_mut_data_object(sw4_class, state);
+                let ref_id = vm.add_global_ref(object);
+                return DvmObject::ObjectRef(ref_id).into();
+            }
+            "defpackage/ac1->s()Ljava/lang/String;" => {
+                let result = self.effective_app_list_string().unwrap_or_default();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe ac1.s -> {}", result));
+                return result.into();
+            }
+            "defpackage/ac1->y()Ljava/lang/String;" => {
+                return String::new().into();
+            }
+            "defpackage/fm1->k()Lorg/json/JSONObject;" => {
+                if let Some(raw) = self.effective_dfp_json() {
+                    let json_class = vm
+                        .resolve_class("org/json/JSONObject")
+                        .map(|(_, class)| class)
+                        .expect("failed to resolve org/json/JSONObject");
+                    self.shared.borrow_mut().jni(&format!(
+                        "probe fm1.k -> json(len={})",
+                        raw.len()
+                    ));
+                    return new_mut_data_object(json_class, JsonObjectState::from_raw(&raw)).into();
+                }
+                self.shared.borrow_mut().jni("probe fm1.k -> null");
+                return JniValue::Null;
+            }
+            "defpackage/cl6->f()I" => {
+                self.shared.borrow_mut().jni("probe cl6.f -> 4");
+                return 4.into();
+            }
+            "defpackage/eb4->b()Ljava/lang/String;" => {
+                let result = self.effective_app_id();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe eb4.b -> {}", result));
+                return result.into();
+            }
+            "defpackage/vu2->c()Ldefpackage/vu2;" => {
+                return DvmObject::new_simple(class.clone()).into();
+            }
+            "defpackage/vu2->d()Ljava/lang/String;" => {
+                let result = self.effective_ip_info();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe vu2.d -> len={}", result.len()));
+                return result.into();
+            }
+            "com/zenmen/palmchat/utils/MdidSdkConfigHelper->getInstance()Lcom/zenmen/palmchat/utils/MdidSdkConfigHelper;" => {
+                return DvmObject::new_simple(class.clone()).into();
+            }
+            "com/zenmen/palmchat/utils/MdidSdkConfigHelper->getOAID()Ljava/lang/String;" => {
+                let result = self.effective_oaid();
+                self.shared.borrow_mut().jni(&format!(
+                    "probe MdidSdkConfigHelper.getOAID -> len={}",
+                    result.len()
+                ));
+                return result.into();
+            }
+            "com/zenmen/palmchat/account/AccountUtils->p(Landroid/content/Context;)Ljava/lang/String;" => {
+                let _context = args.get::<DvmObject>(vm);
+                let result = self
+                    .live_device_profile
+                    .as_ref()
+                    .and_then(|profile| normalize_plain_candidate(profile.account_uid.clone()))
+                    .unwrap_or_default();
+                self.shared
+                    .borrow_mut()
+                    .jni(&format!("probe AccountUtils.p -> {}", result));
+                return result.into();
+            }
+            "com/zenmen/palmchat/account/AccountUtils->o(Landroid/content/Context;)Ljava/lang/String;" => {
+                let _context = args.get::<DvmObject>(vm);
+                self.shared
+                    .borrow_mut()
+                    .jni("probe AccountUtils.o -> empty");
+                return String::new().into();
+            }
+            "com/zenmen/palmchat/account/AccountUtils->m(Landroid/content/Context;)Ljava/lang/String;" => {
+                let _context = args.get::<DvmObject>(vm);
+                self.shared
+                    .borrow_mut()
+                    .jni("probe AccountUtils.m -> empty");
+                return String::new().into();
             }
             "java/lang/String->getBytes()[B" => {
                 let value = instance
@@ -3046,6 +7497,27 @@ impl Jni<()> for PalmchatJni {
                     .unwrap_or_default();
                 return value.into();
             }
+            "com/zenmen/palmchat/AppContext->getSecretKey()Landroid/util/Pair;"
+            | "com/zenmen/palmchat/AppContext->getSecretKey(Z)Landroid/util/Pair;" => {
+                if let Some(pair) = self.current_app_context_secret_pair() {
+                    return self.secret_pair_object(vm, &pair).into();
+                }
+                return JniValue::Null;
+            }
+            "com/zenmen/palmchat/AppContext->setSecretKey(Ljava/lang/String;Ljava/lang/String;)V" => {
+                let secret_key = args.get::<String>(vm);
+                let secret_iv = args.get::<String>(vm);
+                self.set_app_context_secret_pair(Some(PalmchatSecretPair {
+                    key: secret_key.into_bytes(),
+                    iv: secret_iv.into_bytes(),
+                }));
+                return JniValue::Void;
+            }
+            "com/zenmen/palmchat/AppContext->setContextSecretKey(Landroid/util/Pair;)V" => {
+                let pair = args.get::<DvmObject>(vm);
+                self.set_app_context_secret_pair(secret_pair_from_dvm_object(&pair));
+                return JniValue::Void;
+            }
             "com/zenmen/palmchat/AppContext->getPackageName()Ljava/lang/String;"
             | "android/app/Application->getPackageName()Ljava/lang/String;"
             | "android/content/Context->getPackageName()Ljava/lang/String;" => {
@@ -3058,6 +7530,108 @@ impl Jni<()> for PalmchatJni {
             | "android/app/Application->getPackageCodePath()Ljava/lang/String;"
             | "android/content/Context->getPackageCodePath()Ljava/lang/String;" => {
                 return self.apk_path.clone().into();
+            }
+            "com/zenmen/palmchat/AppContext->getFilesDir()Ljava/io/File;"
+            | "android/app/Application->getFilesDir()Ljava/io/File;"
+            | "android/content/Context->getFilesDir()Ljava/io/File;" => {
+                return self.file_object(vm, &self.app_context_fs.files_dir).into();
+            }
+            "com/zenmen/palmchat/AppContext->getCacheDir()Ljava/io/File;"
+            | "android/app/Application->getCacheDir()Ljava/io/File;"
+            | "android/content/Context->getCacheDir()Ljava/io/File;" => {
+                return self.file_object(vm, &self.app_context_fs.cache_dir).into();
+            }
+            "com/zenmen/palmchat/AppContext->getDataDir()Ljava/io/File;"
+            | "android/app/Application->getDataDir()Ljava/io/File;"
+            | "android/content/Context->getDataDir()Ljava/io/File;" => {
+                return self.file_object(vm, &self.app_context_fs.legacy_data_dir).into();
+            }
+            "com/zenmen/palmchat/AppContext->getDir(Ljava/lang/String;I)Ljava/io/File;"
+            | "android/app/Application->getDir(Ljava/lang/String;I)Ljava/io/File;"
+            | "android/content/Context->getDir(Ljava/lang/String;I)Ljava/io/File;" => {
+                let name = args.get::<String>(vm);
+                let _mode = args.get::<i32>(vm);
+                let guest_path = self.app_context_fs.guest_dir_for_name(name.trim());
+                if let Err(err) = self.app_context_fs.ensure_host_dir_for_guest(&guest_path) {
+                    self.shared.borrow_mut().native(&format!(
+                        "app_context getDir create_failed guest_path={} err={:#}",
+                        guest_path, err
+                    ));
+                }
+                return self.file_object(vm, &guest_path).into();
+            }
+            "com/zenmen/palmchat/AppContext->getAssets()Landroid/content/res/AssetManager;"
+            | "android/app/Application->getAssets()Landroid/content/res/AssetManager;"
+            | "android/content/Context->getAssets()Landroid/content/res/AssetManager;" => {
+                return self.asset_manager_object(vm).into();
+            }
+            "java/io/File->getAbsolutePath()Ljava/lang/String;"
+            | "java/io/File->getPath()Ljava/lang/String;"
+            | "java/io/File->toString()Ljava/lang/String;" => {
+                let Some(instance) = instance else {
+                    return String::new().into();
+                };
+                let value = data_ref::<PalmchatFileState>(instance)
+                    .map(|state| state.guest_path.clone())
+                    .unwrap_or_default();
+                return value.into();
+            }
+            "java/io/File->exists()Z" => {
+                let Some(instance) = instance else {
+                    return false.into();
+                };
+                let exists = data_ref::<PalmchatFileState>(instance)
+                    .map(|state| state.host_path.exists())
+                    .unwrap_or(false);
+                return exists.into();
+            }
+            "java/io/File->isDirectory()Z" => {
+                let Some(instance) = instance else {
+                    return false.into();
+                };
+                let is_dir = data_ref::<PalmchatFileState>(instance)
+                    .map(|state| state.host_path.is_dir())
+                    .unwrap_or(false);
+                return is_dir.into();
+            }
+            "java/io/File->mkdirs()Z" => {
+                let Some(instance) = instance else {
+                    return false.into();
+                };
+                let created = data_ref::<PalmchatFileState>(instance)
+                    .map(|state| {
+                        fs::create_dir_all(&state.host_path).is_ok() && state.host_path.is_dir()
+                    })
+                    .unwrap_or(false);
+                return created.into();
+            }
+            "java/io/File->getParent()Ljava/lang/String;" => {
+                let Some(instance) = instance else {
+                    return String::new().into();
+                };
+                let value = data_ref::<PalmchatFileState>(instance)
+                    .and_then(|state| {
+                        Path::new(&state.guest_path)
+                            .parent()
+                            .map(|path| path.to_string_lossy().to_string())
+                    })
+                    .unwrap_or_default();
+                return value.into();
+            }
+            "java/io/File->getParentFile()Ljava/io/File;" => {
+                let Some(instance) = instance else {
+                    return JniValue::Null;
+                };
+                let Some(parent) = data_ref::<PalmchatFileState>(instance)
+                    .and_then(|state| {
+                        Path::new(&state.guest_path)
+                            .parent()
+                            .map(|path| path.to_string_lossy().to_string())
+                    })
+                else {
+                    return JniValue::Null;
+                };
+                return self.file_object(vm, &parent).into();
             }
             "android/text/TextUtils->isEmpty(Ljava/lang/CharSequence;)Z" => {
                 let text = string_from_id(vm, args.get::<i64>(vm));
@@ -3073,6 +7647,33 @@ impl Jni<()> for PalmchatJni {
                     .borrow_mut()
                     .native(&format!("android_log tag={} msg={}", tag, msg));
                 return 0.into();
+            }
+            "defpackage/sw4->d()Lorg/json/JSONObject;" => {
+                let Some(instance) = instance else {
+                    return JniValue::Null;
+                };
+                let Some(state) = data_ref::<PalmchatSw4State>(instance) else {
+                    return JniValue::Null;
+                };
+                let json_class = vm
+                    .resolve_class("org/json/JSONObject")
+                    .map(|(_, class)| class)
+                    .expect("failed to resolve org/json/JSONObject");
+                self.shared.borrow_mut().jni(&format!(
+                    "probe sw4.d -> url_len={} keys={} enc_type={} enc={}",
+                    state.url.len(),
+                    state.body_map.len(),
+                    state.encrypted_body_type,
+                    state.encrypted_request
+                ));
+                let object = new_mut_data_object(
+                    json_class,
+                    JsonObjectState {
+                        map: state.body_map.clone(),
+                    },
+                );
+                let ref_id = vm.add_global_ref(object);
+                return DvmObject::ObjectRef(ref_id).into();
             }
             "org/json/JSONObject->toString()Ljava/lang/String;" => {
                 let Some(instance) = instance else {
@@ -3173,6 +7774,28 @@ impl Jni<()> for PalmchatJni {
             "get_field class={} field={} sig={}",
             class.name, field.name, field.signature
         ));
+        if class.name == "android/content/res/AssetManager"
+            && field.name == "mObject"
+            && field.signature == "J"
+        {
+            return (self.asset_manager_native_ptr as i64).into();
+        }
+        if class.name == "com/zenmen/palmchat/messaging/CreateConnectionDelegate"
+            && field.name == "c"
+            && field.signature == "Landroid/content/res/AssetManager;"
+        {
+            return self.asset_manager_object(_vm).into();
+        }
+        if class.name == "com/zenmen/palmchat/messaging/CreateConnectionDelegate"
+            && field.name == "f14672a"
+            && field.signature == "Landroid/content/Context;"
+        {
+            let class = _vm
+                .resolve_class("com/zenmen/palmchat/AppContext")
+                .map(|(_, class)| class)
+                .expect("failed to resolve com/zenmen/palmchat/AppContext");
+            return new_mut_data_object(class, self.app_context_state()).into();
+        }
         JniValue::Null
     }
 
@@ -3202,6 +7825,13 @@ struct JsonObjectState {
 struct PalmchatAppContextState {
     package_name: String,
     apk_path: String,
+    fs: PalmchatAppContextFs,
+}
+
+#[derive(Clone, Debug)]
+struct PalmchatFileState {
+    guest_path: String,
+    host_path: PathBuf,
 }
 
 impl JsonObjectState {
@@ -3302,6 +7932,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 "captcha-ui-debug" => lab.run_captcha_ui_debug(&opts)?,
                 _ => unreachable!(),
             };
+            if let Some(path) = opts.get("--json-out").map(PathBuf::from) {
+                write_json_file(&path, &output)?;
+            }
             if command != "decrypt-trace"
                 && (opts.contains_key("--report-json") || opts.contains_key("--report-md"))
                 && !(command == "captcha-ui-debug"
@@ -3352,18 +7985,18 @@ fn parse_options(args: &[String]) -> HashMap<String, String> {
 
 fn print_usage() {
     eprintln!("palmchat commands:");
-    eprintln!("  smoke  [--config <path>] [--backend <auto|dynarmic|unicorn>]");
-    eprintln!("  invoke [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> [--arg1 <v>] [--arg2 <v>] [--arg3 <v>] [--secret-key <k>] [--secret-iv <iv>]");
-    eprintln!("         appInitProbe/gateProbe overrides: [--privacy-agree <bool>] [--read-phone-state <bool>] [--priv-info-init <bool>] [--android-id <str>] [--imei <str>] [--mac <str>] [--process-name <str>]");
-    eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--bridge-stage1-json <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--smssend-test <bool>] [--smssend-url <url>] [--smssend-timeout-ms <ms>] [--smssend-user-agent <ua>] [--report-json <path>] [--report-md <path>]");
-    eprintln!("  captcha-ui-debug [--config <path>] [--backend <auto|dynarmic|unicorn>] [--stage1-json <json>|--arg1 <json>] [--interactive <bool>] [--ui-mode <sdk|form|tty|headless>] [--sdk-html <path>] [--verify-status <bool>] [--rid <str>] [--mode-type <str>] [--diff-time <ms>] [--flow <bool>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--smssend-test <bool>] [--smssend-url <url>] [--smssend-timeout-ms <ms>] [--smssend-user-agent <ua>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("  smoke  [--config <path>] [--backend <auto|dynarmic|unicorn>] [--json-out <path>]");
+    eprintln!("  invoke [--config <path>] [--backend <auto|dynarmic|unicorn>] --method <name> [--arg1 <v>] [--arg2 <v>] [--arg3 <v>] [--secret-key <k>] [--secret-iv <iv>] [--json-out <path>]");
+    eprintln!("         appInitProbe/gateProbe overrides: [--privacy-agree <bool>] [--read-phone-state <bool>] [--priv-info-init <bool>] [--android-id <str>] [--imei <str>] [--mac <str>] [--seed-sdid <str>] [--seed-local-smid <str>] [--seed-device-label <str>] [--process-name <str>]");
+    eprintln!("  flow   [--config <path>] [--backend <auto|dynarmic|unicorn>] [--arg1 <json>] [--bridge-stage1-json <json>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--no-empty-params <bool>] [--seed-device-id <id>] [--seed-local-smid <id>] [--seed-dhid <id>] [--seed-sdid <id>] [--seed-imei <id>] [--seed-mac <id>] [--seed-oneid <id>] [--seed-oaid <id>] [--seed-android-id <id>] [--seed-channel-id <id>] [--seed-appid <id>] [--seed-ip-info <json>] [--seed-device-label <str>] [--secret-key <k>] [--secret-iv <iv>] [--smssend-test <bool>] [--smssend-two-step <bool>] [--smssend-url <url>] [--smssend-base-url <url>] [--request-id <id>] [--device-id <id>] [--uid <id>] [--token <str>] [--session-id <id>] [--callback-id <id>] [--pid <id>] [--sys-uid <id>] [--smssend-timeout-ms <ms>] [--smssend-user-agent <ua>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only <bool>] [--json-out <path>] [--report-json <path>] [--report-md <path>]");
+    eprintln!("  captcha-ui-debug [--config <path>] [--backend <auto|dynarmic|unicorn>] [--stage1-json <json>|--arg1 <json>] [--interactive <bool>] [--ui-mode <sdk|form|tty|headless>] [--sdk-html <path>] [--sdk-backfill-wait-ms <ms>] [--verify-status <bool>] [--rid <str>] [--mode-type <str>] [--diff-time <ms>] [--flow <bool>] [--arg2 <cipher_mode>] [--arg3 <use_new_key_bool>] [--no-empty-params <bool>] [--seed-device-id <id>] [--seed-local-smid <id>] [--seed-dhid <id>] [--seed-sdid <id>] [--seed-imei <id>] [--seed-mac <id>] [--seed-oneid <id>] [--seed-oaid <id>] [--seed-android-id <id>] [--seed-channel-id <id>] [--seed-appid <id>] [--seed-ip-info <json>] [--seed-device-label <str>] [--secret-key <k>] [--secret-iv <iv>] [--smssend-test <bool>] [--smssend-two-step <bool>] [--smssend-url <url>] [--smssend-base-url <url>] [--request-id <id>] [--device-id <id>] [--uid <id>] [--token <str>] [--session-id <id>] [--callback-id <id>] [--pid <id>] [--sys-uid <id>] [--smssend-timeout-ms <ms>] [--smssend-user-agent <ua>] [--transport-runtime <auto|direct|okhttp-bridge>] [--okhttp-bridge-url <url>] [--http1-only <bool>] [--json-out <path>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
     eprintln!("  decrypt-trace [--config <path>] [--backend <auto|dynarmic|unicorn>] [--flow-json <json>] [--flow-mode <cipher_mode>] [--flow-use-new-key <bool>] [--skip-flow]");
     eprintln!("                [--bridge-stage1-json <json>] [--type-input <bytes_or_hex>] [--type-encrypt-mode <int>] [--type-encrypt-use-new-key <bool>] [--type-decrypt-mode <int>] [--type-decrypt-use-new-key <bool>]");
     eprintln!("                [--secret-key <k> --secret-iv <iv>] [--jsonl-out <path>] [--report-json <path>] [--report-md <path>]");
     eprintln!(
         "  report [--config <path>] [--native-log <path>] [--json-out <path>] [--md-out <path>]"
     );
-    eprintln!("    methods: skeyAvailable, createCKey, setSecretKeys, getCkVersion, ckDiag, appInitProbe, gateProbe, getEncryptedCKey, setLxData, cipherWithHashKey, cipherWithType");
+    eprintln!("    methods: skeyAvailable, wksecA, wksecC, ac1AppList, fm1Dfp, mhBaseArgs, flowEncrypt, createCKey, setSecretKeys, getCkVersion, ckDiag, appInitProbe, gateProbe, getEncryptedCKey, setLxData, cipherWithHashKey, cipherWithType");
 }
 
 fn default_config_path() -> String {
@@ -3953,6 +8586,83 @@ fn render_palmchat_flow_report_markdown(report: &PalmchatFlowReport) -> String {
                 }
             }
         }
+        if let Some(auth_bootstrap) = flow_result.get("auth_bootstrap") {
+            lines.push(String::new());
+            lines.push("## Auth Bootstrap".to_string());
+            lines.push("```json".to_string());
+            lines.push(
+                serde_json::to_string_pretty(auth_bootstrap).unwrap_or_else(|_| "{}".to_string()),
+            );
+            lines.push("```".to_string());
+        }
+        if let Some(payload_debug) = flow_result.get("v7_payload_debug_surface") {
+            lines.push(String::new());
+            lines.push("## V7 Payload Debug".to_string());
+            if let Some(summary) = payload_debug.get("summary").and_then(Value::as_str) {
+                lines.push(format!("- summary: `{summary}`"));
+            }
+            for (label, node) in [
+                ("stage1_candidate", payload_debug.get("stage1_candidate")),
+                ("stage2_effective", payload_debug.get("stage2_effective")),
+            ] {
+                let Some(node) = node else {
+                    continue;
+                };
+                let plaintext_utf8_len = node
+                    .get("plaintext_utf8_len")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default();
+                let cipher_bytes = node.get("cipher_bytes").and_then(Value::as_u64);
+                let plaintext_sha256 = node
+                    .get("plaintext_sha256")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                lines.push(format!(
+                    "- `{label}` plaintext_utf8_len=`{plaintext_utf8_len}` cipher_bytes=`{}` plaintext_sha256=`{plaintext_sha256}`",
+                    cipher_bytes
+                        .map(|value| value.to_string())
+                        .unwrap_or_else(|| "null".to_string())
+                ));
+                for key in [
+                    "null_like_keys",
+                    "required_null_like_keys",
+                    "top_level_keys",
+                ] {
+                    if let Some(value) = node.get(key) {
+                        lines.push(format!("- {label}.{key}:"));
+                        lines.push("```json".to_string());
+                        lines.push(
+                            serde_json::to_string_pretty(value)
+                                .unwrap_or_else(|_| "{}".to_string()),
+                        );
+                        lines.push("```".to_string());
+                    }
+                }
+                if let Some(namespaces) = node.get("namespace_views") {
+                    lines.push(format!("- {label}.namespace_views:"));
+                    lines.push("```json".to_string());
+                    lines.push(
+                        serde_json::to_string_pretty(namespaces)
+                            .unwrap_or_else(|_| "{}".to_string()),
+                    );
+                    lines.push("```".to_string());
+                }
+            }
+            for key in [
+                "retry_patch_only",
+                "stage1_to_stage2_top_level_delta",
+                "known_field_diff",
+            ] {
+                if let Some(value) = payload_debug.get(key) {
+                    lines.push(format!("- {key}:"));
+                    lines.push("```json".to_string());
+                    lines.push(
+                        serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_string()),
+                    );
+                    lines.push("```".to_string());
+                }
+            }
+        }
         if let Some(project_planes) = flow_result.get("palmchat_project_planes") {
             lines.push(String::new());
             lines.push("## Project Planes".to_string());
@@ -4006,6 +8716,13 @@ fn write_json_file(path: &Path, value: &Value) -> Result<()> {
     }
     fs::write(path, serde_json::to_vec_pretty(value)?)
         .with_context(|| format!("failed to write json output: {}", path.display()))
+}
+
+fn read_json_file(path: &Path) -> Result<Value> {
+    let bytes =
+        fs::read(path).with_context(|| format!("failed to read json output: {}", path.display()))?;
+    serde_json::from_slice(&bytes)
+        .with_context(|| format!("failed to parse json output: {}", path.display()))
 }
 
 fn write_jsonl_file(path: &Path, rows: &[Value]) -> Result<()> {
@@ -4283,41 +9000,1557 @@ fn build_class_resolver() -> ClassResolver {
     ClassResolver::new(vec![
         "com/zenmen/palmchat/utils/EncryptUtils",
         "com/zenmen/palmchat/messaging/MessagingService",
+        "com/zenmen/palmchat/messaging/CreateConnectionDelegate",
         "com/zenmen/palmchat/AppContext",
+        "com/zenmen/palmchat/account/AccountUtils",
         "com/zenmen/palmchat/privinfo/PrivInfoManager",
+        "com/zenmen/palmchat/c",
+        "com/zenmen/palmchat/utils/SmidHelper",
+        "com/zenmen/palmchat/utils/log/LogUtil",
+        "com/zenmen/palmchat/kotlin/common/SPUtil",
+        "com/wifi/open/sec/SmDuManager",
+        "com/wifi/open/sec/StringCallback",
+        "cn/shuzilm/core/Main",
+        "cn/shuzilm/core/Listener",
+        "defpackage/ac1",
+        "defpackage/mh",
+        "defpackage/o92",
+        "defpackage/u63",
+        "defpackage/sw4",
+        "defpackage/nz",
+        "defpackage/cl6",
+        "defpackage/eb4",
+        "defpackage/vu2",
+        "defpackage/ts0",
+        "defpackage/fm1",
         "defpackage/r75",
         "defpackage/tg4",
         "defpackage/k86",
         "defpackage/wm4",
+        "defpackage/st3",
+        "defpackage/nl0",
+        "defpackage/g9",
         "org/json/JSONObject",
         "android/app/Application",
         "android/content/Context",
+        "android/content/res/AssetManager",
+        "android/content/SharedPreferences",
+        "android/os/Build",
+        "android/os/Looper",
+        "android/os/Handler",
+        "android/net/Uri",
+        "android/telephony/TelephonyManager",
         "android/text/TextUtils",
         "android/util/Log",
+        "android/util/Pair",
+        "java/io/File",
         "java/lang/Object",
         "java/lang/String",
         "java/lang/String[]",
     ])
 }
 
-fn install_system_properties(emulator: &AndroidEmulator<'static, ()>, config: &PalmchatConfig) {
+fn run_adb_su_capture(
+    shared: Rc<RefCell<SharedState>>,
+    label: &str,
+    script: &str,
+) -> Result<String> {
+    let output = Command::new("adb")
+        .args(["shell", "su", "-c", script])
+        .output()
+        .with_context(|| format!("failed to spawn adb for {label}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(anyhow!(
+            "adb {label} failed status={} stderr={}",
+            output.status,
+            stderr
+        ));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    shared.borrow_mut().native(&format!(
+        "live_device_profile adb_capture label={} bytes={}",
+        label,
+        stdout.len()
+    ));
+    Ok(stdout)
+}
+
+fn discover_live_device_profile(
+    shared: Rc<RefCell<SharedState>>,
+) -> Option<PalmchatLiveDeviceProfile> {
+    let devices_output = Command::new("adb").args(["devices", "-l"]).output().ok()?;
+    if !devices_output.status.success() {
+        shared
+            .borrow_mut()
+            .native("live_device_profile skipped reason=adb_devices_failed");
+        return None;
+    }
+    let devices_stdout = String::from_utf8_lossy(&devices_output.stdout);
+    if !devices_stdout.lines().any(|line| {
+        let mut parts = line.split_whitespace();
+        let serial = parts.next().unwrap_or_default();
+        let state = parts.next().unwrap_or_default();
+        !serial.is_empty() && serial != "List" && state == "device"
+    }) {
+        shared
+            .borrow_mut()
+            .native("live_device_profile skipped reason=no_attached_device");
+        return None;
+    }
+
+    let core_script = concat!(
+        "printf 'android_id='; settings get secure android_id; echo; ",
+        "printf 'build_fingerprint='; getprop ro.build.fingerprint; echo; ",
+        "printf 'build_display='; getprop ro.build.display.id; echo; ",
+        "printf 'build_incremental='; getprop ro.build.version.incremental; echo; ",
+        "printf 'build_time_utc='; getprop ro.build.date.utc; echo; ",
+        "printf 'build_tags='; getprop ro.build.tags; echo; ",
+        "printf 'build_bootloader='; getprop ro.bootloader; echo; ",
+        "printf 'build_version_codename='; getprop ro.build.version.codename; echo; ",
+        "printf 'build_host='; getprop ro.build.host; echo; ",
+        "printf 'build_id='; getprop ro.build.id; echo; ",
+        "printf 'product_model='; getprop ro.product.model; echo; ",
+        "printf 'product_brand='; getprop ro.product.brand; echo; ",
+        "printf 'product_manufacturer='; getprop ro.product.manufacturer; echo; ",
+        "printf 'product_device='; getprop ro.product.device; echo; ",
+        "printf 'product_name='; getprop ro.product.name; echo; ",
+        "printf 'product_board='; getprop ro.product.board; echo; ",
+        "printf 'product_abi_list='; getprop ro.product.cpu.abilist; echo; ",
+        "printf 'build_release='; getprop ro.build.version.release; echo; ",
+        "printf 'system_locale='; (getprop persist.sys.locale || getprop ro.product.locale || settings get system system_locales) 2>/dev/null | sed '/^$/d' | head -n 1; echo; ",
+        "printf 'build_security_patch='; getprop ro.build.version.security_patch; echo; ",
+        "printf 'hardware='; getprop ro.boot.hardware; echo; ",
+        "printf 'usb_state='; getprop persist.sys.usb.config; echo; ",
+        "printf 'mobile_data_enabled='; settings get global mobile_data; echo; ",
+        "printf 'http_proxy='; settings get global http_proxy; echo; ",
+        "printf 'baseband_version='; getprop gsm.version.baseband; echo; ",
+        "printf 'enabled_accessibility_services='; settings get secure enabled_accessibility_services; echo; ",
+        "printf 'cpu_cores='; getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null; echo; ",
+        "printf 'cpu_features='; grep -m 1 '^Features' /proc/cpuinfo 2>/dev/null | sed 's/^[^:]*://'; echo; ",
+        "printf 'cpu_processor='; grep -m 1 '^Processor' /proc/cpuinfo 2>/dev/null | sed 's/^[^:]*://'; echo; ",
+        "printf 'cpuinfo_hardware='; grep -m 1 '^Hardware' /proc/cpuinfo 2>/dev/null | sed 's/^[^:]*://'; echo; ",
+        "printf 'cpu_max_freq='; cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq 2>/dev/null; echo; ",
+        "printf 'cpu_min_freq='; cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq 2>/dev/null; echo; ",
+        "printf 'uptime_seconds='; awk '{print $1}' /proc/uptime 2>/dev/null; echo; ",
+        "printf 'kernel_version='; cat /proc/version 2>/dev/null; echo; ",
+        "ip -4 addr show wlan0 | sed -n 's/.* inet \\([0-9.]*\\)\\/.*/ipv4=\\1/p'"
+    );
+    let ui_script = concat!(
+        "wm size | sed -n 's/Physical size: \\([0-9]*x[0-9]*\\).*/resolution=\\1/p'; ",
+        "wm density | sed -n 's/Physical density: \\([0-9][0-9]*\\).*/screen_density_dpi=\\1/p'; ",
+        "printf 'screen_brightness='; settings get system screen_brightness; echo; ",
+        "dumpsys display | grep -m 1 mScreenState= | sed -n 's/.*mScreenState=\\([A-Z]*\\).*/screen_state=\\1/p' || true"
+    );
+    let network_script = concat!(
+        "dumpsys connectivity | grep -m 1 'NetworkAgentInfo{.*ni{WIFI CONNECTED\\|NetworkAgentInfo{.*ni{MOBILE\\[' || true; ",
+        "dumpsys wifi | grep -m 1 'mWifiInfo SSID:' || true"
+    );
+    let ua_script = concat!(
+        "cat /data/data/com.zenmen.palmchat/shared_prefs/beizisdk_config.xml 2>/dev/null ",
+        "| grep -m 1 '<string name=\"userAgent\">' || true"
+    );
+    let package_info_script = concat!(
+        "dumpsys package com.zenmen.palmchat | ",
+        "sed -n 's/.*versionCode=\\([0-9][0-9]*\\).*/app_version_code=\\1/p; ",
+        "s/.*versionName=\\([^[:space:]]*\\).*/app_version_name=\\1/p' | head -n 2"
+    );
+    let sensors_script = "dumpsys sensorservice | sed -n '1,220p'";
+    let input_methods_script = "ime list -s 2>/dev/null || true";
+    let input_methods_detail_script = "dumpsys input_method 2>/dev/null || true";
+    let secinfo_dirs_script = r#"
+for d in /data/system /vendor/firmware /vendor/lib /system/bin /system/framework; do
+  printf 'dir_begin=%s\n' "$d"
+  for name in $(ls -1U "$d" 2>/dev/null); do
+    p="$d/$name"
+    [ -e "$p" ] || continue
+    stat -c '%n|%s|%Y' "$p" 2>/dev/null || true
+  done
+  printf 'dir_end=%s\n' "$d"
+done
+"#;
+    let secinfo_net_script = concat!(
+        "printf 'ip_addr_begin=1\\n'; ip -o addr 2>/dev/null || true; printf 'ip_addr_end=1\\n'; ",
+        "printf 'su_paths='; ls /system/bin/su /system/xbin/su /sbin/su /data/local/su /su/bin/su 2>/dev/null | tr '\\n' ','; echo; ",
+        "ps 2>/dev/null || true"
+    );
+
+    let core_raw = match run_adb_su_capture(shared.clone(), "core", core_script) {
+        Ok(value) => value,
+        Err(err) => {
+            shared.borrow_mut().native(&format!(
+                "live_device_profile skipped reason=core_capture_failed err={err:#}"
+            ));
+            return None;
+        }
+    };
+    let ui_raw = run_adb_su_capture(shared.clone(), "ui", ui_script).unwrap_or_default();
+    let network_raw =
+        run_adb_su_capture(shared.clone(), "network", network_script).unwrap_or_default();
+    let ua_raw = run_adb_su_capture(shared.clone(), "ua", ua_script).unwrap_or_default();
+    let package_info_raw =
+        run_adb_su_capture(shared.clone(), "package_info", package_info_script).unwrap_or_default();
+    let seed_dna_raw = run_adb_su_capture(
+        shared.clone(),
+        "seed_dna",
+        "cat /data/data/com.zenmen.palmchat/shared_prefs/com.zenmen.palmchat_dna.xml 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let seed_oaid_raw = run_adb_su_capture(
+        shared.clone(),
+        "seed_oaid",
+        "cat /data/data/com.zenmen.palmchat/shared_prefs/umeng_sp_oaid.xml 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let seed_channel_raw = run_adb_su_capture(
+        shared.clone(),
+        "seed_channel",
+        "cat /data/data/com.zenmen.palmchat/shared_prefs/umeng_common_config.xml 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let seed_wifi_social_raw = run_adb_su_capture(
+        shared.clone(),
+        "seed_wifi_social",
+        "cat /data/data/com.zenmen.palmchat/shared_prefs/wifi_social.xml 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let seed_tray_transfer_raw = run_adb_su_capture(
+        shared.clone(),
+        "seed_tray_transfer",
+        "toybox strings /data/data/com.zenmen.palmchat/files/mmkv/sp_tray_transfer 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let seed_ip_info_raw = run_adb_su_capture(
+        shared.clone(),
+        "seed_ip_info",
+        "strings /data/data/com.zenmen.palmchat/files/mmkv/sp_palmchat_APP_COMMON 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let installed_packages_raw = run_adb_su_capture(
+        shared.clone(),
+        "installed_packages",
+        "pm list packages | sed 's/^package://g' | sed '/^$/d' || true",
+    )
+    .unwrap_or_default();
+    let data_dir_packages_raw = run_adb_su_capture(
+        shared.clone(),
+        "data_dir_packages",
+        "ls -1 /data/data 2>/dev/null || true",
+    )
+    .unwrap_or_default();
+    let seed_raw = format!("{seed_dna_raw}\n{seed_oaid_raw}\n{seed_channel_raw}");
+    let last_login_info = parse_wifi_social_last_login_info(&seed_wifi_social_raw);
+    let (account_session_id_enc, account_refresh_key_enc) =
+        parse_wifi_social_additional_auth(&seed_wifi_social_raw);
+    let sensors_raw =
+        run_adb_su_capture(shared.clone(), "sensors", sensors_script).unwrap_or_default();
+    let input_methods_raw =
+        run_adb_su_capture(shared.clone(), "input_methods", input_methods_script)
+            .unwrap_or_default();
+    let input_methods_detail_raw = run_adb_su_capture(
+        shared.clone(),
+        "input_methods_detail",
+        input_methods_detail_script,
+    )
+    .unwrap_or_default();
+    let secinfo_dirs_raw =
+        run_adb_su_capture(shared.clone(), "secinfo_dirs", secinfo_dirs_script).unwrap_or_default();
+    let secinfo_net_raw =
+        run_adb_su_capture(shared.clone(), "secinfo_net", secinfo_net_script).unwrap_or_default();
+
+    let mut kv = HashMap::<String, String>::new();
+    for raw in core_raw
+        .lines()
+        .chain(ui_raw.lines())
+        .chain(package_info_raw.lines())
+    {
+        let line = raw.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some((key, value)) = line.split_once('=') {
+            kv.insert(key.trim().to_string(), value.trim().to_string());
+        }
+    }
+
+    let abi_list = kv
+        .get("product_abi_list")
+        .map(|value| {
+            value
+                .split(',')
+                .map(|item| item.trim().to_string())
+                .filter(|item| !item.is_empty())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let sensor_name_list = parse_sensor_name_list(&sensors_raw);
+    let wifi_ssid = parse_wifi_ssid(&network_raw);
+    let network_type = parse_active_network_type(&network_raw, wifi_ssid.as_deref());
+    let network_state = derive_network_state(network_type.as_deref(), wifi_ssid.as_deref());
+    let webview_user_agent = parse_xml_string_value(&ua_raw, "userAgent");
+    let enabled_accessibility_packages = parse_accessibility_service_packages(
+        kv.get("enabled_accessibility_services").map(String::as_str),
+    );
+    let input_method_ids = parse_non_empty_line_list(&input_methods_raw);
+    let input_method_labels = parse_input_method_labels(&input_methods_detail_raw);
+    let data_dir_packages = parse_non_empty_line_list(&data_dir_packages_raw);
+    let secinfo_json = build_secinfo_json(
+        kv.get("build_tags").map(String::as_str),
+        &secinfo_net_raw,
+        &secinfo_dirs_raw,
+        "com.zenmen.palmchat",
+        &data_dir_packages,
+    );
+    let runtime_probe = read_runtime_probe_raw();
+    let runtime_probe_overrides = runtime_probe
+        .as_ref()
+        .and_then(|(path, raw)| parse_runtime_probe_overrides(raw, path));
+    let mut installed_packages = parse_package_name_list(&installed_packages_raw);
+    if let Some(overrides) = runtime_probe_overrides.as_ref() {
+        if let Some(runtime_probe_packages) = overrides.installed_packages.as_ref() {
+            shared.borrow_mut().native(&format!(
+                "live_device_profile installed_packages source=runtime_probe path={} count={}",
+                overrides.source_path,
+                runtime_probe_packages.len()
+            ));
+            installed_packages = runtime_probe_packages.clone();
+        }
+    }
+
+    let mut profile = PalmchatLiveDeviceProfile {
+        source: "adb+su".to_string(),
+        android_id: normalize_plain_candidate(kv.get("android_id").cloned()),
+        sdid: normalize_device_id_candidate(parse_xml_string_value(&seed_raw, "device_id")),
+        device_label: normalize_plain_candidate(parse_xml_string_value(&seed_raw, "device_label")),
+        tray_device_id: normalize_device_id_candidate(parse_mmkv_strings_value(
+            &seed_tray_transfer_raw,
+            "tray_preference_device_id",
+        )),
+        account_uid: normalize_plain_candidate(
+            parse_mmkv_strings_value(&seed_tray_transfer_raw, "current_uid")
+                .or_else(|| extract_json_value_as_string(last_login_info.as_ref(), "uid")),
+        ),
+        account_exid: normalize_plain_candidate(
+            parse_mmkv_strings_value(&seed_tray_transfer_raw, "current_exid")
+                .or_else(|| extract_json_value_as_string(last_login_info.as_ref(), "exid")),
+        ),
+        account_phone: normalize_plain_candidate(extract_json_value_as_string(
+            last_login_info.as_ref(),
+            "phone",
+        )),
+        account_session_id_enc: normalize_plain_candidate(account_session_id_enc),
+        account_refresh_key_enc: normalize_plain_candidate(account_refresh_key_enc),
+        oaid: normalize_plain_candidate(parse_xml_string_value(&seed_raw, "key_umeng_sp_oaid")),
+        channel_id: normalize_plain_candidate(parse_xml_string_value(&seed_raw, "channel")),
+        ip_info: parse_mmkv_key_ip_info(&seed_ip_info_raw),
+        installed_packages,
+        data_dir_packages,
+        app_version_code: normalize_plain_candidate(kv.get("app_version_code").cloned()),
+        app_version_name: normalize_plain_candidate(kv.get("app_version_name").cloned()),
+        build_fingerprint: normalize_plain_candidate(kv.get("build_fingerprint").cloned()),
+        build_display: normalize_plain_candidate(kv.get("build_display").cloned()),
+        build_incremental: normalize_plain_candidate(kv.get("build_incremental").cloned()),
+        build_time_millis: parse_unix_seconds_to_millis(
+            kv.get("build_time_utc").map(String::as_str),
+        ),
+        build_tags: normalize_plain_candidate(kv.get("build_tags").cloned()),
+        build_bootloader: normalize_non_empty_candidate(kv.get("build_bootloader").cloned()),
+        build_version_codename: normalize_plain_candidate(
+            kv.get("build_version_codename").cloned(),
+        ),
+        build_host: normalize_plain_candidate(kv.get("build_host").cloned()),
+        build_id: normalize_plain_candidate(kv.get("build_id").cloned()),
+        product_model: normalize_plain_candidate(kv.get("product_model").cloned()),
+        product_brand: normalize_plain_candidate(kv.get("product_brand").cloned()),
+        product_manufacturer: normalize_plain_candidate(kv.get("product_manufacturer").cloned()),
+        product_device: normalize_plain_candidate(kv.get("product_device").cloned()),
+        product_name: normalize_plain_candidate(kv.get("product_name").cloned()),
+        product_board: normalize_plain_candidate(kv.get("product_board").cloned()),
+        product_abi_list: abi_list,
+        build_release: normalize_plain_candidate(kv.get("build_release").cloned()),
+        locale_tag: normalize_locale_tag(kv.get("system_locale").map(String::as_str)),
+        display_density: derive_display_density_string(
+            kv.get("screen_density_dpi").map(String::as_str),
+        ),
+        build_security_patch: normalize_plain_candidate(kv.get("build_security_patch").cloned()),
+        hardware: normalize_plain_candidate(kv.get("hardware").cloned()),
+        usb_state: normalize_plain_candidate(kv.get("usb_state").cloned()),
+        wlan_ipv4: normalize_plain_candidate(kv.get("ipv4").cloned()),
+        wifi_ssid,
+        network_type,
+        network_state,
+        mobile_data_enabled: parse_optional_bool_flag(
+            kv.get("mobile_data_enabled").map(String::as_str),
+        ),
+        webview_user_agent,
+        baseband_version: normalize_plain_candidate(kv.get("baseband_version").cloned()),
+        cpu_cores: kv
+            .get("cpu_cores")
+            .and_then(|value| value.trim().parse::<i64>().ok()),
+        cpu_features: normalize_plain_candidate(kv.get("cpu_features").cloned()),
+        cpu_processor: normalize_plain_candidate(kv.get("cpu_processor").cloned()),
+        cpuinfo_hardware: normalize_plain_candidate(kv.get("cpuinfo_hardware").cloned()),
+        cpu_max_freq: normalize_plain_candidate(kv.get("cpu_max_freq").cloned()),
+        cpu_min_freq: normalize_plain_candidate(kv.get("cpu_min_freq").cloned()),
+        kernel_version: parse_proc_version_release(kv.get("kernel_version").map(String::as_str)),
+        http_proxy_host: parse_http_proxy_host(kv.get("http_proxy").map(String::as_str)),
+        http_proxy_port: parse_http_proxy_port(kv.get("http_proxy").map(String::as_str)),
+        boot_time_millis: parse_boot_time_millis(kv.get("uptime_seconds").map(String::as_str)),
+        resolution: normalize_plain_candidate(kv.get("resolution").cloned()),
+        screen_brightness: kv
+            .get("screen_brightness")
+            .and_then(|value| value.trim().parse::<i64>().ok()),
+        screen_on: kv
+            .get("screen_state")
+            .map(|value| value.eq_ignore_ascii_case("ON")),
+        sensor_name_list,
+        enabled_accessibility_packages,
+        input_method_ids,
+        input_method_labels,
+        secinfo_json,
+    };
+    if let Some(overrides) = runtime_probe_overrides.as_ref() {
+        apply_runtime_probe_overrides(&mut profile, overrides);
+        shared.borrow_mut().native(&format!(
+            "live_device_profile runtime_probe_override path={} android_id={} ip_info_len={} net_type={} net_state={} wifi_ssid={} resolution={} screen_brightness={} screen_on={} device_label={} kernel_len={} basic_version_len={} packages={} sinfo_len={}",
+            overrides.source_path,
+            profile.android_id.as_deref().unwrap_or(""),
+            profile.ip_info.as_deref().unwrap_or("").len(),
+            profile.network_type.as_deref().unwrap_or(""),
+            profile.network_state.as_deref().unwrap_or(""),
+            profile.wifi_ssid.as_deref().unwrap_or(""),
+            profile.resolution.as_deref().unwrap_or(""),
+            profile
+                .screen_brightness
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
+            profile
+                .screen_on
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
+            profile.device_label.as_deref().unwrap_or(""),
+            profile.kernel_version.as_deref().unwrap_or("").len(),
+            profile.baseband_version.as_deref().unwrap_or("").len(),
+            profile.installed_packages.len(),
+            profile.secinfo_json.as_deref().unwrap_or("").len()
+        ));
+    }
+    shared.borrow_mut().native(&format!(
+        "live_device_profile loaded source={} android_id={} sdid={} tray_device_id={} uid={} exid_len={} phone={} sid_enc_len={} rk_enc_len={} channel={} oaid_len={} ip_info_len={} packages={} app_version_code={} app_version_name={} model={} brand={} device={} release={} locale={} density={} ipv4={} ssid={} net_type={} real_net_type={} mobile_data={} ua_len={} sensors={} bootloader={} codename={} cpu_max={} cpu_min={} proxy_host={} proxy_port={} kernel_len={} boot_time={} ime_labels={} sinfo_len={}",
+        profile.source,
+        profile.android_id.as_deref().unwrap_or(""),
+        profile.sdid.as_deref().unwrap_or(""),
+        profile.tray_device_id.as_deref().unwrap_or(""),
+        profile.account_uid.as_deref().unwrap_or(""),
+        profile.account_exid.as_deref().unwrap_or("").len(),
+        profile.account_phone.as_deref().unwrap_or(""),
+        profile.account_session_id_enc.as_deref().unwrap_or("").len(),
+        profile.account_refresh_key_enc.as_deref().unwrap_or("").len(),
+        profile.channel_id.as_deref().unwrap_or(""),
+        profile.oaid.as_deref().unwrap_or("").len(),
+        profile.ip_info.as_deref().unwrap_or("").len(),
+        profile.installed_packages.len(),
+        profile.app_version_code.as_deref().unwrap_or(""),
+        profile.app_version_name.as_deref().unwrap_or(""),
+        profile.product_model.as_deref().unwrap_or(""),
+        profile.product_brand.as_deref().unwrap_or(""),
+        profile.product_device.as_deref().unwrap_or(""),
+        profile.build_release.as_deref().unwrap_or(""),
+        profile.locale_tag.as_deref().unwrap_or(""),
+        profile.display_density.as_deref().unwrap_or(""),
+        profile.wlan_ipv4.as_deref().unwrap_or(""),
+        profile.wifi_ssid.as_deref().unwrap_or(""),
+        profile.network_type.as_deref().unwrap_or(""),
+        normalize_wm4_real_network_type(
+            profile.network_type.as_deref(),
+            profile.mobile_data_enabled
+        ),
+        profile.mobile_data_enabled.map(|value| value.to_string()).unwrap_or_default(),
+        profile.webview_user_agent.as_deref().unwrap_or("").len(),
+        profile.sensor_name_list.len(),
+        profile.build_bootloader.as_deref().unwrap_or(""),
+        profile.build_version_codename.as_deref().unwrap_or(""),
+        profile.cpu_max_freq.as_deref().unwrap_or(""),
+        profile.cpu_min_freq.as_deref().unwrap_or(""),
+        profile.http_proxy_host.as_deref().unwrap_or(""),
+        profile
+            .http_proxy_port
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        profile.kernel_version.as_deref().unwrap_or("").len(),
+        profile
+            .boot_time_millis
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        profile.input_method_labels.len(),
+        profile.secinfo_json.as_deref().unwrap_or("").len()
+    ));
+    Some(profile)
+}
+
+fn parse_xml_string_value(raw: &str, name: &str) -> Option<String> {
+    let marker = format!("<string name=\"{name}\">");
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        let Some(start) = line.find(&marker) else {
+            continue;
+        };
+        let value_start = start + marker.len();
+        let rest = &line[value_start..];
+        let Some(end) = rest.find("</string>") else {
+            continue;
+        };
+        let value = rest[..end].trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
+fn decode_basic_xml_entities(raw: &str) -> String {
+    raw.replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+fn parse_wifi_social_last_login_info(raw: &str) -> Option<Value> {
+    let encoded = parse_xml_string_value(raw, "last_login_user_info")?;
+    let decoded = decode_basic_xml_entities(&encoded);
+    serde_json::from_str::<Value>(&decoded).ok()
+}
+
+fn parse_wifi_social_additional_auth(raw: &str) -> (Option<String>, Option<String>) {
+    (
+        parse_xml_string_value(raw, "sp_sid_additional"),
+        parse_xml_string_value(raw, "sp_rk_additional"),
+    )
+}
+
+fn extract_json_value_as_string(value: Option<&Value>, key: &str) -> Option<String> {
+    let obj = value?.as_object()?;
+    let field = obj.get(key)?;
+    match field {
+        Value::String(raw) => normalize_plain_candidate(Some(raw.to_string())),
+        Value::Number(raw) => normalize_plain_candidate(Some(raw.to_string())),
+        Value::Bool(raw) => normalize_plain_candidate(Some(raw.to_string())),
+        _ => None,
+    }
+}
+
+fn trim_mmkv_strings_prefix(raw: &str) -> &str {
+    let trimmed = raw.trim_start();
+    let digit_len = trimmed.chars().take_while(|ch| ch.is_ascii_digit()).count();
+    if digit_len == 0 {
+        return trimmed;
+    }
+    let remainder = &trimmed[digit_len..];
+    if remainder
+        .chars()
+        .next()
+        .map(|ch| ch.is_whitespace())
+        .unwrap_or(false)
+    {
+        remainder.trim_start()
+    } else {
+        trimmed
+    }
+}
+
+fn parse_mmkv_strings_value(raw: &str, key: &str) -> Option<String> {
+    let lines = raw.lines().collect::<Vec<_>>();
+    for (idx, raw_line) in lines.iter().enumerate() {
+        let line = trim_mmkv_strings_prefix(raw_line);
+        if let Some(remainder) = line.strip_prefix(key) {
+            let inline = remainder
+                .trim()
+                .trim_start_matches(|ch: char| {
+                    ch == ':' || ch == '=' || ch == '!' || ch.is_whitespace()
+                })
+                .trim();
+            if let Some(value) = normalize_plain_candidate(Some(inline.to_string())) {
+                return Some(value);
+            }
+            if let Some(next_line) = lines.get(idx + 1) {
+                let next_value = trim_mmkv_strings_prefix(next_line);
+                if let Some(value) = normalize_plain_candidate(Some(next_value.to_string())) {
+                    return Some(value);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn parse_http_proxy_host(raw: Option<&str>) -> Option<String> {
+    let value = normalize_plain_candidate(raw.map(|value| value.to_string()))?;
+    if value.eq_ignore_ascii_case("null") || value.eq_ignore_ascii_case(":0") {
+        return None;
+    }
+    let trimmed = value
+        .strip_prefix("http://")
+        .or_else(|| value.strip_prefix("https://"))
+        .unwrap_or(value.as_str());
+    let host = trimmed.split(':').next().unwrap_or(trimmed).trim();
+    if host.is_empty() || host.eq_ignore_ascii_case("null") {
+        None
+    } else {
+        Some(host.to_string())
+    }
+}
+
+fn parse_http_proxy_port(raw: Option<&str>) -> Option<i64> {
+    let value = normalize_plain_candidate(raw.map(|value| value.to_string()))?;
+    let trimmed = value
+        .strip_prefix("http://")
+        .or_else(|| value.strip_prefix("https://"))
+        .unwrap_or(value.as_str());
+    let (_, port) = trimmed.rsplit_once(':')?;
+    port.trim().parse::<i64>().ok()
+}
+
+fn parse_boot_time_millis(raw: Option<&str>) -> Option<i64> {
+    let uptime_seconds = raw?.trim().parse::<f64>().ok()?;
+    let now_millis = current_timestamp_millis() as f64;
+    Some((now_millis - (uptime_seconds * 1000.0)).round() as i64)
+}
+
+fn parse_unix_seconds_to_millis(raw: Option<&str>) -> Option<i64> {
+    let seconds = raw?.trim().parse::<i64>().ok()?;
+    Some(seconds.saturating_mul(1000))
+}
+
+fn parse_proc_version_release(raw: Option<&str>) -> Option<String> {
+    let value = normalize_plain_candidate(raw.map(|value| value.to_string()))?;
+    let release = value
+        .split("version ")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .map(str::trim)
+        .filter(|item| !item.is_empty());
+    release.map(|item| item.to_string()).or_else(|| Some(value))
+}
+
+fn parse_accessibility_service_packages(raw: Option<&str>) -> Vec<String> {
+    let Some(value) = normalize_plain_candidate(raw.map(|value| value.to_string())) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for item in value.split(':') {
+        let package = item
+            .split_once('/')
+            .map(|(package, _)| package)
+            .unwrap_or(item)
+            .trim();
+        if package.is_empty() || out.iter().any(|existing| existing == package) {
+            continue;
+        }
+        out.push(package.to_string());
+    }
+    out
+}
+
+fn parse_non_empty_line_list(raw: &str) -> Vec<String> {
+    raw.lines()
+        .filter_map(|line| normalize_plain_candidate(Some(line.trim().to_string())))
+        .collect()
+}
+
+fn normalize_non_empty_candidate(candidate: Option<String>) -> Option<String> {
+    let value = candidate?.trim().to_string();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct PalmchatDirStatEntry {
+    name: String,
+    size: u64,
+    mtime_seconds: i64,
+}
+
+fn parse_input_method_labels(raw: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        let Some((_, tail)) = line.split_once("mImeName=") else {
+            continue;
+        };
+        let label = tail.split(" mSubtypeName=").next().unwrap_or(tail).trim();
+        if label.is_empty() || out.iter().any(|existing| existing == label) {
+            continue;
+        }
+        out.push(label.to_string());
+    }
+    out
+}
+
+fn parse_secinfo_dir_stats(raw: &str) -> HashMap<String, Vec<PalmchatDirStatEntry>> {
+    let mut by_dir = HashMap::<String, Vec<PalmchatDirStatEntry>>::new();
+    let mut current_dir: Option<String> = None;
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some((_, dir)) = line.split_once("dir_begin=") {
+            current_dir = normalize_plain_candidate(Some(dir.to_string()));
+            continue;
+        }
+        if line.starts_with("dir_end=") {
+            current_dir = None;
+            continue;
+        }
+        let Some(dir) = current_dir.clone() else {
+            continue;
+        };
+        let mut parts = line.split('|');
+        let Some(path) = parts.next() else {
+            continue;
+        };
+        let Some(size) = parts.next().and_then(|value| value.parse::<u64>().ok()) else {
+            continue;
+        };
+        let Some(mtime_seconds) = parts.next().and_then(|value| value.parse::<i64>().ok()) else {
+            continue;
+        };
+        let name = Path::new(path)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| path.to_string());
+        by_dir.entry(dir).or_default().push(PalmchatDirStatEntry {
+            name,
+            size,
+            mtime_seconds,
+        });
+    }
+    by_dir
+}
+
+fn compute_secinfo_dir_digest(
+    entries: Option<&[PalmchatDirStatEntry]>,
+    include_mtime: bool,
+) -> String {
+    let Some(entries) = entries else {
+        return "-999".to_string();
+    };
+    let mut joined = String::new();
+    for entry in entries {
+        joined.push_str(&entry.name);
+        joined.push_str(&entry.size.to_string());
+        if include_mtime {
+            joined.push_str(&(entry.mtime_seconds.saturating_mul(1000)).to_string());
+        }
+    }
+    format!("{:x}", md5::compute(joined.as_bytes()))
+}
+
+fn parse_secinfo_ps_output(raw: &str, package_name: &str) -> (Option<String>, Vec<String>) {
+    parse_secinfo_ps_output_with_data_dirs(raw, package_name, &[])
+}
+
+fn parse_secinfo_ps_output_with_data_dirs(
+    raw: &str,
+    package_name: &str,
+    data_dir_packages: &[String],
+) -> (Option<String>, Vec<String>) {
+    let mut process_user = None::<String>;
+    let mut process_names = Vec::<String>::new();
+    let data_dir_packages = data_dir_packages
+        .iter()
+        .map(|item| item.as_str())
+        .collect::<HashSet<_>>();
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with("USER") || line.starts_with("ip_addr_") {
+            continue;
+        }
+        let parts = line.split_whitespace().collect::<Vec<_>>();
+        if parts.len() < 2 {
+            continue;
+        }
+        let user = parts.first().copied().unwrap_or_default();
+        let name = parts.last().copied().unwrap_or_default();
+        if name == package_name && process_user.is_none() {
+            process_user = normalize_plain_candidate(Some(user.to_string()));
+        }
+    }
+    let Some(user) = process_user.clone() else {
+        return (None, process_names);
+    };
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with("USER") || line.starts_with("ip_addr_") {
+            continue;
+        }
+        let parts = line.split_whitespace().collect::<Vec<_>>();
+        if parts.len() < 2 || parts.first().copied().unwrap_or_default() != user {
+            continue;
+        }
+        let name = parts.last().copied().unwrap_or_default();
+        if name.is_empty() || process_names.iter().any(|existing| existing == name) {
+            continue;
+        }
+        let allow_name = if data_dir_packages.is_empty() {
+            name == package_name
+        } else {
+            data_dir_packages.contains(name)
+        };
+        if !allow_name {
+            continue;
+        }
+        process_names.push(name.to_string());
+    }
+    (process_user, process_names)
+}
+
+fn compute_secinfo_network_evidence(raw: &str) -> String {
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        let mut parts = line.split_whitespace();
+        let _idx = parts.next();
+        let Some(name) = parts.next() else {
+            continue;
+        };
+        let name = name.trim_end_matches(':');
+        let Some(family) = parts.next() else {
+            continue;
+        };
+        if (family == "inet" || family == "inet6")
+            && (name.contains("tun") || name.contains("tap") || name.contains("ppp"))
+        {
+            return format!("1,{name}");
+        }
+    }
+    "0,".to_string()
+}
+
+fn build_secinfo_json(
+    build_tags: Option<&str>,
+    secinfo_net_raw: &str,
+    secinfo_dirs_raw: &str,
+    package_name: &str,
+    data_dir_packages: &[String],
+) -> Option<String> {
+    let dir_stats = parse_secinfo_dir_stats(secinfo_dirs_raw);
+    let (process_user, data_directories) =
+        parse_secinfo_ps_output_with_data_dirs(secinfo_net_raw, package_name, data_dir_packages);
+    let mut obj = Map::<String, Value>::new();
+    obj.insert("plt".to_string(), Value::Bool(true));
+    obj.insert("xp".to_string(), Value::Bool(false));
+    if !data_directories.is_empty() {
+        obj.insert("vs".to_string(), Value::String(data_directories.join(",")));
+    }
+    obj.insert("v".to_string(), Value::Bool(data_directories.len() > 1));
+    obj.insert(
+        "pc".to_string(),
+        Value::Number((data_directories.len() as i64).into()),
+    );
+    let root_flag = normalize_plain_candidate(build_tags.map(|value| value.to_string()))
+        .map(|value| value.contains("test-keys"))
+        .unwrap_or(false)
+        || secinfo_net_raw
+            .lines()
+            .find_map(|line| line.trim().strip_prefix("su_paths="))
+            .map(|value| !value.trim().trim_matches(',').is_empty())
+            .unwrap_or(false);
+    obj.insert("r".to_string(), Value::Bool(root_flag));
+    obj.insert("hk".to_string(), Value::Number(0.into()));
+    obj.insert(
+        "ds".to_string(),
+        Value::String(compute_secinfo_dir_digest(
+            dir_stats.get("/data/system").map(Vec::as_slice),
+            true,
+        )),
+    );
+    obj.insert(
+        "ds2".to_string(),
+        Value::String(compute_secinfo_dir_digest(
+            dir_stats.get("/data/system").map(Vec::as_slice),
+            false,
+        )),
+    );
+    obj.insert(
+        "vf".to_string(),
+        Value::String(compute_secinfo_dir_digest(
+            dir_stats.get("/vendor/firmware").map(Vec::as_slice),
+            true,
+        )),
+    );
+    obj.insert(
+        "vl".to_string(),
+        Value::String(compute_secinfo_dir_digest(
+            dir_stats.get("/vendor/lib").map(Vec::as_slice),
+            true,
+        )),
+    );
+    obj.insert(
+        "sb".to_string(),
+        Value::String(compute_secinfo_dir_digest(
+            dir_stats.get("/system/bin").map(Vec::as_slice),
+            true,
+        )),
+    );
+    obj.insert(
+        "sf".to_string(),
+        Value::String(compute_secinfo_dir_digest(
+            dir_stats.get("/system/framework").map(Vec::as_slice),
+            true,
+        )),
+    );
+    obj.insert(
+        "ne".to_string(),
+        Value::String(compute_secinfo_network_evidence(secinfo_net_raw)),
+    );
+    if process_user.is_none() && dir_stats.is_empty() {
+        return None;
+    }
+    Some(Value::Object(obj).to_string())
+}
+
+fn sanitize_wifi_ssid(raw: &str) -> Option<String> {
+    let trimmed = raw.trim().trim_matches('"').trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with("0x")
+        || trimmed.starts_with("0X")
+        || trimmed.eq_ignore_ascii_case("<unknown ssid>")
+        || trimmed.eq_ignore_ascii_case("unknown ssid")
+    {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn parse_wifi_ssid(raw: &str) -> Option<String> {
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if let Some((_, tail)) = line.split_once("SSID: ") {
+            if let Some(stripped) = tail.strip_prefix('"') {
+                if let Some(end) = stripped.find('"') {
+                    let candidate = &stripped[..end];
+                    if let Some(normalized) = sanitize_wifi_ssid(candidate) {
+                        return Some(normalized);
+                    }
+                }
+            }
+            let candidate = tail.split(',').next().unwrap_or(tail);
+            if let Some(normalized) = sanitize_wifi_ssid(candidate) {
+                return Some(normalized);
+            }
+        }
+        if let Some((_, tail)) = line.split_once("SSID=\"") {
+            if let Some(end) = tail.find('"') {
+                let candidate = &tail[..end];
+                if let Some(normalized) = sanitize_wifi_ssid(candidate) {
+                    return Some(normalized);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn parse_active_network_type(raw: &str, wifi_ssid: Option<&str>) -> Option<String> {
+    if wifi_ssid.is_some() || raw.contains("ni{WIFI CONNECTED") {
+        return Some("WIFI".to_string());
+    }
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if let Some((_, tail)) = line.split_once("ni{MOBILE[") {
+            if let Some(end) = tail.find(']') {
+                let candidate = tail[..end].trim();
+                if !candidate.is_empty() {
+                    return Some(candidate.to_string());
+                }
+            }
+            return Some("MOBILE".to_string());
+        }
+        if line.contains("ni{MOBILE CONNECTED") {
+            return Some("MOBILE".to_string());
+        }
+    }
+    None
+}
+
+fn derive_network_state(network_type: Option<&str>, wifi_ssid: Option<&str>) -> Option<String> {
+    match network_type {
+        Some("WIFI") => Some(format!("WIFI_{}", wifi_ssid.unwrap_or_default())),
+        Some(other) if !other.trim().is_empty() => Some(other.to_string()),
+        _ => None,
+    }
+}
+
+fn parse_sensor_name_list(raw: &str) -> Vec<String> {
+    let mut inside_list = false;
+    let mut sensors = Vec::new();
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if line == "Sensor List:" {
+            inside_list = true;
+            continue;
+        }
+        if !inside_list {
+            continue;
+        }
+        if line.starts_with("Fusion States:") || line.starts_with("Recent Sensor events:") {
+            break;
+        }
+        if !line.starts_with("0x") {
+            continue;
+        }
+        let Some((_, after_id)) = line.split_once(')') else {
+            continue;
+        };
+        let mut parts = after_id.split('|').map(str::trim);
+        let name = parts.next().unwrap_or_default();
+        let vendor = parts.next().unwrap_or_default();
+        if name.is_empty() {
+            continue;
+        }
+        let label = if vendor.is_empty() {
+            name.to_string()
+        } else {
+            format!("{name}_{}", vendor.replace(',', " "))
+        };
+        sensors.push(label);
+    }
+    normalize_sensor_name_list_for_fm1(sensors)
+}
+
+fn normalize_sensor_name_list_for_fm1(sensors: Vec<String>) -> Vec<String> {
+    let Some(cut_idx) = sensors
+        .iter()
+        .position(|item| item == "step_detect_wakeup_mtk")
+    else {
+        return sensors;
+    };
+    let tail = &sensors[cut_idx + 1..];
+    if tail.is_empty() {
+        return sensors;
+    }
+    let tail_is_virtual_only = tail.iter().all(|item| {
+        item.contains("_AOSP")
+            || item == "OPLUS Fusion Light Sensor_OPLUS"
+            || item == "OPLUS Side Panel Fusion Light Sensor_OPLUS"
+    });
+    if tail_is_virtual_only {
+        sensors[..=cut_idx].to_vec()
+    } else {
+        sensors
+    }
+}
+
+fn parse_mmkv_key_ip_info(raw: &str) -> Option<String> {
+    let mut exact_following = None::<String>;
+    let mut inline_candidate = None::<String>;
+    let lines = raw.lines().map(str::trim).collect::<Vec<_>>();
+    for (idx, line) in lines.iter().enumerate() {
+        if line.is_empty() || !line.contains("key_ip_info") {
+            continue;
+        }
+        if *line == "key_ip_info" {
+            if let Some(next) = lines.get(idx + 1) {
+                if next.starts_with('{') && next.ends_with('}') {
+                    exact_following = Some((*next).to_string());
+                }
+            }
+        }
+        if let Some(pos) = line.find('{') {
+            let candidate = &line[pos..];
+            if candidate.starts_with('{') && candidate.ends_with('}') {
+                inline_candidate = Some(candidate.to_string());
+            }
+        }
+    }
+    exact_following
+        .or(inline_candidate)
+        .and_then(|value| normalize_plain_candidate(Some(value)))
+}
+
+fn parse_package_name_list(raw: &str) -> Vec<String> {
+    let mut seen = HashSet::<String>::new();
+    let mut packages = Vec::<String>::new();
+    for raw_line in raw.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let candidate = line.strip_prefix("package:").unwrap_or(line).trim();
+        if candidate.is_empty() {
+            continue;
+        }
+        if seen.insert(candidate.to_string()) {
+            packages.push(candidate.to_string());
+        }
+    }
+    packages
+}
+
+fn runtime_probe_candidate_paths() -> [&'static str; 3] {
+    [
+        "/tmp/palmchat_probe_java.out.realdevice",
+        "/tmp/palmchat_probe_java.out",
+        "/tmp/palmchat_probe_run.out",
+    ]
+}
+
+fn runtime_probe_overrides_enabled_from_env_value(value: Option<&str>) -> bool {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(parse_bool_like)
+        .unwrap_or(false)
+}
+
+fn runtime_probe_overrides_enabled() -> bool {
+    runtime_probe_overrides_enabled_from_env_value(
+        std::env::var("PALMCHAT_USE_RUNTIME_PROBE_OVERRIDES")
+            .ok()
+            .as_deref(),
+    )
+}
+
+fn read_runtime_probe_raw() -> Option<(String, String)> {
+    if !runtime_probe_overrides_enabled() {
+        return None;
+    }
+    for path in runtime_probe_candidate_paths() {
+        let Ok(raw) = fs::read_to_string(path) else {
+            continue;
+        };
+        if raw.contains("BODY_JSON=")
+            || raw.contains("BODY_dfp=")
+            || raw.contains("BODY_appList=")
+            || raw.contains("APP_LIST_JSON=")
+        {
+            return Some((path.to_string(), raw));
+        }
+    }
+    None
+}
+
+fn parse_runtime_probe_json_line(raw: &str, prefixes: &[&str]) -> Option<Value> {
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        for prefix in prefixes {
+            let Some(candidate) = trimmed.strip_prefix(prefix) else {
+                continue;
+            };
+            if let Ok(value) = serde_json::from_str::<Value>(candidate) {
+                return Some(value);
+            }
+        }
+    }
+    None
+}
+
+fn parse_runtime_probe_string_line(raw: &str, prefixes: &[&str]) -> Option<String> {
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        for prefix in prefixes {
+            let Some(candidate) = trimmed.strip_prefix(prefix) else {
+                continue;
+            };
+            return Some(candidate.trim().to_string());
+        }
+    }
+    None
+}
+
+fn extract_runtime_probe_package_names(value: &Value) -> Option<Vec<String>> {
+    let obj = value.as_object()?;
+    let items = obj.get("package").and_then(Value::as_array)?;
+    let mut seen = HashSet::<String>::new();
+    let mut packages = Vec::<String>::new();
+    for item in items {
+        let Some(name) = item
+            .as_object()
+            .and_then(|entry| entry.get("packageName"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if seen.insert(name.to_string()) {
+            packages.push(name.to_string());
+        }
+    }
+    if packages.is_empty() {
+        None
+    } else {
+        Some(packages)
+    }
+}
+
+fn parse_runtime_probe_app_list_packages(raw: &str) -> Option<Vec<String>> {
+    parse_runtime_probe_json_line(raw, &["BODY_appList=", "APP_LIST_JSON="])
+        .and_then(|value| extract_runtime_probe_package_names(&value))
+        .or_else(|| {
+            parse_runtime_probe_json_line(raw, &["BODY_JSON="]).and_then(|value| {
+                parse_json_string_or_object(value.get("appList"))
+                    .and_then(|inner| extract_runtime_probe_package_names(&inner))
+            })
+        })
+}
+
+fn parse_runtime_probe_overrides(
+    raw: &str,
+    source_path: &str,
+) -> Option<PalmchatRuntimeProbeOverrides> {
+    let body_json = parse_runtime_probe_json_line(raw, &["BODY_JSON="]);
+    let body_dfp = parse_runtime_probe_json_line(raw, &["BODY_dfp="]).or_else(|| {
+        body_json
+            .as_ref()
+            .and_then(|value| parse_json_string_or_object(value.get("dfp")))
+    });
+    let ip_info_value = parse_runtime_probe_json_line(raw, &["BODY_ipInfo="]).or_else(|| {
+        body_json
+            .as_ref()
+            .and_then(|value| parse_json_string_or_object(value.get("ipInfo")))
+    });
+    let body_android_id = parse_runtime_probe_string_line(raw, &["BODY_androidId=", "AC1_p="])
+        .or_else(|| {
+            body_json
+                .as_ref()
+                .and_then(|value| value.get("androidId"))
+                .and_then(Value::as_str)
+                .map(|value| value.to_string())
+        });
+    let dfp_obj = body_dfp.as_ref().and_then(Value::as_object);
+    let installed_packages = parse_runtime_probe_app_list_packages(raw);
+    let sensor_name_list = dfp_obj
+        .and_then(|obj| obj.get("sensor_name_list"))
+        .and_then(Value::as_str)
+        .map(|value| {
+            value
+                .split(',')
+                .map(|item| item.trim().to_string())
+                .filter(|item| !item.is_empty())
+                .collect::<Vec<_>>()
+        });
+    let screen_brightness = dfp_obj.and_then(|obj| {
+        obj.get("screen_brightness").and_then(|value| match value {
+            Value::Number(v) => v.as_i64(),
+            Value::String(v) => v.trim().parse::<i64>().ok(),
+            _ => None,
+        })
+    });
+    let screen_on = dfp_obj
+        .and_then(|obj| obj.get("screen_on"))
+        .map(|value| match value {
+            Value::Bool(v) => *v,
+            Value::String(v) => parse_bool_like(v),
+            Value::Number(v) => v.as_i64().unwrap_or_default() != 0,
+            _ => false,
+        });
+    let boot_time_millis = dfp_obj.and_then(|obj| {
+        obj.get("last_boot_time").and_then(|value| match value {
+            Value::Number(v) => v.as_i64(),
+            Value::String(v) => v.trim().parse::<i64>().ok(),
+            _ => None,
+        })
+    });
+    let ip_info = ip_info_value
+        .as_ref()
+        .and_then(|value| {
+            if value.is_null() {
+                None
+            } else {
+                Some(value.to_string())
+            }
+        })
+        .or_else(|| {
+            body_json
+                .as_ref()
+                .and_then(|value| value.get("ipInfo"))
+                .and_then(Value::as_str)
+                .map(|value| value.to_string())
+        });
+    let secinfo_json = dfp_obj
+        .and_then(|obj| obj.get("sinfo"))
+        .and_then(Value::as_str)
+        .map(|value| value.to_string());
+    let overrides = PalmchatRuntimeProbeOverrides {
+        source_path: source_path.to_string(),
+        android_id: body_android_id,
+        ip_info,
+        secinfo_json,
+        network_type: dfp_obj
+            .and_then(|obj| obj.get("net_type"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        network_state: dfp_obj
+            .and_then(|obj| obj.get("netState"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        wifi_ssid: dfp_obj
+            .and_then(|obj| obj.get("wifiSSID"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        wlan_ipv4: dfp_obj
+            .and_then(|obj| obj.get("wifi_ip").or_else(|| obj.get("ip")))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        resolution: dfp_obj
+            .and_then(|obj| obj.get("resolution"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        screen_brightness,
+        screen_on,
+        sensor_name_list,
+        device_label: dfp_obj
+            .and_then(|obj| obj.get("duDeviceLabel"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        baseband_version: dfp_obj
+            .and_then(|obj| obj.get("basicVersion"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        kernel_version: dfp_obj
+            .and_then(|obj| obj.get("kernelVersion"))
+            .and_then(Value::as_str)
+            .map(|value| value.to_string()),
+        boot_time_millis,
+        installed_packages,
+    };
+    if overrides.android_id.is_none()
+        && overrides.ip_info.is_none()
+        && overrides.secinfo_json.is_none()
+        && overrides.installed_packages.is_none()
+    {
+        None
+    } else {
+        Some(overrides)
+    }
+}
+
+fn apply_runtime_probe_overrides(
+    profile: &mut PalmchatLiveDeviceProfile,
+    overrides: &PalmchatRuntimeProbeOverrides,
+) {
+    if let Some(value) = overrides.android_id.clone() {
+        profile.android_id = Some(value);
+    }
+    if let Some(value) = overrides.ip_info.clone() {
+        profile.ip_info = Some(value);
+    }
+    if let Some(value) = overrides.secinfo_json.clone() {
+        profile.secinfo_json = Some(value);
+    }
+    if let Some(value) = overrides.network_type.clone() {
+        profile.network_type = Some(value);
+    }
+    if let Some(value) = overrides.network_state.clone() {
+        profile.network_state = Some(value);
+    }
+    if let Some(value) = overrides.wifi_ssid.clone() {
+        profile.wifi_ssid = Some(value);
+    }
+    if let Some(value) = overrides.wlan_ipv4.clone() {
+        profile.wlan_ipv4 = Some(value);
+    }
+    if let Some(value) = overrides.resolution.clone() {
+        profile.resolution = Some(value);
+    }
+    if let Some(value) = overrides.screen_brightness {
+        profile.screen_brightness = Some(value);
+    }
+    if let Some(value) = overrides.screen_on {
+        profile.screen_on = Some(value);
+    }
+    if let Some(value) = overrides.sensor_name_list.clone() {
+        profile.sensor_name_list = value;
+    }
+    if let Some(value) = overrides.device_label.clone() {
+        profile.device_label = Some(value);
+    }
+    if let Some(value) = overrides.baseband_version.clone() {
+        profile.baseband_version = Some(value);
+    }
+    if let Some(value) = overrides.kernel_version.clone() {
+        profile.kernel_version = Some(value);
+    }
+    if let Some(value) = overrides.boot_time_millis {
+        profile.boot_time_millis = Some(value);
+    }
+    if let Some(value) = overrides.installed_packages.clone() {
+        profile.installed_packages = value;
+    }
+}
+
+fn install_system_properties(
+    emulator: &AndroidEmulator<'static, ()>,
+    config: &PalmchatConfig,
+    live_profile: Option<&PalmchatLiveDeviceProfile>,
+) {
     let api = config.android_api.to_string();
+    let brand = live_profile
+        .and_then(|profile| profile.product_brand.clone())
+        .unwrap_or_else(|| "realme".to_string());
+    let manufacturer = live_profile
+        .and_then(|profile| profile.product_manufacturer.clone())
+        .unwrap_or_else(|| brand.clone());
+    let model = live_profile
+        .and_then(|profile| profile.product_model.clone())
+        .unwrap_or_else(|| "RMX3560".to_string());
+    let device = live_profile
+        .and_then(|profile| profile.product_device.clone())
+        .unwrap_or_else(|| model.clone());
+    let product_name = live_profile
+        .and_then(|profile| profile.product_name.clone())
+        .unwrap_or_else(|| model.clone());
+    let hardware = live_profile
+        .and_then(|profile| profile.hardware.clone())
+        .unwrap_or_else(|| "mt6895".to_string());
+    let build_id = live_profile
+        .and_then(|profile| profile.build_id.clone())
+        .unwrap_or_default();
+    let build_release = live_profile
+        .and_then(|profile| profile.build_release.clone())
+        .unwrap_or_default();
+    let build_fingerprint = live_profile
+        .and_then(|profile| profile.build_fingerprint.clone())
+        .unwrap_or_default();
+    let build_display = live_profile
+        .and_then(|profile| profile.build_display.clone())
+        .unwrap_or_default();
+    let build_host = live_profile
+        .and_then(|profile| profile.build_host.clone())
+        .unwrap_or_default();
+    let build_security_patch = live_profile
+        .and_then(|profile| profile.build_security_patch.clone())
+        .unwrap_or_default();
     let service: SystemPropertyService = Rc::new(Box::new(move |name| match name {
         "ro.build.version.sdk" => Some(api.clone()),
-        "ro.product.brand" | "ro.product.manufacturer" => Some("realme".to_string()),
-        "ro.product.model" | "ro.product.device" => Some("RMX3560".to_string()),
-        "ro.hardware" | "ro.boot.hardware" => Some("qcom".to_string()),
+        "ro.product.brand" => Some(brand.clone()),
+        "ro.product.manufacturer" => Some(manufacturer.clone()),
+        "ro.product.model" => Some(model.clone()),
+        "ro.product.device" => Some(device.clone()),
+        "ro.product.name" => Some(product_name.clone()),
+        "ro.hardware" | "ro.boot.hardware" => Some(hardware.clone()),
+        "ro.build.id" if !build_id.is_empty() => Some(build_id.clone()),
+        "ro.build.version.release" if !build_release.is_empty() => Some(build_release.clone()),
+        "ro.build.fingerprint" if !build_fingerprint.is_empty() => Some(build_fingerprint.clone()),
+        "ro.build.display.id" if !build_display.is_empty() => Some(build_display.clone()),
+        "ro.build.host" if !build_host.is_empty() => Some(build_host.clone()),
+        "ro.build.version.security_patch" if !build_security_patch.is_empty() => {
+            Some(build_security_patch.clone())
+        }
         "persist.sys.timezone" => Some("Asia/Shanghai".to_string()),
         _ => None,
     }));
     emulator.set_system_property_service(service);
 }
 
-fn configure_file_system(emulator: &AndroidEmulator<'static, ()>, config: &PalmchatConfig) {
+fn build_direction_from_host_dir(host_path: &Path, guest_path: &str) -> Direction {
+    let mut entries = VecDeque::new();
+    if let Ok(dir) = fs::read_dir(host_path) {
+        for entry in dir.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let is_file = entry.file_type().map(|kind| kind.is_file()).unwrap_or(false);
+            entries.push_back(DirectionEntry::new(is_file, &name));
+        }
+    }
+    Direction::new(entries, guest_path)
+}
+
+fn open_host_file_for_oflags(host_path: &Path, flags: emulator::linux::structs::OFlag) -> Result<File> {
+    let mut options = OpenOptions::new();
+    let accmode = flags.bits() & emulator::linux::structs::OFlag::O_ACCMODE.bits();
+    match accmode {
+        value if value == emulator::linux::structs::OFlag::O_WRONLY.bits() => {
+            options.write(true);
+        }
+        value if value == emulator::linux::structs::OFlag::O_RDWR.bits() => {
+            options.read(true).write(true);
+        }
+        _ => {
+            options.read(true);
+        }
+    }
+    if flags.contains(emulator::linux::structs::OFlag::O_CREAT) {
+        options.create(true);
+    }
+    if flags.contains(emulator::linux::structs::OFlag::O_EXCL) {
+        options.create_new(true);
+    }
+    if flags.contains(emulator::linux::structs::OFlag::O_TRUNC) {
+        options.truncate(true);
+    }
+    if flags.contains(emulator::linux::structs::OFlag::O_APPEND) {
+        options.append(true);
+    }
+    options.open(host_path).with_context(|| {
+        format!(
+            "failed to open app-context host file {} for flags {:?}",
+            host_path.display(),
+            flags
+        )
+    })
+}
+
+fn resolve_app_context_file_io(
+    app_context_fs: &PalmchatAppContextFs,
+    path: &str,
+    flags: emulator::linux::structs::OFlag,
+) -> Option<FileIO<()>> {
+    let host_path = app_context_fs.host_path_for_guest(path)?;
+    if host_path.is_dir() {
+        return Some(FileIO::Direction(build_direction_from_host_dir(
+            &host_path, path,
+        )));
+    }
+    if host_path.exists() {
+        return match open_host_file_for_oflags(&host_path, flags) {
+            Ok(file) => Some(FileIO::File(LinuxFileIO::new_with_file(
+                file,
+                path,
+                flags.bits(),
+                12345,
+                StMode::APP_FILE,
+            ))),
+            Err(_) => Some(FileIO::Error(Errno::ENOENT.as_i32())),
+        };
+    }
+    if flags.contains(emulator::linux::structs::OFlag::O_CREAT) {
+        if let Some(parent) = host_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        return match open_host_file_for_oflags(&host_path, flags) {
+            Ok(file) => Some(FileIO::File(LinuxFileIO::new_with_file(
+                file,
+                path,
+                flags.bits(),
+                12345,
+                StMode::APP_FILE,
+            ))),
+            Err(_) => Some(FileIO::Error(Errno::ENOENT.as_i32())),
+        };
+    }
+    None
+}
+
+fn configure_file_system(
+    emulator: &AndroidEmulator<'static, ()>,
+    config: &PalmchatConfig,
+    app_context_fs: &PalmchatAppContextFs,
+) {
     let package_name = config.package_name.clone();
     let apk_path = config.apk_path.clone();
     let so_path = config.so_path.clone();
     let wksec = config.wksec_so_path.clone();
+    let app_context_fs = app_context_fs.clone();
     let so_name = so_path
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
@@ -4370,6 +10603,10 @@ fn configure_file_system(emulator: &AndroidEmulator<'static, ()>, config: &Palmc
                         StMode::APP_FILE,
                     )));
                 }
+            }
+
+            if let Some(file) = resolve_app_context_file_io(&app_context_fs, path, flags) {
+                return Some(file);
             }
 
             None
@@ -5023,11 +11260,352 @@ fn decode_plt_slot_from_stub_bytes(pc: u64, bytes: &[u8]) -> Option<u64> {
     adrp_page.checked_add(add_imm)
 }
 
+fn arm64_gp_register(index: u8) -> Option<UnicornRegisterARM64> {
+    match index {
+        0 => Some(UnicornRegisterARM64::X0),
+        1 => Some(UnicornRegisterARM64::X1),
+        2 => Some(UnicornRegisterARM64::X2),
+        3 => Some(UnicornRegisterARM64::X3),
+        4 => Some(UnicornRegisterARM64::X4),
+        5 => Some(UnicornRegisterARM64::X5),
+        6 => Some(UnicornRegisterARM64::X6),
+        7 => Some(UnicornRegisterARM64::X7),
+        8 => Some(UnicornRegisterARM64::X8),
+        9 => Some(UnicornRegisterARM64::X9),
+        10 => Some(UnicornRegisterARM64::X10),
+        11 => Some(UnicornRegisterARM64::X11),
+        12 => Some(UnicornRegisterARM64::X12),
+        13 => Some(UnicornRegisterARM64::X13),
+        14 => Some(UnicornRegisterARM64::X14),
+        15 => Some(UnicornRegisterARM64::X15),
+        16 => Some(UnicornRegisterARM64::X16),
+        17 => Some(UnicornRegisterARM64::X17),
+        18 => Some(UnicornRegisterARM64::X18),
+        19 => Some(UnicornRegisterARM64::X19),
+        20 => Some(UnicornRegisterARM64::X20),
+        21 => Some(UnicornRegisterARM64::X21),
+        22 => Some(UnicornRegisterARM64::X22),
+        23 => Some(UnicornRegisterARM64::X23),
+        24 => Some(UnicornRegisterARM64::X24),
+        25 => Some(UnicornRegisterARM64::X25),
+        26 => Some(UnicornRegisterARM64::X26),
+        27 => Some(UnicornRegisterARM64::X27),
+        28 => Some(UnicornRegisterARM64::X28),
+        29 => Some(UnicornRegisterARM64::FP),
+        30 => Some(UnicornRegisterARM64::LR),
+        _ => None,
+    }
+}
+
+fn read_arm64_gp_register(
+    backend: &Unicorn<'_, ()>,
+    index: u8,
+) -> Option<(UnicornRegisterARM64, u64)> {
+    let reg = arm64_gp_register(index)?;
+    let value = backend.reg_read(reg).ok()?;
+    Some((reg, value))
+}
+
+fn decode_arm64_branch_summary(pc: u64, insn: u32, backend: &Unicorn<'_, ()>) -> Option<String> {
+    if insn & 0xfc00_0000 == 0x9400_0000 {
+        let imm26 = (insn & 0x03ff_ffff) as i64;
+        let offset = sign_extend_i64(imm26 << 2, 28);
+        let target = (pc as i64).checked_add(offset)? as u64;
+        return Some(format!("BL target=0x{target:x}"));
+    }
+    if insn & 0xfc00_0000 == 0x1400_0000 {
+        let imm26 = (insn & 0x03ff_ffff) as i64;
+        let offset = sign_extend_i64(imm26 << 2, 28);
+        let target = (pc as i64).checked_add(offset)? as u64;
+        return Some(format!("B target=0x{target:x}"));
+    }
+    if insn & 0xffff_fc1f == 0xd63f_0000 {
+        let reg_index = ((insn >> 5) & 0x1f) as u8;
+        if let Some((_reg, value)) = read_arm64_gp_register(backend, reg_index) {
+            return Some(format!("BLR x{}=0x{:x}", reg_index, value));
+        }
+        return Some(format!("BLR x{}", reg_index));
+    }
+    if insn & 0xffff_fc1f == 0xd61f_0000 {
+        let reg_index = ((insn >> 5) & 0x1f) as u8;
+        if let Some((_reg, value)) = read_arm64_gp_register(backend, reg_index) {
+            return Some(format!("BR x{}=0x{:x}", reg_index, value));
+        }
+        return Some(format!("BR x{}", reg_index));
+    }
+    if insn == 0xd65f_03c0 {
+        let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+        return Some(format!("RET lr=0x{lr:x}"));
+    }
+    None
+}
+
+#[cfg(feature = "unicorn")]
+fn install_palmchat_asset_shim_hooks(
+    emulator: &AndroidEmulator<'static, ()>,
+    shared: Rc<RefCell<SharedState>>,
+    apk_path: &Path,
+    asset_manager_native_ptr: u64,
+) -> Result<()> {
+    const PALMCHAT_ASSET_SHIM_ARENA_SIZE: usize = 0x0080_0000;
+
+    let Backend::Unicorn(unicorn) = &emulator.backend;
+    let asset_arena = emulator
+        .falloc(PALMCHAT_ASSET_SHIM_ARENA_SIZE, false)
+        .context("failed to allocate palmchat asset shim arena")?;
+    let asset_state = Rc::new(RefCell::new(PalmchatAssetShimState {
+        manager_ptr: asset_manager_native_ptr,
+        apk_path: apk_path.to_path_buf(),
+        arena_base: asset_arena.addr,
+        arena_cursor: asset_arena.addr,
+        arena_end: asset_arena.addr + PALMCHAT_ASSET_SHIM_ARENA_SIZE as u64,
+        open_handles: HashMap::new(),
+    }));
+    shared.borrow_mut().native(&format!(
+        "installed palmchat asset shim manager_ptr=0x{:x} arena=[0x{:x},0x{:x}) apk={}",
+        asset_manager_native_ptr,
+        asset_arena.addr,
+        asset_arena.addr + PALMCHAT_ASSET_SHIM_ARENA_SIZE as u64,
+        apk_path.display()
+    ));
+
+    let resolve_symbol = |symbol: &str| {
+        emulator
+            .resolve_loaded_symbol(Some("libandroid.so"), symbol)
+            .or_else(|| emulator.resolve_loaded_symbol(Some("libandroid_runtime.so"), symbol))
+            .or_else(|| emulator.resolve_loaded_symbol(None, symbol))
+    };
+
+    if let Some(target) = resolve_symbol("_ZN7android30AssetManagerForNdkAssetManagerEP13AAssetManager")
+    {
+        let bridge_shared = shared.clone();
+        unicorn
+            .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                let x0 = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                let _ = backend.reg_write(
+                    UnicornRegisterARM64::X0,
+                    if x0 == 0 { asset_manager_native_ptr } else { x0 },
+                );
+                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                bridge_shared.borrow_mut().native(&format!(
+                    "asset_shim AssetManagerForNdkAssetManager manager_in=0x{:x} manager_out=0x{:x}",
+                    x0,
+                    if x0 == 0 { asset_manager_native_ptr } else { x0 }
+                ));
+            })
+            .map_err(|err| anyhow!("failed to install AssetManagerForNdkAssetManager shim: {err:?}"))?;
+    }
+
+    if let Some(target) = resolve_symbol("AAssetManager_open") {
+        let open_state = asset_state.clone();
+        let open_shared = shared.clone();
+        unicorn
+            .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                let manager_ptr = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                let name_ptr = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                let mode = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0);
+                let requested_name = read_backend_c_string_lossy(backend, name_ptr, 0x200)
+                    .unwrap_or_else(|| "<unreadable>".to_string());
+                let (handle_ptr, resolved_name, byte_len) = {
+                    let mut state = open_state.borrow_mut();
+                    let apk_path = state.apk_path.clone();
+                    match resolve_palmchat_asset_bytes(&apk_path, &requested_name) {
+                        Ok((resolved_name, bytes)) => {
+                            let Some(data_ptr) = state.alloc(bytes.len().max(1), 0x10) else {
+                                open_shared.borrow_mut().native(&format!(
+                                    "asset_shim open requested={} resolved={} mode={} err=arena_exhausted",
+                                    requested_name, resolved_name, mode
+                                ));
+                                let _ = backend.reg_write(UnicornRegisterARM64::X0, 0);
+                                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                                return;
+                            };
+                            let Some(handle_ptr) = state.alloc(0x40, 0x10) else {
+                                open_shared.borrow_mut().native(&format!(
+                                    "asset_shim open requested={} resolved={} mode={} err=handle_arena_exhausted",
+                                    requested_name, resolved_name, mode
+                                ));
+                                let _ = backend.reg_write(UnicornRegisterARM64::X0, 0);
+                                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                                return;
+                            };
+                            let _ = backend.mem_write(data_ptr, &bytes);
+                            let _ = backend.mem_write(handle_ptr, &data_ptr.to_le_bytes());
+                            let _ =
+                                backend.mem_write(handle_ptr + 8, &(bytes.len() as u64).to_le_bytes());
+                            state.open_handles.insert(
+                                handle_ptr,
+                                PalmchatAAssetHandle {
+                                    name: resolved_name.clone(),
+                                    handle_ptr,
+                                    data_ptr,
+                                    len: bytes.len(),
+                                    cursor: 0,
+                                    bytes,
+                                },
+                            );
+                            (handle_ptr, resolved_name, state.handle(handle_ptr).map(|h| h.len).unwrap_or(0))
+                        }
+                        Err(err) => {
+                            open_shared.borrow_mut().native(&format!(
+                                "asset_shim open requested={} mode={} err={:#}",
+                                requested_name, mode, err
+                            ));
+                            let _ = backend.reg_write(UnicornRegisterARM64::X0, 0);
+                            let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                            return;
+                        }
+                    }
+                };
+                open_shared.borrow_mut().native(&format!(
+                    "asset_shim open requested={} resolved={} mode={} manager=0x{:x} handle=0x{:x} len={}",
+                    requested_name, resolved_name, mode, manager_ptr, handle_ptr, byte_len
+                ));
+                let _ = backend.reg_write(UnicornRegisterARM64::X0, handle_ptr);
+                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+            })
+            .map_err(|err| anyhow!("failed to install AAssetManager_open shim: {err:?}"))?;
+    }
+
+    if let Some(target) = resolve_symbol("AAsset_getBuffer") {
+        let buffer_state = asset_state.clone();
+        let buffer_shared = shared.clone();
+        unicorn
+            .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                let asset_ptr = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                let data_ptr = buffer_state
+                    .borrow()
+                    .handle(asset_ptr)
+                    .map(|handle| handle.data_ptr)
+                    .unwrap_or(0);
+                if data_ptr == 0 {
+                    buffer_shared.borrow_mut().native(&format!(
+                        "asset_shim getBuffer asset=0x{:x} err=missing_handle",
+                        asset_ptr
+                    ));
+                }
+                let _ = backend.reg_write(UnicornRegisterARM64::X0, data_ptr);
+                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+            })
+            .map_err(|err| anyhow!("failed to install AAsset_getBuffer shim: {err:?}"))?;
+    }
+
+    for symbol in ["AAsset_getLength64", "AAsset_getLength"] {
+        if let Some(target) = resolve_symbol(symbol) {
+            let length_state = asset_state.clone();
+            let symbol_name = symbol.to_string();
+            let length_shared = shared.clone();
+            unicorn
+                .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                    let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                    let asset_ptr = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                    let len = length_state
+                        .borrow()
+                        .handle(asset_ptr)
+                        .map(|handle| handle.len as u64)
+                        .unwrap_or(0);
+                    let _ = backend.reg_write(UnicornRegisterARM64::X0, len);
+                    let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                    if len == 0 {
+                        length_shared.borrow_mut().native(&format!(
+                            "asset_shim {} asset=0x{:x} err=missing_handle",
+                            symbol_name, asset_ptr
+                        ));
+                    }
+                })
+                .map_err(|err| anyhow!("failed to install {} shim: {err:?}", symbol))?;
+        }
+    }
+
+    for symbol in ["AAsset_getRemainingLength64", "AAsset_getRemainingLength"] {
+        if let Some(target) = resolve_symbol(symbol) {
+            let remaining_state = asset_state.clone();
+            unicorn
+                .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                    let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                    let asset_ptr = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                    let remaining = remaining_state
+                        .borrow()
+                        .handle(asset_ptr)
+                        .map(|handle| handle.len.saturating_sub(handle.cursor) as u64)
+                        .unwrap_or(0);
+                    let _ = backend.reg_write(UnicornRegisterARM64::X0, remaining);
+                    let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                })
+                .map_err(|err| anyhow!("failed to install {} shim: {err:?}", symbol))?;
+        }
+    }
+
+    if let Some(target) = resolve_symbol("AAsset_read") {
+        let read_state = asset_state.clone();
+        let read_shared = shared.clone();
+        unicorn
+            .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                let asset_ptr = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                let buf_ptr = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                let count = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0) as usize;
+                let copied = {
+                    let mut state = read_state.borrow_mut();
+                    let Some(handle) = state.handle_mut(asset_ptr) else {
+                        read_shared.borrow_mut().native(&format!(
+                            "asset_shim read asset=0x{:x} err=missing_handle",
+                            asset_ptr
+                        ));
+                        let _ = backend.reg_write(UnicornRegisterARM64::X0, u64::MAX);
+                        let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+                        return;
+                    };
+                    let remaining = handle.len.saturating_sub(handle.cursor);
+                    let to_copy = remaining.min(count);
+                    if to_copy > 0 && buf_ptr != 0 {
+                        let _ = backend.mem_write(
+                            buf_ptr,
+                            &handle.bytes[handle.cursor..handle.cursor + to_copy],
+                        );
+                    }
+                    handle.cursor += to_copy;
+                    to_copy
+                };
+                let _ = backend.reg_write(UnicornRegisterARM64::X0, copied as u64);
+                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+            })
+            .map_err(|err| anyhow!("failed to install AAsset_read shim: {err:?}"))?;
+    }
+
+    if let Some(target) = resolve_symbol("AAsset_close") {
+        let close_state = asset_state.clone();
+        let close_shared = shared.clone();
+        unicorn
+            .add_code_hook(target, target + 4, move |backend, _address, _size| {
+                let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                let asset_ptr = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                let removed = close_state.borrow_mut().open_handles.remove(&asset_ptr);
+                if let Some(handle) = removed {
+                    close_shared.borrow_mut().native(&format!(
+                        "asset_shim close asset=0x{:x} resolved={} len={} cursor={}",
+                        asset_ptr, handle.name, handle.len, handle.cursor
+                    ));
+                }
+                let _ = backend.reg_write(UnicornRegisterARM64::PC, lr);
+            })
+            .map_err(|err| anyhow!("failed to install AAsset_close shim: {err:?}"))?;
+    }
+
+    Ok(())
+}
+
 fn install_unicorn_trace_hooks(
     emulator: &AndroidEmulator<'static, ()>,
     shared: Rc<RefCell<SharedState>>,
     module_base: u64,
+    module_size: u64,
     hashkey_fast_global_ref: Option<i64>,
+    apk_path: &Path,
+    asset_manager_native_ptr: u64,
 ) -> Result<()> {
     const LIBC_DISPATCH_ONE_OFFSET: u64 = 0x000507b0;
     const LIBC_DISPATCH_TWO_OFFSET: u64 = 0x00050b50;
@@ -5056,10 +11634,17 @@ fn install_unicorn_trace_hooks(
                 .native("unicorn trace hooks skipped reason=libc-not-loaded");
             return Ok(());
         };
+        install_palmchat_asset_shim_hooks(
+            emulator,
+            shared.clone(),
+            apk_path,
+            asset_manager_native_ptr,
+        )?;
         let verbose_cipher_hooks = std::env::var_os("PALMCHAT_TRACE_CIPHER_VERBOSE").is_some();
         let verbose_plt_hooks = std::env::var_os("PALMCHAT_TRACE_PLT_VERBOSE").is_some();
         let verbose_libc_hooks = std::env::var_os("PALMCHAT_TRACE_LIBC_VERBOSE").is_some();
         let verbose_dispatch_hooks = std::env::var_os("PALMCHAT_TRACE_DISPATCH_VERBOSE").is_some();
+        let verbose_refresh_hooks = std::env::var_os("PALMCHAT_TRACE_REFRESH_VERBOSE").is_some();
 
         if let Some(hashkey_ref) = hashkey_fast_global_ref {
             let hashkey_fast_used = Rc::new(RefCell::new(false));
@@ -5085,6 +11670,433 @@ fn install_unicorn_trace_hooks(
                     },
                 )
                 .map_err(|err| anyhow!("failed to install fast hashkey helper hook: {err:?}"))?;
+        }
+
+        if verbose_refresh_hooks {
+            const LIBANDROID_ASSET_MANAGER_FOR_NDK_SYMBOL: &str =
+                "_ZN7android30AssetManagerForNdkAssetManagerEP13AAssetManager";
+            const LIBCXX_MUTEX_LOCK_SYMBOL: &str = "_ZNSt3__15mutex4lockEv";
+            const LIBC_PTHREAD_MUTEX_LOCK_SYMBOL: &str = "pthread_mutex_lock";
+            let refresh_trace_entry = module_base + 0x0a40b0;
+            let refresh_trace_active = Rc::new(RefCell::new(false));
+            let refresh_trace_active_for_module = refresh_trace_active.clone();
+            let refresh_trace_count = Rc::new(RefCell::new(0usize));
+            let refresh_trace_shared = shared.clone();
+            let mut refresh_external_targets = Vec::<(u64, String)>::new();
+            for (slot_offset, label) in [
+                (0x182b48_u64, "refresh_slot_182b48"),
+                (0x182860_u64, "refresh_slot_182860"),
+            ] {
+                let slot_addr = module_base + slot_offset;
+                let slot_value = unicorn
+                    .mem_read_as_vec(slot_addr, 8)
+                    .ok()
+                    .and_then(|bytes| {
+                        bytes
+                            .get(0..8)
+                            .map(|slice| u64::from_le_bytes(slice.try_into().unwrap()))
+                    })
+                    .unwrap_or(0);
+                shared.borrow_mut().native(&format!(
+                    "refresh trace seed slot label={} slot_addr=0x{:x} target=0x{:x}",
+                    label, slot_addr, slot_value
+                ));
+                if slot_value != 0 {
+                    refresh_external_targets.push((slot_value, label.to_string()));
+                }
+            }
+            for module_name in [
+                "libandroid.so",
+                "libandroid_runtime.so",
+                "libandroidfw.so",
+                "libc++.so",
+            ] {
+                let base = emulator.find_loaded_module_base(module_name);
+                let size = emulator.find_loaded_module_size(module_name);
+                shared.borrow_mut().native(&format!(
+                    "refresh trace module name={} base={} size={}",
+                    module_name,
+                    base.map(|value| format!("0x{value:x}"))
+                        .unwrap_or_else(|| "none".to_string()),
+                    size.map(|value| format!("0x{value:x}"))
+                        .unwrap_or_else(|| "none".to_string())
+                ));
+            }
+            let describe_symbol_target = |address: u64| -> String {
+                for module_name in [
+                    "libandroid.so",
+                    "libandroid_runtime.so",
+                    "libandroidfw.so",
+                    "libc++.so",
+                    "libc.so",
+                    "libdl.so",
+                    "libm.so",
+                ] {
+                    let Some(base) = emulator.find_loaded_module_base(module_name) else {
+                        continue;
+                    };
+                    let Some(size) = emulator.find_loaded_module_size(module_name) else {
+                        continue;
+                    };
+                    let end = base.saturating_add(size as u64);
+                    if base <= address && address < end {
+                        return format!(
+                            "{}+0x{:x} base=0x{:x} size=0x{:x}",
+                            module_name,
+                            address.saturating_sub(base),
+                            base,
+                            size
+                        );
+                    }
+                }
+                "unmapped".to_string()
+            };
+            let asset_manager_for_ndk_target =
+                emulator.resolve_loaded_symbol(None, LIBANDROID_ASSET_MANAGER_FOR_NDK_SYMBOL);
+            let mutex_lock_target = emulator.resolve_loaded_symbol(None, LIBCXX_MUTEX_LOCK_SYMBOL);
+            let pthread_mutex_lock_target =
+                emulator.resolve_loaded_symbol(Some("libc.so"), LIBC_PTHREAD_MUTEX_LOCK_SYMBOL);
+            for (label, target) in [
+                ("asset_manager_for_ndk", asset_manager_for_ndk_target),
+                ("mutex_lock", mutex_lock_target),
+                ("pthread_mutex_lock", pthread_mutex_lock_target),
+            ] {
+                shared.borrow_mut().native(&format!(
+                    "refresh trace resolved symbol label={} addr={} target={}",
+                    label,
+                    target
+                        .map(|value| format!("0x{value:x}"))
+                        .unwrap_or_else(|| "none".to_string()),
+                    target
+                        .map(|value| describe_symbol_target(value))
+                        .unwrap_or_else(|| "unresolved".to_string())
+                ));
+            }
+            unicorn
+                .add_code_hook(
+                    module_base,
+                    module_base + module_size,
+                    move |backend, address, size| {
+                        let mut active = refresh_trace_active_for_module.borrow_mut();
+                        if !*active {
+                            if address != refresh_trace_entry {
+                                return;
+                            }
+                            *active = true;
+                            refresh_trace_shared.borrow_mut().native(&format!(
+                                "unicorn refresh_server_key trace activated entry=0x{:x} module=[0x{:x},0x{:x})",
+                                refresh_trace_entry,
+                                module_base,
+                                module_base + module_size
+                            ));
+                        }
+                        drop(active);
+                        let mut count = refresh_trace_count.borrow_mut();
+                        if *count >= 1024 {
+                            return;
+                        }
+                        *count += 1;
+                        let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                        let sp = backend.reg_read(UnicornRegisterARM64::SP).unwrap_or(0);
+                        let x0 = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                        let x1 = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                        let x2 = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0);
+                        let x3 = backend.reg_read(UnicornRegisterARM64::X3).unwrap_or(0);
+                        let x19 = backend.reg_read(UnicornRegisterARM64::X19).unwrap_or(0);
+                        let x20 = backend.reg_read(UnicornRegisterARM64::X20).unwrap_or(0);
+                        let insn_bytes = backend
+                            .mem_read_as_vec(address, size as usize)
+                            .ok()
+                            .unwrap_or_default();
+                        let insn = insn_bytes
+                            .get(0..4)
+                            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                            .unwrap_or(0);
+                        let insn_hex = if insn_bytes.is_empty() {
+                            "unreadable".to_string()
+                        } else {
+                            hex::encode(&insn_bytes)
+                        };
+                        let branch = decode_arm64_branch_summary(address, insn, backend);
+                        refresh_trace_shared.borrow_mut().native(&format!(
+                            "unicorn code refresh_server_key addr=0x{:x} size={} insn={} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x2=0x{:x} x3=0x{:x} x19=0x{:x} x20=0x{:x}{}",
+                            address,
+                            size,
+                            insn_hex,
+                            lr,
+                            sp,
+                            x0,
+                            x1,
+                            x2,
+                            x3,
+                            x19,
+                            x20,
+                            branch
+                                .map(|value| format!(" branch={value}"))
+                                .unwrap_or_default()
+                        ));
+                    },
+                )
+                .map_err(|err| anyhow!("failed to install refresh_server_key unicorn code hook: {err:?}"))?;
+
+            let refresh_bridge_trace_active = refresh_trace_active.clone();
+            let refresh_bridge_trace_count = Rc::new(RefCell::new(0usize));
+            let refresh_bridge_trace_shared = shared.clone();
+            unicorn
+                .add_code_hook(
+                    module_base + 0x1a7000,
+                    module_base + 0x1a9000,
+                    move |backend, address, size| {
+                        if !*refresh_bridge_trace_active.borrow() {
+                            return;
+                        }
+                        let mut count = refresh_bridge_trace_count.borrow_mut();
+                        if *count >= 256 {
+                            return;
+                        }
+                        *count += 1;
+                        let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                        let sp = backend.reg_read(UnicornRegisterARM64::SP).unwrap_or(0);
+                        let x0 = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                        let x1 = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                        let x2 = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0);
+                        let x3 = backend.reg_read(UnicornRegisterARM64::X3).unwrap_or(0);
+                        let x16 = backend.reg_read(UnicornRegisterARM64::X16).unwrap_or(0);
+                        let x17 = backend.reg_read(UnicornRegisterARM64::X17).unwrap_or(0);
+                        let insn_bytes = backend
+                            .mem_read_as_vec(address, size as usize)
+                            .ok()
+                            .unwrap_or_default();
+                        let insn = insn_bytes
+                            .get(0..4)
+                            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                            .unwrap_or(0);
+                        let insn_hex = if insn_bytes.is_empty() {
+                            "unreadable".to_string()
+                        } else {
+                            hex::encode(&insn_bytes)
+                        };
+                        let branch = decode_arm64_branch_summary(address, insn, backend);
+                        refresh_bridge_trace_shared.borrow_mut().native(&format!(
+                            "unicorn code refresh_external_bridge addr=0x{:x} size={} insn={} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x2=0x{:x} x3=0x{:x} x16=0x{:x} x17=0x{:x}{}",
+                            address,
+                            size,
+                            insn_hex,
+                            lr,
+                            sp,
+                            x0,
+                            x1,
+                            x2,
+                            x3,
+                            x16,
+                            x17,
+                            branch
+                                .map(|value| format!(" branch={value}"))
+                                .unwrap_or_default()
+                        ));
+                    },
+                )
+                .map_err(|err| anyhow!("failed to install refresh external bridge hook: {err:?}"))?;
+
+            if let Some(libandroid_base) = emulator.find_loaded_module_base("libandroid.so") {
+                let refresh_libandroid_plt_active = refresh_trace_active.clone();
+                let refresh_libandroid_plt_count = Rc::new(RefCell::new(0usize));
+                let refresh_libandroid_plt_shared = shared.clone();
+                unicorn
+                    .add_code_hook(
+                        libandroid_base + 0x289d0,
+                        libandroid_base + 0x28c70,
+                        move |backend, address, size| {
+                            if !*refresh_libandroid_plt_active.borrow() {
+                                return;
+                            }
+                            let mut count = refresh_libandroid_plt_count.borrow_mut();
+                            if *count >= 128 {
+                                return;
+                            }
+                            *count += 1;
+                            let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                            let sp = backend.reg_read(UnicornRegisterARM64::SP).unwrap_or(0);
+                            let x0 = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                            let x1 = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                            let x2 = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0);
+                            let x3 = backend.reg_read(UnicornRegisterARM64::X3).unwrap_or(0);
+                            let x16 = backend.reg_read(UnicornRegisterARM64::X16).unwrap_or(0);
+                            let x17 = backend.reg_read(UnicornRegisterARM64::X17).unwrap_or(0);
+                            let insn_bytes = backend
+                                .mem_read_as_vec(address, size as usize)
+                                .ok()
+                                .unwrap_or_default();
+                            let insn = insn_bytes
+                                .get(0..4)
+                                .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                                .unwrap_or(0);
+                            let insn_hex = if insn_bytes.is_empty() {
+                                "unreadable".to_string()
+                            } else {
+                                hex::encode(&insn_bytes)
+                            };
+                            let branch = decode_arm64_branch_summary(address, insn, backend);
+                            refresh_libandroid_plt_shared.borrow_mut().native(&format!(
+                                "unicorn code refresh_libandroid_plt addr=0x{:x} size={} insn={} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x2=0x{:x} x3=0x{:x} x16=0x{:x} x17=0x{:x}{}",
+                                address,
+                                size,
+                                insn_hex,
+                                lr,
+                                sp,
+                                x0,
+                                x1,
+                                x2,
+                                x3,
+                                x16,
+                                x17,
+                                branch
+                                    .map(|value| format!(" branch={value}"))
+                                    .unwrap_or_default()
+                            ));
+                        },
+                    )
+                    .map_err(|err| anyhow!("failed to install libandroid plt refresh hook: {err:?}"))?;
+            }
+
+            for (target, label, limit, span) in [
+                (
+                    asset_manager_for_ndk_target,
+                    "refresh_asset_manager_for_ndk",
+                    64usize,
+                    0x80_u64,
+                ),
+                (mutex_lock_target, "refresh_mutex_lock", 96usize, 0x100_u64),
+                (
+                    pthread_mutex_lock_target,
+                    "refresh_pthread_mutex_lock",
+                    128usize,
+                    0x120_u64,
+                ),
+            ] {
+                let Some(target) = target else {
+                    continue;
+                };
+                let refresh_symbol_trace_active = refresh_trace_active.clone();
+                let refresh_symbol_trace_count = Rc::new(RefCell::new(0usize));
+                let refresh_symbol_trace_shared = shared.clone();
+                let hook_label = label.to_string();
+                unicorn
+                    .add_code_hook(
+                        target.saturating_sub(0x20),
+                        target + span,
+                        move |backend, address, size| {
+                            if !*refresh_symbol_trace_active.borrow() {
+                                return;
+                            }
+                            let mut count = refresh_symbol_trace_count.borrow_mut();
+                            if *count >= limit {
+                                return;
+                            }
+                            *count += 1;
+                            let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                            let sp = backend.reg_read(UnicornRegisterARM64::SP).unwrap_or(0);
+                            let x0 = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                            let x1 = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                            let x2 = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0);
+                            let x3 = backend.reg_read(UnicornRegisterARM64::X3).unwrap_or(0);
+                            let x16 = backend.reg_read(UnicornRegisterARM64::X16).unwrap_or(0);
+                            let x17 = backend.reg_read(UnicornRegisterARM64::X17).unwrap_or(0);
+                            let insn_bytes = backend
+                                .mem_read_as_vec(address, size as usize)
+                                .ok()
+                                .unwrap_or_default();
+                            let insn = insn_bytes
+                                .get(0..4)
+                                .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                                .unwrap_or(0);
+                            let insn_hex = if insn_bytes.is_empty() {
+                                "unreadable".to_string()
+                            } else {
+                                hex::encode(&insn_bytes)
+                            };
+                            let branch = decode_arm64_branch_summary(address, insn, backend);
+                            refresh_symbol_trace_shared.borrow_mut().native(&format!(
+                                "unicorn code {} addr=0x{:x} size={} insn={} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x2=0x{:x} x3=0x{:x} x16=0x{:x} x17=0x{:x}{}",
+                                hook_label,
+                                address,
+                                size,
+                                insn_hex,
+                                lr,
+                                sp,
+                                x0,
+                                x1,
+                                x2,
+                                x3,
+                                x16,
+                                x17,
+                                branch
+                                    .map(|value| format!(" branch={value}"))
+                                    .unwrap_or_default()
+                            ));
+                        },
+                    )
+                    .map_err(|err| anyhow!("failed to install {label} trace hook: {err:?}"))?;
+            }
+
+            for (target, label) in refresh_external_targets {
+                let refresh_ext_trace_count = Rc::new(RefCell::new(0usize));
+                let refresh_ext_trace_shared = shared.clone();
+                let hook_label = label.clone();
+                unicorn
+                    .add_code_hook(
+                        target.saturating_sub(0x20),
+                        target + 0x100,
+                        move |backend, address, size| {
+                            let mut count = refresh_ext_trace_count.borrow_mut();
+                            if *count >= 128 {
+                                return;
+                            }
+                            *count += 1;
+                            let lr = backend.reg_read(UnicornRegisterARM64::LR).unwrap_or(0);
+                            let sp = backend.reg_read(UnicornRegisterARM64::SP).unwrap_or(0);
+                            let x0 = backend.reg_read(UnicornRegisterARM64::X0).unwrap_or(0);
+                            let x1 = backend.reg_read(UnicornRegisterARM64::X1).unwrap_or(0);
+                            let x2 = backend.reg_read(UnicornRegisterARM64::X2).unwrap_or(0);
+                            let x3 = backend.reg_read(UnicornRegisterARM64::X3).unwrap_or(0);
+                            let x16 = backend.reg_read(UnicornRegisterARM64::X16).unwrap_or(0);
+                            let x17 = backend.reg_read(UnicornRegisterARM64::X17).unwrap_or(0);
+                            let insn_bytes = backend
+                                .mem_read_as_vec(address, size as usize)
+                                .ok()
+                                .unwrap_or_default();
+                            let insn = insn_bytes
+                                .get(0..4)
+                                .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                                .unwrap_or(0);
+                            let insn_hex = if insn_bytes.is_empty() {
+                                "unreadable".to_string()
+                            } else {
+                                hex::encode(&insn_bytes)
+                            };
+                            let branch = decode_arm64_branch_summary(address, insn, backend);
+                            refresh_ext_trace_shared.borrow_mut().native(&format!(
+                                "unicorn code {} addr=0x{:x} size={} insn={} lr=0x{:x} sp=0x{:x} x0=0x{:x} x1=0x{:x} x2=0x{:x} x3=0x{:x} x16=0x{:x} x17=0x{:x}{}",
+                                hook_label,
+                                address,
+                                size,
+                                insn_hex,
+                                lr,
+                                sp,
+                                x0,
+                                x1,
+                                x2,
+                                x3,
+                                x16,
+                                x17,
+                                branch
+                                    .map(|value| format!(" branch={value}"))
+                                    .unwrap_or_default()
+                            ));
+                        },
+                    )
+                    .map_err(|err| anyhow!("failed to install {label} unicorn code hook: {err:?}"))?;
+            }
         }
 
         if verbose_dispatch_hooks {
@@ -6063,7 +13075,7 @@ fn install_unicorn_trace_hooks(
         }
 
         shared.borrow_mut().native(&format!(
-                "installed unicorn code hooks palmchat=[0x{:x},0x{:x}) palmchat_dispatch=[0x{:x},0x{:x}) libc_rng=[0x{:x},0x{:x}) libc_dispatch=[0x{:x},0x{:x}) toggles cipher={} plt={} libc={} dispatch={} fast_hashkey={}",
+                "installed unicorn code hooks palmchat=[0x{:x},0x{:x}) palmchat_dispatch=[0x{:x},0x{:x}) libc_rng=[0x{:x},0x{:x}) libc_dispatch=[0x{:x},0x{:x}) toggles cipher={} plt={} libc={} dispatch={} refresh={} fast_hashkey={}",
                 module_base + 0x0a6180,
                 module_base + 0x0a6260,
                 module_base + 0x0b1938,
@@ -6076,6 +13088,7 @@ fn install_unicorn_trace_hooks(
                 verbose_plt_hooks,
                 verbose_libc_hooks,
                 verbose_dispatch_hooks,
+                verbose_refresh_hooks,
                 hashkey_fast_global_ref.is_some()
             ));
     }
@@ -6425,6 +13438,72 @@ fn read_c_string_lossy(
         .position(|byte| *byte == 0)
         .unwrap_or(bytes.len());
     Some(String::from_utf8_lossy(&bytes[..nul]).into_owned())
+}
+
+#[cfg(feature = "unicorn")]
+fn read_backend_c_string_lossy(backend: &Unicorn<'_, ()>, addr: u64, max_len: usize) -> Option<String> {
+    if addr == 0 || max_len == 0 {
+        return None;
+    }
+    let bytes = backend.mem_read_as_vec(addr, max_len).ok()?;
+    let nul = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(bytes.len());
+    Some(String::from_utf8_lossy(&bytes[..nul]).into_owned())
+}
+
+fn align_up_u64(value: u64, align: u64) -> u64 {
+    if align <= 1 {
+        return value;
+    }
+    let mask = align - 1;
+    value.saturating_add(mask) & !mask
+}
+
+fn palmchat_asset_name_candidates(name: &str) -> Vec<String> {
+    let trimmed = name.trim().trim_start_matches('/');
+    let mut candidates = Vec::new();
+    for candidate in [
+        trimmed.to_string(),
+        format!("assets/{trimmed}"),
+        format!("assets/{}", trimmed.trim_start_matches("assets/")),
+    ] {
+        if candidate.is_empty() || candidates.iter().any(|existing| existing == &candidate) {
+            continue;
+        }
+        candidates.push(candidate);
+    }
+    candidates
+}
+
+fn read_apk_asset_bytes(apk_path: &Path, asset_name: &str) -> Result<Vec<u8>> {
+    let apk = File::open(apk_path)
+        .with_context(|| format!("failed to open apk for asset read: {}", apk_path.display()))?;
+    let mut archive =
+        ZipArchive::new(apk).with_context(|| format!("failed to open zip: {}", apk_path.display()))?;
+    let mut file = archive.by_name(asset_name).with_context(|| {
+        format!(
+            "failed to locate asset '{}' inside {}",
+            asset_name,
+            apk_path.display()
+        )
+    })?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)
+        .with_context(|| format!("failed to read asset '{}'", asset_name))?;
+    Ok(bytes)
+}
+
+fn resolve_palmchat_asset_bytes(apk_path: &Path, requested_name: &str) -> Result<(String, Vec<u8>)> {
+    let mut last_err = None;
+    for candidate in palmchat_asset_name_candidates(requested_name) {
+        match read_apk_asset_bytes(apk_path, &candidate) {
+            Ok(bytes) => return Ok((candidate, bytes)),
+            Err(err) => last_err = Some(err),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| anyhow!("asset '{}' not found", requested_name)))
 }
 
 fn read_hex_lossy(
@@ -6824,6 +13903,9 @@ fn known_hidden_symbol_offset(symbol_name: &str) -> Option<u64> {
         "Java_com_zenmen_palmchat_utils_EncryptUtils_cipherWithType" => Some(0x0a3810),
         "Java_com_zenmen_palmchat_messaging_MessagingService_setSecretKeys" => Some(0x0a3ecc),
         "Java_com_zenmen_palmchat_messaging_MessagingService_getSecretKeys" => Some(0x0a40a4),
+        "Java_com_zenmen_palmchat_messaging_CreateConnectionDelegate_refreshServerKey" => {
+            Some(0x0a40b0)
+        }
         _ => None,
     }
 }
@@ -6855,6 +13937,15 @@ fn hidden_messaging_service_symbol_name(method_name: &str) -> Option<&'static st
     }
 }
 
+fn hidden_create_connection_delegate_symbol_name(method_name: &str) -> Option<&'static str> {
+    match method_name {
+        "refreshServerKey" => {
+            Some("Java_com_zenmen_palmchat_messaging_CreateConnectionDelegate_refreshServerKey")
+        }
+        _ => None,
+    }
+}
+
 fn find_hidden_symbol_value(path: &Path, symbol_name: &str) -> Result<Option<u64>> {
     let bytes = fs::read(path)
         .with_context(|| format!("failed to read hidden-symbol candidate: {}", path.display()))?;
@@ -6881,7 +13972,153 @@ fn find_hidden_symbol_value(path: &Path, symbol_name: &str) -> Result<Option<u64
         }
     }
 
+    if let Some(value) = scan_hidden_symbol_value_globally(&bytes, strtab, symbol_name)? {
+        return Ok(Some(value));
+    }
+
     Ok(None)
+}
+
+fn scan_hidden_symbol_value_globally(
+    bytes: &[u8],
+    strtab: (usize, usize),
+    symbol_name: &str,
+) -> Result<Option<u64>> {
+    let name_offsets = find_strtab_name_offsets(bytes, strtab, symbol_name)?;
+    if name_offsets.is_empty() {
+        return Ok(None);
+    }
+    let executable_ranges = find_executable_load_ranges(bytes).unwrap_or_default();
+
+    for st_name in name_offsets {
+        let needle = st_name.to_le_bytes();
+        for offset in 0..=bytes.len().saturating_sub(24) {
+            if bytes[offset..offset + 4] != needle {
+                continue;
+            }
+            if !looks_like_hidden_sym_entry_global(
+                bytes,
+                offset,
+                strtab,
+                st_name,
+                symbol_name,
+                &executable_ranges,
+            ) {
+                continue;
+            }
+            return Ok(Some(read_u64(bytes, offset + 8)?));
+        }
+    }
+
+    Ok(None)
+}
+
+fn find_strtab_name_offsets(
+    bytes: &[u8],
+    strtab: (usize, usize),
+    symbol_name: &str,
+) -> Result<Vec<u32>> {
+    let (strtab_offset, strtab_size) = strtab;
+    let strtab_bytes = bytes
+        .get(strtab_offset..strtab_offset + strtab_size)
+        .ok_or_else(|| anyhow!("alloc STRTAB slice out of range"))?;
+    let needle = symbol_name.as_bytes();
+    if needle.is_empty() || needle.len() > strtab_bytes.len() {
+        return Ok(Vec::new());
+    }
+
+    let mut offsets = Vec::new();
+    for index in 0..=strtab_bytes.len() - needle.len() {
+        if &strtab_bytes[index..index + needle.len()] != needle {
+            continue;
+        }
+        let prev_ok = index == 0 || strtab_bytes[index - 1] == 0;
+        let next_index = index + needle.len();
+        let next_ok = next_index == strtab_bytes.len() || strtab_bytes[next_index] == 0;
+        if prev_ok && next_ok {
+            offsets.push(index as u32);
+        }
+    }
+    Ok(offsets)
+}
+
+fn find_executable_load_ranges(bytes: &[u8]) -> Result<Vec<(u64, u64)>> {
+    let program_header_offset = read_u64(bytes, 32)? as usize;
+    let program_header_size = read_u16(bytes, 54)? as usize;
+    let program_header_count = read_u16(bytes, 56)? as usize;
+    let mut ranges = Vec::new();
+
+    for index in 0..program_header_count {
+        let offset = program_header_offset + index * program_header_size;
+        let typ = read_u32(bytes, offset)?;
+        let flags = read_u32(bytes, offset + 4)?;
+        if typ != 1 || (flags & 0x1) == 0 {
+            continue;
+        }
+        let vaddr = read_u64(bytes, offset + 16)?;
+        let memsz = read_u64(bytes, offset + 40)?;
+        if memsz == 0 {
+            continue;
+        }
+        ranges.push((vaddr, vaddr + memsz));
+    }
+
+    Ok(ranges)
+}
+
+fn looks_like_hidden_sym_entry_global(
+    bytes: &[u8],
+    offset: usize,
+    strtab: (usize, usize),
+    expected_st_name: u32,
+    symbol_name: &str,
+    executable_ranges: &[(u64, u64)],
+) -> bool {
+    let Ok(st_name) = read_u32(bytes, offset) else {
+        return false;
+    };
+    if st_name != expected_st_name {
+        return false;
+    }
+    let st_info = *bytes.get(offset + 4).unwrap_or(&0xff);
+    let st_other = *bytes.get(offset + 5).unwrap_or(&0xff);
+    let Ok(st_shndx) = read_u16(bytes, offset + 6) else {
+        return false;
+    };
+    let Ok(st_value) = read_u64(bytes, offset + 8) else {
+        return false;
+    };
+    let Ok(st_size) = read_u64(bytes, offset + 16) else {
+        return false;
+    };
+
+    if st_other != 0 || st_shndx == 0 || st_shndx >= 0x1000 || st_value == 0 || st_size == 0 {
+        return false;
+    }
+    if (st_info & 0x0f) != 0x02 || (st_info >> 4) == 0 {
+        return false;
+    }
+
+    let (strtab_offset, strtab_size) = strtab;
+    if st_name as usize >= strtab_size {
+        return false;
+    }
+    let name_start = strtab_offset + st_name as usize;
+    let Some(name_end_rel) = bytes
+        .get(name_start..)
+        .and_then(|slice| slice.iter().position(|byte| *byte == 0))
+    else {
+        return false;
+    };
+    let name_end = name_start + name_end_rel;
+    if bytes.get(name_start..name_end) != Some(symbol_name.as_bytes()) {
+        return false;
+    }
+
+    executable_ranges.is_empty()
+        || executable_ranges
+            .iter()
+            .any(|(start, end)| st_value >= *start && st_value < *end)
 }
 
 fn find_alloc_strtab(bytes: &[u8]) -> Result<(usize, usize)> {
@@ -7090,7 +14327,8 @@ fn launch_captcha_ui_form_browser(
         let Some((method, path, body)) = read_http_request(&mut stream)? else {
             continue;
         };
-        match (method.as_str(), path.as_str()) {
+        let canonical_path = canonical_http_path(&path);
+        match (method.as_str(), canonical_path.as_str()) {
             ("GET", "/") => {
                 write_http_response(
                     &mut stream,
@@ -7098,6 +14336,9 @@ fn launch_captcha_ui_form_browser(
                     "text/html; charset=utf-8",
                     html.as_bytes(),
                 )?;
+            }
+            ("OPTIONS", "/submit") => {
+                write_http_response(&mut stream, "204 No Content", "text/plain", b"")?;
             }
             ("GET", "/favicon.ico") => {
                 write_http_response(&mut stream, "204 No Content", "text/plain", b"")?;
@@ -7179,21 +14420,23 @@ fn launch_captcha_ui_sdk_browser(
     default_rid: &str,
     default_mode_type: &str,
     default_diff_time: &str,
+    sdk_backfill_wait_ms: u64,
     flow_enabled: bool,
     sdk_html_path: &Path,
 ) -> Result<CaptchaUiDebugLaunch> {
     let original_html = load_original_smcaptcha_html(sdk_html_path)?;
-    let html = build_captcha_ui_sdk_html(
-        &original_html,
-        stage1_value,
-        default_mode_type,
-        flow_enabled,
-    )?;
     let listener =
         TcpListener::bind("127.0.0.1:0").context("failed to bind local sdk captcha ui listener")?;
     let addr = listener
         .local_addr()
         .context("failed to resolve sdk captcha ui listener address")?;
+    let html = build_captcha_ui_sdk_html(
+        &original_html,
+        stage1_value,
+        default_mode_type,
+        flow_enabled,
+        &format!("http://{}", addr),
+    )?;
     let url = format!("http://{}", addr);
     eprintln!("[captcha-ui-debug] sdk browser ui: {url}");
     if let Err(err) = open_url_in_browser(&url) {
@@ -7202,6 +14445,9 @@ fn launch_captcha_ui_sdk_browser(
     }
 
     let mut ready_ts_millis: Option<u128> = None;
+    let mut pending_submission: Option<CaptchaUiDebugSubmission> = None;
+    let mut pending_parsed_payload: Option<Value> = None;
+    let mut bridge_seq: u64 = 0;
     let mut extra_events = vec![json!({
         "ts": iso_now(),
         "phase": "ui_sdk_asset_loaded",
@@ -7217,7 +14463,8 @@ fn launch_captcha_ui_sdk_browser(
         let Some((method, path, body)) = read_http_request(&mut stream)? else {
             continue;
         };
-        match (method.as_str(), path.as_str()) {
+        let canonical_path = canonical_http_path(&path);
+        match (method.as_str(), canonical_path.as_str()) {
             ("GET", "/") => {
                 write_http_response(
                     &mut stream,
@@ -7225,6 +14472,9 @@ fn launch_captcha_ui_sdk_browser(
                     "text/html; charset=utf-8",
                     html.as_bytes(),
                 )?;
+            }
+            ("OPTIONS", "/bridge") | ("OPTIONS", "/submit") => {
+                write_http_response(&mut stream, "204 No Content", "text/plain", b"")?;
             }
             ("GET", "/favicon.ico") => {
                 write_http_response(&mut stream, "204 No Content", "text/plain", b"")?;
@@ -7241,15 +14491,53 @@ fn launch_captcha_ui_sdk_browser(
                     .and_then(Value::as_str)
                     .unwrap_or("unknown");
                 let payload_value = payload.get("payload").cloned().unwrap_or(Value::Null);
+                bridge_seq = bridge_seq.saturating_add(1);
                 extra_events.push(json!({
                     "ts": iso_now(),
                     "phase": "ui_sdk_bridge_event",
+                    "seq": bridge_seq,
                     "event": event,
                     "payload": payload_value,
                 }));
                 match event {
                     "onReady" => {
                         ready_ts_millis = Some(current_timestamp_millis());
+                        if let Some(submission) = pending_submission.take() {
+                            extra_events.push(json!({
+                                "ts": iso_now(),
+                                "phase": "ui_sdk_sync_release",
+                                "reason": "onReady_arrived_after_onData",
+                                "submission": submission,
+                            }));
+                            if submission.verify_status {
+                                let parsed_payload =
+                                    pending_parsed_payload.take().unwrap_or_else(|| json!({}));
+                                extra_events.push(json!({
+                                    "ts": iso_now(),
+                                    "phase": "ui_sdk_bridge_data_parsed",
+                                    "parsed_payload": parsed_payload,
+                                    "submission": submission,
+                                }));
+                                let response = json!({
+                                    "status": "ok",
+                                    "event": "onReady",
+                                    "release": true,
+                                });
+                                write_http_response(
+                                    &mut stream,
+                                    "200 OK",
+                                    "application/json; charset=utf-8",
+                                    serde_json::to_string_pretty(&response)?.as_bytes(),
+                                )?;
+                                return Ok(CaptchaUiDebugLaunch {
+                                    submission,
+                                    extra_events,
+                                    ui_mode: "sdk".to_string(),
+                                    ui_source: "sdk_bridge".to_string(),
+                                });
+                            }
+                            pending_parsed_payload = None;
+                        }
                         write_http_response(
                             &mut stream,
                             "200 OK",
@@ -7283,16 +14571,37 @@ fn launch_captcha_ui_sdk_browser(
                             .filter(|value| !value.trim().is_empty())
                             .unwrap_or(default_rid)
                             .to_string();
-                        let diff_time = if let Some(v) = parsed_payload
+                        let mut elapsed_after_ready = ready_ts_millis
+                            .map(|start| current_timestamp_millis().saturating_sub(start));
+                        if let Some(elapsed) = elapsed_after_ready.as_mut() {
+                            let min_wait = sdk_backfill_wait_ms as u128;
+                            if *elapsed < min_wait {
+                                let wait_ms = (min_wait - *elapsed) as u64;
+                                std::thread::sleep(Duration::from_millis(wait_ms));
+                                *elapsed = ready_ts_millis
+                                    .map(|start| current_timestamp_millis().saturating_sub(start))
+                                    .unwrap_or(*elapsed);
+                                extra_events.push(json!({
+                                    "ts": iso_now(),
+                                    "phase": "ui_sdk_backfill_wait",
+                                    "wait_ms": wait_ms,
+                                    "elapsed_after_wait": *elapsed,
+                                }));
+                            }
+                        }
+                        let payload_diff_time = parsed_payload
                             .get("diffTime")
                             .and_then(Value::as_str)
                             .filter(|value| !value.trim().is_empty())
-                        {
-                            v.to_string()
-                        } else if let Some(start) = ready_ts_millis {
-                            current_timestamp_millis().saturating_sub(start).to_string()
-                        } else {
-                            default_diff_time.to_string()
+                            .map(str::to_string);
+                        let diff_time = match (payload_diff_time, elapsed_after_ready) {
+                            (Some(raw), Some(elapsed)) => match raw.trim().parse::<u128>() {
+                                Ok(parsed_ms) if parsed_ms < elapsed => elapsed.to_string(),
+                                _ => raw,
+                            },
+                            (Some(raw), None) => raw,
+                            (None, Some(elapsed)) => elapsed.to_string(),
+                            (None, None) => default_diff_time.to_string(),
                         };
                         let submission = CaptchaUiDebugSubmission {
                             verify_status,
@@ -7300,6 +14609,28 @@ fn launch_captcha_ui_sdk_browser(
                             mode_type: default_mode_type.to_string(),
                             diff_time,
                         };
+                        if ready_ts_millis.is_none() {
+                            pending_submission = Some(submission.clone());
+                            pending_parsed_payload = Some(parsed_payload.clone());
+                            extra_events.push(json!({
+                                "ts": iso_now(),
+                                "phase": "ui_sdk_sync_hold",
+                                "reason": "await_onReady",
+                                "submission": submission,
+                            }));
+                            let response = json!({
+                                "status": "hold",
+                                "event": "onData",
+                                "reason": "await_onReady",
+                            });
+                            write_http_response(
+                                &mut stream,
+                                "200 OK",
+                                "application/json; charset=utf-8",
+                                serde_json::to_string_pretty(&response)?.as_bytes(),
+                            )?;
+                            continue;
+                        }
                         extra_events.push(json!({
                             "ts": iso_now(),
                             "phase": "ui_sdk_bridge_data_parsed",
@@ -7615,11 +14946,18 @@ fn build_captcha_ui_sdk_html(
     stage1_value: &Value,
     mode_type: &str,
     flow_enabled: bool,
+    bridge_base_url: &str,
 ) -> Result<String> {
     let stage1_pretty = serde_json::to_string_pretty(stage1_value)?;
     let stage1_json_literal = stage1_value.to_string().replace("</script>", "<\\/script>");
     let mode_type_literal = serde_json::to_string(mode_type)?;
-    let patched_mode_html = original_html.replace("xxxxxxxxxxxxxxxxxxxx", mode_type);
+    let bridge_endpoint_literal = serde_json::to_string(&format!("{bridge_base_url}/bridge"))?;
+    let patched_mode_html = original_html
+        .replace("xxxxxxxxxxxxxxxxxxxx", mode_type)
+        .replace(
+            "http://apps.bdimg.com/libs/jquery/1.9.0/jquery.js",
+            "https://apps.bdimg.com/libs/jquery/1.9.0/jquery.min.js",
+        );
     let injected = format!(
         r#"
 <div id="codex-debug-panel" style="position:fixed;right:10px;bottom:10px;z-index:99999;width:360px;background:rgba(16,20,27,0.92);color:#e6edf3;border:1px solid #2f3a4d;border-radius:12px;padding:10px;font:12px/1.4 Menlo,Monaco,monospace;">
@@ -7633,15 +14971,54 @@ fn build_captcha_ui_sdk_html(
 (function() {{
   const MODE_TYPE = {mode_type_literal};
   const FLOW_ENABLED = {flow_enabled};
+  const BRIDGE_ENDPOINT = {bridge_endpoint_literal};
   const statusEl = document.getElementById('codex-bridge-status');
   document.getElementById('codex-mode-type').textContent = MODE_TYPE;
   document.getElementById('codex-flow-enabled').textContent = String(FLOW_ENABLED);
+  if (typeof window.$ !== 'function') {{
+    window.$ = function(input) {{
+      function wrap(nodes) {{
+        const list = Array.isArray(nodes) ? nodes : [];
+        const api = {{
+          length: list.length,
+          find: function(selector) {{
+            const found = [];
+            list.forEach(function(node) {{
+              if (node && node.querySelectorAll) {{
+                found.push.apply(found, Array.from(node.querySelectorAll(selector)));
+              }}
+            }});
+            return wrap(found);
+          }}
+        }};
+        list.forEach(function(node, index) {{
+          api[index] = node;
+        }});
+        return api;
+      }}
+      if (typeof input === 'function') {{
+        if (document.readyState === 'loading') {{
+          document.addEventListener('DOMContentLoaded', input, {{ once: true }});
+        }} else {{
+          input();
+        }}
+        return wrap([]);
+      }}
+      if (typeof input === 'string') {{
+        return wrap(Array.from(document.querySelectorAll(input)));
+      }}
+      if (input && input.nodeType === 1) {{
+        return wrap([input]);
+      }}
+      return wrap([]);
+    }};
+  }}
   function updateStatus(text) {{
     if (statusEl) statusEl.textContent = text;
   }}
   async function postBridge(event, payload) {{
     try {{
-      await fetch('/bridge', {{
+      await fetch(BRIDGE_ENDPOINT, {{
         method: 'POST',
         headers: {{ 'Content-Type': 'application/json' }},
         body: JSON.stringify({{ event: event, payload: payload, ts: Date.now() }})
@@ -7662,6 +15039,24 @@ fn build_captcha_ui_sdk_html(
       postBridge('onError', {{ raw: err }});
     }}
   }};
+  window.addEventListener('error', function(evt) {{
+    postBridge('page_error', {{
+      message: evt && evt.message ? String(evt.message) : '',
+      source: evt && evt.filename ? String(evt.filename) : '',
+      lineno: evt && evt.lineno ? Number(evt.lineno) : 0,
+      colno: evt && evt.colno ? Number(evt.colno) : 0
+    }});
+  }}, true);
+  window.addEventListener('unhandledrejection', function(evt) {{
+    const reason = evt && typeof evt.reason !== 'undefined' ? String(evt.reason) : '';
+    postBridge('promise_reject', {{ reason: reason }});
+  }});
+  setTimeout(function() {{
+    postBridge('sdk_runtime_probe', {{
+      hasInitSMCaptcha: typeof window.initSMCaptcha === 'function',
+      hasDollar: typeof window.$ === 'function'
+    }});
+  }}, 1200);
   postBridge('sdk_page_loaded', {{ modeType: MODE_TYPE }});
 }})();
 </script>
@@ -7670,6 +15065,7 @@ fn build_captcha_ui_sdk_html(
         stage1_json_literal = stage1_json_literal,
         mode_type_literal = mode_type_literal,
         flow_enabled = if flow_enabled { "true" } else { "false" },
+        bridge_endpoint_literal = bridge_endpoint_literal,
     );
     if patched_mode_html.contains("</body>") {
         Ok(patched_mode_html.replacen("</body>", &(injected + "\n</body>"), 1))
@@ -7722,6 +15118,14 @@ fn current_timestamp_millis() -> u128 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis()
+}
+
+fn override_palmchat_ck_version(default_value: String) -> String {
+    std::env::var("PALMCHAT_FORCE_CK_VERSION")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(default_value)
 }
 
 fn open_url_in_browser(url: &str) -> Result<()> {
@@ -7801,6 +15205,24 @@ fn read_http_request(stream: &mut TcpStream) -> Result<Option<(String, String, V
     Ok(Some((method, path, body)))
 }
 
+fn canonical_http_path(path: &str) -> String {
+    let mut normalized = path.trim().to_string();
+    if let Ok(url) = Url::parse(&normalized) {
+        normalized = url.path().to_string();
+        if let Some(query) = url.query() {
+            normalized.push('?');
+            normalized.push_str(query);
+        }
+    }
+    let no_fragment = normalized.split('#').next().unwrap_or_default();
+    let no_query = no_fragment.split('?').next().unwrap_or("/");
+    let mut trimmed = no_query.trim_end_matches('/').to_string();
+    if trimmed.is_empty() {
+        trimmed = "/".to_string();
+    }
+    trimmed
+}
+
 fn find_header_end(buffer: &[u8]) -> Option<usize> {
     buffer
         .windows(4)
@@ -7828,12 +15250,28 @@ fn write_http_response(
     content_type: &str,
     body: &[u8],
 ) -> Result<()> {
-    write!(
-        stream,
-        "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+    write_http_response_with_headers(stream, status, content_type, body, &[])
+}
+
+fn write_http_response_with_headers(
+    stream: &mut TcpStream,
+    status: &str,
+    content_type: &str,
+    body: &[u8],
+    extra_headers: &[(&str, &str)],
+) -> Result<()> {
+    let mut header_block = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET,POST,OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type,Accept\r\nAccess-Control-Max-Age: 86400\r\n",
         body.len()
-    )
-    .context("failed to write browser ui response header")?;
+    );
+    for (name, value) in extra_headers {
+        header_block.push_str(name);
+        header_block.push_str(": ");
+        header_block.push_str(value);
+        header_block.push_str("\r\n");
+    }
+    header_block.push_str("\r\n");
+    write!(stream, "{header_block}").context("failed to write browser ui response header")?;
     stream
         .write_all(body)
         .context("failed to write browser ui response body")?;
@@ -7868,6 +15306,1672 @@ fn parse_bool_like(text: &str) -> bool {
     }
 }
 
+fn parse_optional_bool_flag(value: Option<&str>) -> Option<bool> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .filter(|value| !value.eq_ignore_ascii_case("null"))
+        .filter(|value| !value.eq_ignore_ascii_case("unknown"))
+        .map(parse_bool_like)
+}
+
+fn normalize_locale_tag(raw: Option<&str>) -> Option<String> {
+    let value = normalize_plain_candidate(raw.map(|value| value.to_string()))?;
+    let first = value
+        .split(',')
+        .find_map(|item| {
+            let trimmed = item.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+        .unwrap_or(value.as_str());
+    Some(first.replace('-', "_"))
+}
+
+fn derive_display_density_string(raw_dpi: Option<&str>) -> Option<String> {
+    let dpi = raw_dpi?.trim().parse::<f64>().ok()?;
+    if dpi <= 0.0 {
+        return None;
+    }
+    let density = dpi / 160.0;
+    let rounded = density.round();
+    if (density - rounded).abs() < 0.0001 {
+        return Some(format!("{}", rounded as i64));
+    }
+    let mut text = format!("{density:.2}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    Some(text)
+}
+
+fn header_map_to_json(headers: &HeaderMap) -> Value {
+    let mut out = Map::new();
+    for (name, value) in headers.iter() {
+        out.insert(
+            name.to_string(),
+            Value::String(value.to_str().unwrap_or_default().to_string()),
+        );
+    }
+    Value::Object(out)
+}
+
+fn header_map_to_string_map(headers: &HeaderMap) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for (name, value) in headers.iter() {
+        out.insert(
+            name.to_string(),
+            value.to_str().unwrap_or_default().to_string(),
+        );
+    }
+    out
+}
+
+fn string_map_to_json(headers: &HashMap<String, String>) -> Value {
+    let mut out = Map::new();
+    for (name, value) in headers {
+        out.insert(name.clone(), Value::String(value.clone()));
+    }
+    Value::Object(out)
+}
+
+fn json_value_to_string_map(value: Option<&Value>) -> HashMap<String, String> {
+    value
+        .and_then(Value::as_object)
+        .map(|headers| {
+            headers
+                .iter()
+                .filter_map(|(name, value)| {
+                    value.as_str().map(|text| (name.clone(), text.to_string()))
+                })
+                .collect::<HashMap<_, _>>()
+        })
+        .unwrap_or_default()
+}
+
+fn header_value_case_insensitive(headers: &HashMap<String, String>, key: &str) -> Option<String> {
+    headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.clone())
+}
+
+fn payload_body_bytes_from_transport_json(payload: &Value) -> Option<Vec<u8>> {
+    payload
+        .get("body_base64")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .and_then(|value| BASE64_STANDARD.decode(value).ok())
+        .or_else(|| {
+            payload
+                .get("body")
+                .and_then(Value::as_str)
+                .map(|value| value.as_bytes().to_vec())
+        })
+}
+
+fn normalize_palmchat_bridge_url(url: &str) -> Result<String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("empty bridge url"));
+    }
+    let parsed = Url::parse(trimmed).with_context(|| format!("invalid bridge url: {trimmed}"))?;
+    match parsed.scheme() {
+        "http" | "https" => Ok(trimmed.trim_end_matches('/').to_string()),
+        other => Err(anyhow!("unsupported bridge url scheme: {other}")),
+    }
+}
+
+fn palmchat_okhttp_bridge_health(base_url: &str) -> Result<Option<Value>> {
+    let url = format!("{}/health", base_url.trim_end_matches('/'));
+    let client = Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .context("failed to build palmchat bridge health client")?;
+    match client.get(&url).send() {
+        Ok(response) if response.status().is_success() => {
+            let payload: Value = response.json().with_context(|| {
+                format!("failed to parse palmchat bridge health payload: {url}")
+            })?;
+            if payload.get("ok") == Some(&Value::Bool(true)) {
+                Ok(Some(payload))
+            } else {
+                Ok(None)
+            }
+        }
+        Ok(_) => Ok(None),
+        Err(_) => Ok(None),
+    }
+}
+
+fn palmchat_repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn run_command_with_timeout(command: &mut Command, timeout: Duration) -> Result<Output> {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn()?;
+    let started = std::time::Instant::now();
+
+    loop {
+        if child.try_wait()?.is_some() {
+            return child
+                .wait_with_output()
+                .context("failed to collect command output");
+        }
+        if started.elapsed() >= timeout {
+            let _ = child.kill();
+            let output = child
+                .wait_with_output()
+                .context("failed to collect timed out command output")?;
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            return Err(anyhow!(
+                "command timed out after {}s, stderr={}, stdout={}",
+                timeout.as_secs(),
+                truncate_text(&stderr, 1200),
+                truncate_text(&stdout, 1200),
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn truncate_text(value: &str, max_len: usize) -> String {
+    if value.len() <= max_len {
+        return value.to_string();
+    }
+    let mut out = String::new();
+    for ch in value.chars() {
+        if out.len() + ch.len_utf8() > max_len {
+            break;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn build_palmchat_user_agent_zx_version(version_name: Option<&str>) -> Option<String> {
+    let version_name = normalize_plain_candidate(version_name.map(|value| value.to_string()))?;
+    Some(format!("Android/{version_name}"))
+}
+
+fn build_android_dalvik_user_agent(profile: Option<&PalmchatLiveDeviceProfile>) -> Option<String> {
+    let profile = profile?;
+    let release = normalize_plain_candidate(profile.build_release.clone())?;
+    let model = normalize_plain_candidate(profile.product_model.clone())?;
+    let build_id = normalize_plain_candidate(profile.build_id.clone())?;
+    Some(format!(
+        "Dalvik/2.1.0 (Linux; U; Android {release}; {model} Build/{build_id})"
+    ))
+}
+
+fn sanitize_palmchat_ua_segment(value: String) -> String {
+    value.replace('/', "_")
+}
+
+fn build_palmchat_user_agent_zx(
+    profile: Option<&PalmchatLiveDeviceProfile>,
+    app_version_info: &PalmchatAppVersionInfo,
+    body_value: Option<&Value>,
+) -> Option<String> {
+    let profile = profile?;
+    let brand =
+        sanitize_palmchat_ua_segment(normalize_plain_candidate(profile.product_brand.clone())?);
+    let model =
+        sanitize_palmchat_ua_segment(normalize_plain_candidate(profile.product_model.clone())?);
+    let release =
+        sanitize_palmchat_ua_segment(normalize_plain_candidate(profile.build_release.clone())?);
+    let version_code = normalize_plain_candidate(app_version_info.version_code.clone())?;
+    let version_name = normalize_plain_candidate(app_version_info.version_name.clone())?;
+    let locale = normalize_plain_candidate(profile.locale_tag.clone())?;
+    let density = normalize_plain_candidate(profile.display_density.clone())?;
+    let manufacturer = sanitize_palmchat_ua_segment(normalize_plain_candidate(
+        profile.product_manufacturer.clone(),
+    )?);
+    let body_channel = body_value
+        .and_then(Value::as_object)
+        .and_then(|body| extract_non_empty_string(body, "channelId"));
+    let channel_id =
+        body_channel.or_else(|| normalize_plain_candidate(profile.channel_id.clone()))?;
+    Some(format!(
+        "{brand}/{model}/Android/{release}/{version_code}/{version_name}/{locale}/{density}x/{channel_id}/{manufacturer}"
+    ))
+}
+
+fn build_smssend_url_auth_overrides_from_opts(
+    opts: &HashMap<String, String>,
+) -> PalmchatSmssendUrlAuth {
+    PalmchatSmssendUrlAuth {
+        uid: normalize_plain_candidate(opts.get("--uid").cloned()),
+        token: normalize_plain_candidate(opts.get("--token").cloned()),
+        session_id: normalize_plain_candidate(opts.get("--session-id").cloned()),
+        callback_id: normalize_plain_candidate(opts.get("--callback-id").cloned()),
+        p_id: normalize_plain_candidate(opts.get("--pid").cloned()),
+        sys_uid: normalize_plain_candidate(opts.get("--sys-uid").cloned()),
+    }
+}
+
+fn resolve_palmchat_recovered_auth_candidates(
+    candidates: &PalmchatRecoveredAuthCandidates,
+) -> (Option<String>, Option<String>, Option<String>, String) {
+    let uid = candidates
+        .cli_uid
+        .clone()
+        .or_else(|| candidates.live_uid.clone())
+        .or_else(|| candidates.java_uid.clone());
+    let session_id = candidates
+        .cli_session_id
+        .clone()
+        .or_else(|| candidates.live_session_id.clone())
+        .or_else(|| candidates.java_session_id.clone());
+    let refresh_key = candidates
+        .live_refresh_key
+        .clone()
+        .or_else(|| candidates.java_refresh_key.clone());
+    let source = if candidates.cli_uid.is_some() || candidates.cli_session_id.is_some() {
+        "cli_overrides"
+    } else if candidates.live_uid.is_some()
+        || candidates.live_session_id.is_some()
+        || candidates.live_refresh_key.is_some()
+    {
+        "live_device_profile"
+    } else {
+        "java_account_utils"
+    };
+    (uid, session_id, refresh_key, source.to_string())
+}
+
+fn build_refresh_server_key_url(
+    uid: &str,
+    session_id: Option<&str>,
+    exid: Option<&str>,
+    device_id: &str,
+    did: &str,
+) -> String {
+    let mut url = Url::parse("https://short.lianxinapp.com/one/ax/token.ak.v12")
+        .expect("static refreshServerKey url should parse");
+    {
+        let mut query = url.query_pairs_mut();
+        if !did.trim().is_empty() {
+            query.append_pair("did", did);
+        }
+        if !uid.trim().is_empty() {
+            query.append_pair("uid", uid);
+        }
+        if let Some(session_id) = session_id.filter(|value| !value.trim().is_empty()) {
+            query.append_pair("sessionId", session_id);
+        }
+        query.append_pair("requestId", &generate_xn3_like_id());
+        if let Some(exid) = exid.filter(|value| !value.trim().is_empty()) {
+            query.append_pair("exid", exid);
+        }
+        if !device_id.trim().is_empty() {
+            query.append_pair("deviceId", device_id);
+        }
+    }
+    url.to_string()
+}
+
+fn merge_smssend_url_auth_sources(
+    overrides: &PalmchatSmssendUrlAuth,
+    recovered_auth: Option<&PalmchatRecoveredAuthState>,
+    live_device_profile: Option<&PalmchatLiveDeviceProfile>,
+    generated_token: Option<String>,
+) -> PalmchatSmssendUrlAuth {
+    PalmchatSmssendUrlAuth {
+        uid: overrides
+            .uid
+            .clone()
+            .or_else(|| {
+                recovered_auth.and_then(|state| normalize_plain_candidate(state.uid.clone()))
+            })
+            .or_else(|| {
+                live_device_profile
+                    .and_then(|profile| normalize_plain_candidate(profile.account_uid.clone()))
+            }),
+        token: overrides
+            .token
+            .clone()
+            .or_else(|| {
+                recovered_auth.and_then(|state| {
+                    normalize_plain_candidate(state.token_after_bootstrap.clone())
+                })
+            })
+            .or(generated_token),
+        session_id: overrides.session_id.clone().or_else(|| {
+            recovered_auth.and_then(|state| normalize_plain_candidate(state.session_id.clone()))
+        }),
+        callback_id: overrides.callback_id.clone(),
+        p_id: overrides.p_id.clone(),
+        sys_uid: overrides.sys_uid.clone(),
+    }
+}
+
+fn prepare_smssend_test_url_opts(
+    stage1_obj: &Map<String, Value>,
+    stage2_obj: &Map<String, Value>,
+    opts: &mut HashMap<String, String>,
+    auth: Option<&PalmchatSmssendUrlAuth>,
+    live_device_profile: Option<&PalmchatLiveDeviceProfile>,
+) -> Option<Value> {
+    if !opts
+        .get("--smssend-test")
+        .map(|value| parse_bool_like(value))
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    if opts
+        .get("--smssend-url")
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    let request_id = opts
+        .get("--request-id")
+        .cloned()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(generate_xn3_like_id);
+    let device_id = opts
+        .get("--device-id")
+        .cloned()
+        .and_then(|value| normalize_device_id_candidate(Some(value.to_string())))
+        .or_else(|| extract_non_empty_string(stage2_obj, "deviceId"))
+        .or_else(|| extract_non_empty_string(stage2_obj, "dhid"))
+        .or_else(|| extract_non_empty_string(stage1_obj, "deviceId"))
+        .or_else(|| extract_non_empty_string(stage1_obj, "dhid"))
+        .or_else(|| {
+            live_device_profile.and_then(|profile| {
+                normalize_device_id_candidate(profile.tray_device_id.clone())
+                    .or_else(|| normalize_device_id_candidate(profile.sdid.clone()))
+            })
+        })
+        .and_then(|value| normalize_device_id_candidate(Some(value)))
+        .unwrap_or_else(generate_xn3_like_id);
+    let base_url = opts
+        .get("--smssend-base-url")
+        .cloned()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "https://short.lianxinapp.com/one/ax/auth.login.by.sendsms".to_string());
+    let auth_query_included = smssend_url_supports_auth_query(&base_url);
+    let smssend_url = compose_smssend_url(&base_url, &request_id, &device_id, auth);
+    opts.insert("--smssend-url".to_string(), smssend_url.clone());
+    Some(json!({
+        "strategy": "auto_injected_from_ui_session",
+        "base_url": base_url,
+        "requestId": request_id,
+        "deviceId": device_id,
+        "auth_query_included": auth_query_included,
+        "uid": auth.and_then(|value| value.uid.clone()),
+        "sessionId": auth.and_then(|value| value.session_id.clone()),
+        "callbackId": auth.and_then(|value| value.callback_id.clone()),
+        "pId": auth.and_then(|value| value.p_id.clone()),
+        "sysUid": auth.and_then(|value| value.sys_uid.clone()),
+        "token_present": auth.and_then(|value| value.token.as_ref()).is_some(),
+        "smssend_url": smssend_url,
+    }))
+}
+
+fn compose_smssend_url(
+    base_url: &str,
+    request_id: &str,
+    device_id: &str,
+    auth: Option<&PalmchatSmssendUrlAuth>,
+) -> String {
+    let include_auth_query = smssend_url_supports_auth_query(base_url);
+    if let Ok(mut url) = Url::parse(base_url) {
+        {
+            let mut query = url.query_pairs_mut();
+            if include_auth_query {
+                if let Some(auth) = auth {
+                    if let Some(uid) = auth.uid.as_deref() {
+                        query.append_pair("uid", uid);
+                    }
+                    if let Some(token) = auth.token.as_deref() {
+                        query.append_pair("token", token);
+                    }
+                    if let Some(session_id) = auth.session_id.as_deref() {
+                        query.append_pair("sessionId", session_id);
+                    }
+                }
+            }
+            query.append_pair("requestId", request_id);
+            query.append_pair("deviceId", device_id);
+            if include_auth_query {
+                if let Some(auth) = auth {
+                    if let Some(callback_id) = auth.callback_id.as_deref() {
+                        query.append_pair("callbackId", callback_id);
+                    }
+                    if let Some(p_id) = auth.p_id.as_deref() {
+                        query.append_pair("pId", p_id);
+                    }
+                    if let Some(sys_uid) = auth.sys_uid.as_deref() {
+                        query.append_pair("sysUid", sys_uid);
+                    }
+                }
+            }
+        }
+        return url.to_string();
+    }
+    let mut out = base_url.to_string();
+    let mut append_pair = |name: &str, value: &str| {
+        let separator = if out.contains('?') { "&" } else { "?" };
+        out.push_str(separator);
+        out.push_str(name);
+        out.push('=');
+        out.push_str(value);
+    };
+    if include_auth_query {
+        if let Some(auth) = auth {
+            if let Some(uid) = auth.uid.as_deref() {
+                append_pair("uid", uid);
+            }
+            if let Some(token) = auth.token.as_deref() {
+                append_pair("token", token);
+            }
+            if let Some(session_id) = auth.session_id.as_deref() {
+                append_pair("sessionId", session_id);
+            }
+        }
+    }
+    append_pair("requestId", request_id);
+    append_pair("deviceId", device_id);
+    if include_auth_query {
+        if let Some(auth) = auth {
+            if let Some(callback_id) = auth.callback_id.as_deref() {
+                append_pair("callbackId", callback_id);
+            }
+            if let Some(p_id) = auth.p_id.as_deref() {
+                append_pair("pId", p_id);
+            }
+            if let Some(sys_uid) = auth.sys_uid.as_deref() {
+                append_pair("sysUid", sys_uid);
+            }
+        }
+    }
+    out
+}
+
+fn smssend_url_supports_auth_query(base_url: &str) -> bool {
+    let trimmed = base_url.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    match Url::parse(trimmed) {
+        Ok(parsed) => {
+            let path = parsed.path();
+            !path.ends_with("/auth.login.by.sendsms")
+        }
+        Err(_) => !trimmed.contains("auth.login.by.sendsms"),
+    }
+}
+
+fn extract_non_empty_string(obj: &Map<String, Value>, key: &str) -> Option<String> {
+    obj.get(key)
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn is_new_sms_v7_profile(map: &Map<String, Value>) -> bool {
+    map.contains_key("mobile")
+        && map.contains_key("countryCode")
+        && [
+            "verifyStatus",
+            "paramNum",
+            "modeType",
+            "rid",
+            "diffTime",
+            "appId",
+            "channelId",
+        ]
+        .iter()
+        .any(|key| map.contains_key(*key))
+}
+
+fn normalize_wm4_network_type(network_type: Option<&str>) -> String {
+    match network_type {
+        Some("WIFI") => "w".to_string(),
+        Some(value) if !value.trim().is_empty() => "g".to_string(),
+        _ => String::new(),
+    }
+}
+
+fn normalize_wm4_real_network_type(
+    network_type: Option<&str>,
+    mobile_data_enabled: Option<bool>,
+) -> String {
+    let network = normalize_wm4_network_type(network_type);
+    if network == "w" && mobile_data_enabled == Some(true) {
+        "wg".to_string()
+    } else {
+        network
+    }
+}
+
+fn apply_app_version_normalization(
+    map: &mut Map<String, Value>,
+    app_version_info: &PalmchatAppVersionInfo,
+    preserve_existing_new_sms_version_code: bool,
+    changed_fields: &mut Vec<String>,
+) {
+    let new_sms_profile = is_new_sms_v7_profile(map);
+    if let Some(version_code) = app_version_info.version_code.as_ref() {
+        let normalized = if new_sms_profile {
+            Value::String(version_code.clone())
+        } else {
+            version_code
+                .parse::<i64>()
+                .ok()
+                .map(|parsed| Value::Number(parsed.into()))
+                .unwrap_or_else(|| Value::String(version_code.clone()))
+        };
+        let previous = map.get("versionCode").cloned().unwrap_or(Value::Null);
+        let should_preserve_existing = new_sms_profile
+            && preserve_existing_new_sms_version_code
+            && !matches!(previous, Value::Null);
+        if !should_preserve_existing && previous != normalized {
+            map.insert("versionCode".to_string(), normalized.clone());
+            changed_fields.push(format!("versionCode:{}=>{}", previous, normalized));
+        }
+    }
+
+    if new_sms_profile {
+        if let Some(previous) = map.remove("versionName") {
+            changed_fields.push(format!("versionName:{}=>{}", previous, Value::Null));
+        }
+    } else if let Some(version_name) = app_version_info.version_name.as_ref() {
+        let normalized = Value::String(version_name.clone());
+        let previous = map.get("versionName").cloned().unwrap_or(Value::Null);
+        if previous != normalized {
+            map.insert("versionName".to_string(), normalized.clone());
+            changed_fields.push(format!("versionName:{}=>{}", previous, normalized));
+        }
+    }
+}
+
+fn v7_required_non_empty_keys(map: &Map<String, Value>) -> Vec<&'static str> {
+    let mut keys = V7_STAGE_BASE_REQUIRED_KEYS.to_vec();
+    let verify_status = match map.get("verifyStatus") {
+        Some(Value::Bool(v)) => Some(*v),
+        Some(Value::Number(v)) => Some(v.as_i64().unwrap_or_default() != 0),
+        Some(Value::String(v)) => Some(parse_bool_like(v)),
+        _ => None,
+    };
+    if verify_status == Some(true) {
+        keys.extend_from_slice(V7_STAGE2_REQUIRED_KEYS);
+    }
+    keys
+}
+
+fn normalize_plain_candidate(candidate: Option<String>) -> Option<String> {
+    let value = candidate?.trim().to_string();
+    if value.is_empty() {
+        return None;
+    }
+    let lowered = value.to_ascii_lowercase();
+    if lowered == "null"
+        || lowered == "unknown"
+        || lowered == "none"
+        || lowered.starts_with("null__")
+        || lowered.starts_with("null_")
+    {
+        return None;
+    }
+    Some(value)
+}
+
+fn normalize_device_label_candidate(candidate: Option<String>) -> Option<String> {
+    normalize_plain_candidate(candidate)
+}
+
+fn normalize_ac1_imei_candidate(candidate: Option<String>) -> Option<String> {
+    let value = candidate?.trim().to_string();
+    if value.is_empty() {
+        return None;
+    }
+    let lowered = value.to_ascii_lowercase();
+    if lowered == "null" || lowered.starts_with("null__") || lowered.starts_with("null_") {
+        return None;
+    }
+    if lowered == "unknown" {
+        return Some("Unknown".to_string());
+    }
+    Some(value)
+}
+
+fn recompute_nullable_did(map: &Map<String, Value>) -> Option<String> {
+    let current_segments = map
+        .get("did")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .split('_')
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+
+    let imei_segment = match map.get("imei") {
+        Some(Value::Null) => Some("null".to_string()),
+        Some(Value::String(value)) => Some(value.trim().to_string()),
+        _ => current_segments.first().cloned(),
+    };
+    let mac_segment = match map.get("mac") {
+        Some(Value::Null) => Some(String::new()),
+        Some(Value::String(value)) => Some(value.trim().to_string()),
+        _ => current_segments.get(1).cloned(),
+    };
+    let android_segment = map
+        .get("androidId")
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| current_segments.get(2).cloned());
+
+    match (imei_segment, mac_segment, android_segment) {
+        (Some(imei), Some(mac), Some(android_id)) => Some(format!("{imei}_{mac}_{android_id}")),
+        _ => None,
+    }
+}
+
+fn value_is_null_like(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::String(v) => normalize_plain_candidate(Some(v.clone())).is_none(),
+        Value::Array(items) => items.is_empty(),
+        _ => false,
+    }
+}
+
+fn map_value_missing(map: &Map<String, Value>, key: &str) -> bool {
+    match map.get(key) {
+        None | Some(Value::Null) => true,
+        Some(Value::String(v)) => v.trim().is_empty(),
+        _ => false,
+    }
+}
+
+fn map_value_missing_or_null_like(map: &Map<String, Value>, key: &str) -> bool {
+    match map.get(key) {
+        None => true,
+        Some(value) => value_is_null_like(value),
+    }
+}
+
+fn fill_if_missing(
+    map: &mut Map<String, Value>,
+    key: &str,
+    candidate: Option<String>,
+    events: &mut Vec<String>,
+) {
+    if !map_value_missing(map, key) {
+        return;
+    }
+    if let Some(v) = candidate {
+        map.insert(key.to_string(), Value::String(v.clone()));
+        events.push(format!("{key}={v}"));
+    }
+}
+
+fn fill_or_override_if_null_like(
+    map: &mut Map<String, Value>,
+    key: &str,
+    candidate: Option<String>,
+    events: &mut Vec<String>,
+) {
+    if !map_value_missing_or_null_like(map, key) {
+        return;
+    }
+    if let Some(v) = normalize_plain_candidate(candidate) {
+        map.insert(key.to_string(), Value::String(v.clone()));
+        events.push(format!("{key}={v}"));
+    }
+}
+
+fn fill_or_override_null_like_value(
+    map: &mut Map<String, Value>,
+    key: &str,
+    value: Value,
+    events: &mut Vec<String>,
+) {
+    if !map_value_missing_or_null_like(map, key) {
+        return;
+    }
+    if map.get(key) != Some(&value) {
+        let event_value = match &value {
+            Value::Null => "null".to_string(),
+            Value::String(text) => text.clone(),
+            _ => value.to_string(),
+        };
+        map.insert(key.to_string(), value);
+        events.push(format!("{key}={event_value}"));
+    }
+}
+
+fn force_override_with_seed(
+    map: &mut Map<String, Value>,
+    key: &str,
+    candidate: Option<String>,
+    events: &mut Vec<String>,
+) {
+    if let Some(v) = normalize_plain_candidate(candidate) {
+        let next = Value::String(v.clone());
+        if map.get(key) != Some(&next) {
+            map.insert(key.to_string(), next);
+            events.push(format!("{key}={v}"));
+        }
+    }
+}
+
+fn prune_new_sms_auto_noise_fields(map: &mut Map<String, Value>, events: &mut Vec<String>) {
+    for key in ["device_id", "local_smid"] {
+        if map.remove(key).is_some() {
+            events.push(format!("drop.{key}=absent-in-proven-new-sms-body"));
+        }
+    }
+}
+
+fn collect_null_like_keys(map: &Map<String, Value>, keys: &[&str]) -> Vec<String> {
+    keys.iter()
+        .filter_map(|key| {
+            if map_value_missing_or_null_like(map, key) {
+                Some((*key).to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn collect_null_like_object_keys(map: &Map<String, Value>) -> Vec<String> {
+    let mut keys = map
+        .iter()
+        .filter_map(|(key, value)| {
+            if value_is_null_like(value) {
+                Some(key.clone())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    keys.sort_unstable();
+    keys
+}
+
+fn sha256_hex_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
+}
+
+fn build_payload_namespace_views(map: &Map<String, Value>) -> Map<String, Value> {
+    let mut out = Map::new();
+    for key in ["appList", "dfp", "ipInfo"] {
+        if let Some(decoded) = parse_json_string_or_object(map.get(key)) {
+            out.insert(key.to_string(), decoded);
+        }
+    }
+    out
+}
+
+fn build_top_level_object_delta(before: &Map<String, Value>, after: &Map<String, Value>) -> Value {
+    let before_keys = before.keys().cloned().collect::<HashSet<_>>();
+    let after_keys = after.keys().cloned().collect::<HashSet<_>>();
+
+    let mut added = after_keys
+        .difference(&before_keys)
+        .cloned()
+        .collect::<Vec<_>>();
+    added.sort_unstable();
+
+    let mut removed = before_keys
+        .difference(&after_keys)
+        .cloned()
+        .collect::<Vec<_>>();
+    removed.sort_unstable();
+
+    let mut shared_keys = before_keys
+        .intersection(&after_keys)
+        .cloned()
+        .collect::<Vec<_>>();
+    shared_keys.sort_unstable();
+    let shared_key_refs = shared_keys.iter().map(String::as_str).collect::<Vec<_>>();
+    let changed = build_field_diff(before, after, &shared_key_refs);
+
+    json!({
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+    })
+}
+
+fn build_payload_snapshot(
+    value: &Value,
+    cipher_bytes: Option<usize>,
+    cipher_sha256: Option<String>,
+) -> Value {
+    let compact_json = value.to_string();
+    let plaintext_utf8_len = compact_json.len();
+    let plaintext_sha256 = sha256_hex_bytes(compact_json.as_bytes());
+    let mut top_level_keys = Vec::<String>::new();
+    let mut null_like_keys = Vec::<String>::new();
+    let mut required_null_like_keys = Vec::<String>::new();
+    let mut namespace_views = Map::new();
+
+    if let Value::Object(map) = value {
+        top_level_keys = map.keys().cloned().collect::<Vec<_>>();
+        top_level_keys.sort_unstable();
+        null_like_keys = collect_null_like_object_keys(map);
+        let required_keys = v7_required_non_empty_keys(map);
+        required_null_like_keys = collect_null_like_keys(map, &required_keys);
+        namespace_views = build_payload_namespace_views(map);
+    }
+
+    json!({
+        "payload": value,
+        "compact_json": compact_json,
+        "plaintext_utf8_len": plaintext_utf8_len,
+        "plaintext_sha256": plaintext_sha256,
+        "cipher_bytes": cipher_bytes,
+        "cipher_sha256": cipher_sha256,
+        "top_level_keys": top_level_keys,
+        "null_like_keys": null_like_keys,
+        "required_null_like_keys": required_null_like_keys,
+        "namespace_views": Value::Object(namespace_views),
+    })
+}
+
+fn extract_optional_cipher_bytes(value: Option<&Value>, path: &[&str]) -> Option<usize> {
+    let mut current = value?;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    current.as_u64().map(|value| value as usize)
+}
+
+fn extract_optional_cipher_sha256(value: Option<&Value>, path: &[&str]) -> Option<String> {
+    let mut current = value?;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    current.as_str().map(|value| value.to_string())
+}
+
+fn derive_synthetic_imei(seed: &str) -> String {
+    let normalized = seed.trim();
+    let mut hasher_a = crc32fast::Hasher::new();
+    hasher_a.update(normalized.as_bytes());
+    let first = hasher_a.finalize();
+    let mut hasher_b = crc32fast::Hasher::new();
+    hasher_b.update(b"IMEI_SEED");
+    hasher_b.update(normalized.as_bytes());
+    let second = hasher_b.finalize();
+    let mut base_digits = format!("{first:010}{second:010}");
+    base_digits.retain(|ch| ch.is_ascii_digit());
+    while base_digits.len() < 14 {
+        base_digits.push('0');
+    }
+    let imei_14 = &base_digits[..14];
+    let check_digit = imei_luhn_check_digit(imei_14);
+    format!("{imei_14}{check_digit}")
+}
+
+fn imei_luhn_check_digit(imei_14: &str) -> u8 {
+    let mut sum = 0u32;
+    for (idx, ch) in imei_14.chars().enumerate() {
+        let mut d = ch.to_digit(10).unwrap_or(0);
+        if idx % 2 == 1 {
+            d *= 2;
+            if d > 9 {
+                d -= 9;
+            }
+        }
+        sum += d;
+    }
+    ((10 - (sum % 10)) % 10) as u8
+}
+
+fn derive_hex_token_from_seed(seed: &str) -> String {
+    let normalized = seed.trim();
+    let mut out = String::new();
+    for salt in [b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H'] {
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&[salt]);
+        hasher.update(normalized.as_bytes());
+        out.push_str(&format!("{:08X}", hasher.finalize()));
+    }
+    out
+}
+
+fn ensure_app_list_payload(
+    map: &mut Map<String, Value>,
+    imei: Option<&str>,
+    channel_id: Option<&str>,
+    package_name: &str,
+    package_names: Option<&[String]>,
+    force_refresh_channel_id: bool,
+    events: &mut Vec<String>,
+) {
+    let mut app_list_obj = match parse_json_string_or_object(map.get("appList")) {
+        Some(Value::Object(obj)) => obj,
+        _ => Map::new(),
+    };
+    if let Some(imei_value) = normalize_ac1_imei_candidate(imei.map(|v| v.to_string())) {
+        let should_set = app_list_obj
+            .get("imei")
+            .map(value_is_null_like)
+            .unwrap_or(true);
+        if should_set {
+            app_list_obj.insert("imei".to_string(), Value::String(imei_value.clone()));
+            events.push(format!("appList.imei={imei_value}"));
+        }
+    }
+    if let Some(channel_value) = normalize_plain_candidate(channel_id.map(|v| v.to_string())) {
+        let generated_channel_value = generate_app_list_channel_id(&channel_value);
+        let should_set = force_refresh_channel_id
+            || app_list_obj
+                .get("channelId")
+                .map(value_is_null_like)
+                .unwrap_or(true);
+        if should_set {
+            app_list_obj.insert(
+                "channelId".to_string(),
+                Value::String(generated_channel_value.clone()),
+            );
+            events.push(format!("appList.channelId={generated_channel_value}"));
+        }
+    }
+    let desired_package_names = select_app_list_package_names(package_name, package_names);
+    let current_package_names = extract_app_list_package_names(&app_list_obj);
+    if current_package_names != desired_package_names {
+        app_list_obj.insert(
+            "package".to_string(),
+            Value::Array(
+                desired_package_names
+                    .iter()
+                    .map(|package| json!({ "packageName": package }))
+                    .collect(),
+            ),
+        );
+        events.push(format!(
+            "appList.package_count={}",
+            desired_package_names.len()
+        ));
+    }
+    map.insert(
+        "appList".to_string(),
+        Value::String(Value::Object(app_list_obj).to_string()),
+    );
+}
+
+fn select_app_list_package_names(
+    package_name: &str,
+    package_names: Option<&[String]>,
+) -> Vec<String> {
+    let mut out = Vec::<String>::new();
+
+    if let Some(items) = package_names {
+        for item in items {
+            push_app_list_package_candidate(&mut out, item, usize::MAX);
+        }
+    }
+
+    if !out.iter().any(|item| item == package_name) {
+        push_app_list_package_candidate(&mut out, package_name, usize::MAX);
+    }
+    if out.is_empty() {
+        push_app_list_package_candidate(&mut out, package_name, usize::MAX);
+    }
+    out
+}
+
+fn push_app_list_package_candidate(out: &mut Vec<String>, candidate: &str, cap: usize) {
+    let Some(normalized) = normalize_plain_candidate(Some(candidate.to_string())) else {
+        return;
+    };
+    if out.len() >= cap || out.iter().any(|existing| existing == &normalized) {
+        return;
+    }
+    out.push(normalized);
+}
+
+fn extract_app_list_package_names(app_list_obj: &Map<String, Value>) -> Vec<String> {
+    app_list_obj
+        .get("package")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    Value::Object(obj) => extract_non_empty_string(obj, "packageName"),
+                    Value::String(raw) => normalize_plain_candidate(Some(raw.to_string())),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn generate_xn3_like_id() -> String {
+    let mut rng = rand::rng();
+    let mut prefix = String::with_capacity(4);
+    for _ in 0..4 {
+        if rng.random_bool(0.5) {
+            let base = if rng.random_bool(0.5) { b'A' } else { b'a' };
+            prefix.push((base + rng.random_range(0..26)) as char);
+        } else {
+            prefix.push(char::from(b'0' + rng.random_range(0..10)));
+        }
+    }
+    format!("{prefix}{}", current_timestamp_millis())
+}
+
+fn generate_app_list_channel_id(channel_id: &str) -> String {
+    format!("{channel_id}_{}", generate_xn3_like_id())
+}
+
+fn ensure_dfp_payload(
+    map: &mut Map<String, Value>,
+    android_id: Option<&str>,
+    app_version: Option<&str>,
+    package_name: Option<&str>,
+    device_label: Option<&str>,
+    live_profile: Option<&PalmchatLiveDeviceProfile>,
+    events: &mut Vec<String>,
+) {
+    let mut dfp_obj = match parse_json_string_or_object(map.get("dfp")) {
+        Some(Value::Object(obj)) => obj,
+        _ => Map::new(),
+    };
+    if let Some(android_id_value) = normalize_plain_candidate(android_id.map(str::to_string)) {
+        let next = Value::String(android_id_value.clone());
+        if dfp_obj.get("androidid") != Some(&next) {
+            dfp_obj.insert("androidid".to_string(), next);
+            events.push(format!("dfp.androidid={android_id_value}"));
+        }
+    }
+    if let Some(app_version_value) = normalize_plain_candidate(app_version.map(str::to_string)) {
+        let next = Value::String(app_version_value.clone());
+        if dfp_obj.get("app_version") != Some(&next) {
+            dfp_obj.insert("app_version".to_string(), next);
+            events.push(format!("dfp.app_version={app_version_value}"));
+        }
+    }
+    if let Some(package_value) = normalize_plain_candidate(package_name.map(str::to_string)) {
+        let next = Value::String(package_value.clone());
+        if dfp_obj.get("app_package") != Some(&next) {
+            dfp_obj.insert("app_package".to_string(), next);
+            events.push(format!("dfp.app_package={package_value}"));
+        }
+    }
+    if let Some(device_label_value) =
+        normalize_device_label_candidate(device_label.map(str::to_string))
+    {
+        let next = Value::String(device_label_value.clone());
+        if dfp_obj.get("duDeviceLabel") != Some(&next) {
+            dfp_obj.insert("duDeviceLabel".to_string(), next);
+            events.push(format!("dfp.duDeviceLabel={device_label_value}"));
+        }
+    }
+    if let Some(profile) = live_profile {
+        apply_live_profile_to_dfp(&mut dfp_obj, profile, events);
+        apply_fm1_compatible_dfp_defaults(&mut dfp_obj, map, profile, events);
+    }
+    map.insert(
+        "dfp".to_string(),
+        Value::String(Value::Object(dfp_obj).to_string()),
+    );
+}
+
+fn apply_live_profile_to_dfp(
+    dfp_obj: &mut Map<String, Value>,
+    profile: &PalmchatLiveDeviceProfile,
+    events: &mut Vec<String>,
+) {
+    upsert_dfp_string(dfp_obj, "sinfo", profile.secinfo_json.clone(), events);
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.BOARD",
+        profile.product_board.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.BRAND",
+        profile.product_brand.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.DEVICE",
+        profile.product_device.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.HARDWARE",
+        profile.hardware.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.MODEL",
+        profile.product_model.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.PRODUCT",
+        profile.product_name.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "android.os.Build.VERSION.RELEASE",
+        profile.build_release.clone(),
+        events,
+    );
+    if !profile.product_abi_list.is_empty() {
+        upsert_dfp_string(
+            dfp_obj,
+            "build_cpu_abis",
+            Some(json!(profile.product_abi_list).to_string()),
+            events,
+        );
+    }
+    upsert_dfp_string(
+        dfp_obj,
+        "build_display",
+        profile.build_display.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "build_fingerprint",
+        profile.build_fingerprint.clone(),
+        events,
+    );
+    upsert_dfp_string(dfp_obj, "build_host", profile.build_host.clone(), events);
+    upsert_dfp_string(dfp_obj, "build_id", profile.build_id.clone(), events);
+    upsert_dfp_string(
+        dfp_obj,
+        "build_manufacturer",
+        profile.product_manufacturer.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "build_version_security_patch",
+        profile.build_security_patch.clone(),
+        events,
+    );
+    upsert_dfp_string(dfp_obj, "cpu_hardware", profile.hardware.clone(), events);
+    upsert_dfp_string(dfp_obj, "net_type", profile.network_type.clone(), events);
+    upsert_dfp_string(dfp_obj, "netState", profile.network_state.clone(), events);
+    upsert_dfp_string(dfp_obj, "ip", profile.wlan_ipv4.clone(), events);
+    upsert_dfp_string_allow_empty(dfp_obj, "wifiSSID", profile.wifi_ssid.clone(), events);
+    upsert_dfp_string(dfp_obj, "wifi_ip", profile.wlan_ipv4.clone(), events);
+    upsert_dfp_string(
+        dfp_obj,
+        "http.agent",
+        profile.webview_user_agent.clone(),
+        events,
+    );
+    upsert_dfp_string(
+        dfp_obj,
+        "resolution",
+        profile
+            .resolution
+            .clone()
+            .map(|value| value.replace('x', "*")),
+        events,
+    );
+    upsert_dfp_number(
+        dfp_obj,
+        "screen_brightness",
+        profile.screen_brightness,
+        events,
+    );
+    upsert_dfp_bool(dfp_obj, "screen_on", profile.screen_on, events);
+    upsert_dfp_string(dfp_obj, "usb_state", profile.usb_state.clone(), events);
+    if !profile.sensor_name_list.is_empty() {
+        upsert_dfp_string(
+            dfp_obj,
+            "sensor_name_list",
+            Some(profile.sensor_name_list.join(",")),
+            events,
+        );
+    }
+}
+
+fn apply_fm1_compatible_dfp_defaults(
+    dfp_obj: &mut Map<String, Value>,
+    body_obj: &Map<String, Value>,
+    profile: &PalmchatLiveDeviceProfile,
+    events: &mut Vec<String>,
+) {
+    set_dfp_string(dfp_obj, "app_name", "palmchat", events);
+    if let Some(value) = profile
+        .build_bootloader
+        .clone()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        set_dfp_string(dfp_obj, "build_bootloader", value, events);
+    }
+    if let Some(value) = profile
+        .build_version_codename
+        .clone()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        set_dfp_string(dfp_obj, "build_version_codename", value, events);
+    }
+    if let Some(value) = profile
+        .cpu_max_freq
+        .clone()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        set_dfp_string(dfp_obj, "cpu_max_freq", value, events);
+    }
+    if let Some(value) = profile
+        .cpu_min_freq
+        .clone()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        set_dfp_string(dfp_obj, "cpu_min_freq", value, events);
+    }
+    if let Some(value) = profile
+        .kernel_version
+        .clone()
+        .map(|value| value.trim().to_string())
+    {
+        set_dfp_string_allow_empty(dfp_obj, "kernelVersion", value, events);
+    }
+    if let Some(value) = profile.boot_time_millis {
+        set_dfp_number(dfp_obj, "last_boot_time", value, events);
+    }
+    if let Some(value) = profile.build_time_millis {
+        set_dfp_number(dfp_obj, "build_time", value, events);
+    }
+    if let Some(value) = profile.cpu_cores {
+        set_dfp_number(dfp_obj, "cpu_cores", value, events);
+    }
+    set_dfp_string(
+        dfp_obj,
+        "cpu_features",
+        profile
+            .cpu_features
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        events,
+    );
+    set_dfp_string(
+        dfp_obj,
+        "cpu_processor",
+        profile
+            .cpu_processor
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        events,
+    );
+    set_dfp_string(
+        dfp_obj,
+        "cpu_hardware",
+        profile
+            .cpuinfo_hardware
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        events,
+    );
+
+    set_dfp_number(dfp_obj, "gles", 3, events);
+    set_dfp_number(dfp_obj, "simulator", 0, events);
+    set_dfp_number(
+        dfp_obj,
+        "proxy_port",
+        profile.http_proxy_port.unwrap_or(0),
+        events,
+    );
+    set_dfp_string(
+        dfp_obj,
+        "proxy_ip",
+        profile
+            .http_proxy_host
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
+        events,
+    );
+
+    let imei = body_obj
+        .get("imei")
+        .and_then(Value::as_str)
+        .map(|value| value.to_string())
+        .unwrap_or_default();
+    let imsi = body_obj
+        .get("imsi")
+        .and_then(Value::as_str)
+        .map(|value| value.to_string())
+        .unwrap_or_default();
+    let mac = body_obj
+        .get("mac")
+        .and_then(Value::as_str)
+        .map(|value| value.to_string())
+        .unwrap_or_default();
+    let effective_imei = normalize_ac1_imei_candidate(Some(imei));
+    let effective_imsi = normalize_ac1_imei_candidate(Some(imsi));
+    if let Some(effective_imei) = effective_imei {
+        set_dfp_string(dfp_obj, "deviceId", effective_imei.clone(), events);
+        set_dfp_string(dfp_obj, "imei", effective_imei, events);
+    }
+    if let Some(effective_imsi) = effective_imsi {
+        set_dfp_string(dfp_obj, "imsi", effective_imsi, events);
+    }
+    set_dfp_string(dfp_obj, "phoneNumber", String::new(), events);
+    set_dfp_string(dfp_obj, "bt_mac", "none", events);
+    set_dfp_string(dfp_obj, "bt_name", "none", events);
+    set_dfp_value(
+        dfp_obj,
+        "accessibility_list",
+        Value::Array(
+            profile
+                .enabled_accessibility_packages
+                .iter()
+                .map(|package| json!({ "package": package }))
+                .collect(),
+        ),
+        events,
+    );
+    let input_methods_json = Value::Array(if profile.input_method_labels.is_empty() {
+        profile
+            .input_method_ids
+            .iter()
+            .map(|item| Value::String(item.clone()))
+            .collect()
+    } else {
+        profile
+            .input_method_labels
+            .iter()
+            .map(|item| Value::String(item.clone()))
+            .collect()
+    })
+    .to_string();
+    set_dfp_string(dfp_obj, "in", input_methods_json, events);
+    set_dfp_string(dfp_obj, "isUserAMonkey", "false", events);
+    set_dfp_string(dfp_obj, "hasTracerPid", "false", events);
+    set_dfp_string(dfp_obj, "isDebuggerConnected", "false", events);
+    set_dfp_string(dfp_obj, "org.appanalysis", "false", events);
+    set_dfp_string(dfp_obj, "dalvik.system.Taint", "false", events);
+    set_dfp_string(dfp_obj, "FileDescriptor_name", "false", events);
+    set_dfp_string(dfp_obj, "Cipher_key", "false", events);
+    set_dfp_string(dfp_obj, "socket_pipe", "null", events);
+    set_dfp_string(dfp_obj, "hasQemuDrivers", "false", events);
+    set_dfp_string(dfp_obj, "hasEmulatorAdb", "false", events);
+    set_dfp_string(dfp_obj, "QEmuFiles", "null", events);
+    set_dfp_string(dfp_obj, "GenyFiles", "null", events);
+    set_dfp_string(dfp_obj, "checkQemuBreakpoint", "false", events);
+    set_dfp_string(dfp_obj, "macAddr", mac, events);
+    if let Some(value) = profile
+        .baseband_version
+        .clone()
+        .map(|value| value.trim().to_string())
+    {
+        set_dfp_string_allow_empty(dfp_obj, "basicVersion", value, events);
+    }
+    if let Some(value) = derive_fm1_inner_version(
+        profile.build_display.as_deref(),
+        profile.build_incremental.as_deref(),
+    ) {
+        set_dfp_string(dfp_obj, "innerVersion", value, events);
+    }
+}
+
+fn upsert_dfp_string(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: Option<String>,
+    events: &mut Vec<String>,
+) {
+    if let Some(normalized) = normalize_plain_candidate(value) {
+        let next = Value::String(normalized.clone());
+        if dfp_obj.get(key) != Some(&next) {
+            dfp_obj.insert(key.to_string(), next);
+            events.push(format!("dfp.{key}={normalized}"));
+        }
+    }
+}
+
+fn upsert_dfp_string_allow_empty(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: Option<String>,
+    events: &mut Vec<String>,
+) {
+    let Some(raw) = value else {
+        return;
+    };
+    let normalized = raw.trim().to_string();
+    let next = Value::String(normalized.clone());
+    if dfp_obj.get(key) != Some(&next) {
+        dfp_obj.insert(key.to_string(), next);
+        events.push(format!("dfp.{key}={normalized}"));
+    }
+}
+
+fn set_dfp_string(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: impl Into<String>,
+    events: &mut Vec<String>,
+) {
+    let value = value.into();
+    let next = Value::String(value.clone());
+    if dfp_obj.get(key) != Some(&next) {
+        dfp_obj.insert(key.to_string(), next);
+        events.push(format!("dfp.{key}={value}"));
+    }
+}
+
+fn set_dfp_string_allow_empty(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: impl Into<String>,
+    events: &mut Vec<String>,
+) {
+    let value = value.into();
+    let next = Value::String(value.clone());
+    if dfp_obj.get(key) != Some(&next) {
+        dfp_obj.insert(key.to_string(), next);
+        events.push(format!("dfp.{key}={value}"));
+    }
+}
+
+fn set_dfp_value(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: Value,
+    events: &mut Vec<String>,
+) {
+    if dfp_obj.get(key) != Some(&value) {
+        let event_value = match &value {
+            Value::String(text) => text.clone(),
+            _ => value.to_string(),
+        };
+        dfp_obj.insert(key.to_string(), value);
+        events.push(format!("dfp.{key}={event_value}"));
+    }
+}
+
+fn drop_dfp_key(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    reason: &str,
+    events: &mut Vec<String>,
+) {
+    if dfp_obj.remove(key).is_some() {
+        events.push(format!("drop.dfp.{key}={reason}"));
+    }
+}
+
+fn derive_fm1_inner_version(display: Option<&str>, incremental: Option<&str>) -> Option<String> {
+    let display = normalize_plain_candidate(display.map(|value| value.to_string()));
+    let incremental = normalize_plain_candidate(incremental.map(|value| value.to_string()));
+    match (display, incremental) {
+        (Some(display), Some(incremental)) if display.contains(&incremental) => Some(display),
+        (_, Some(incremental)) => Some(incremental),
+        (Some(display), None) => Some(display),
+        (None, None) => None,
+    }
+}
+
+fn set_dfp_number(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: i64,
+    events: &mut Vec<String>,
+) {
+    let next = Value::Number(value.into());
+    if dfp_obj.get(key) != Some(&next) {
+        dfp_obj.insert(key.to_string(), next);
+        events.push(format!("dfp.{key}={value}"));
+    }
+}
+
+fn upsert_dfp_number(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: Option<i64>,
+    events: &mut Vec<String>,
+) {
+    if let Some(number) = value {
+        let next = Value::Number(number.into());
+        if dfp_obj.get(key) != Some(&next) {
+            dfp_obj.insert(key.to_string(), next);
+            events.push(format!("dfp.{key}={number}"));
+        }
+    }
+}
+
+fn upsert_dfp_bool(
+    dfp_obj: &mut Map<String, Value>,
+    key: &str,
+    value: Option<bool>,
+    events: &mut Vec<String>,
+) {
+    if let Some(flag) = value {
+        let next = Value::Bool(flag);
+        if dfp_obj.get(key) != Some(&next) {
+            dfp_obj.insert(key.to_string(), next);
+            events.push(format!("dfp.{key}={flag}"));
+        }
+    }
+}
+
+fn normalize_device_id_candidate(candidate: Option<String>) -> Option<String> {
+    normalize_plain_candidate(candidate)
+}
+
+fn generate_trace_identifier(prefix_len: usize) -> String {
+    const BASE62: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let millis = current_timestamp_millis();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos() as u128;
+    let mut seed = millis ^ (nanos << 17) ^ (std::process::id() as u128);
+    let mut prefix = String::with_capacity(prefix_len);
+    for idx in 0..prefix_len {
+        let pos = (seed % 62) as usize;
+        prefix.push(BASE62[pos] as char);
+        seed = seed / 62 + ((idx as u128 + 1) * 7919);
+    }
+    format!("{prefix}{millis}")
+}
+
+fn extract_query_param(url: &str, key: &str) -> Option<String> {
+    Url::parse(url).ok().and_then(|parsed| {
+        parsed
+            .query_pairs()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| value.to_string())
+    })
+}
+
+fn smssend_base_url_from_request_url(smssend_url: &str) -> Option<String> {
+    let mut parsed = Url::parse(smssend_url).ok()?;
+    parsed.set_query(None);
+    parsed.set_fragment(None);
+    Some(parsed.to_string())
+}
+
+fn build_two_step_stage1_smssend_url(
+    stage2_control_feedback: &Value,
+    opts: &HashMap<String, String>,
+    auth: Option<&PalmchatSmssendUrlAuth>,
+) -> String {
+    let stage2_smssend_url = stage2_control_feedback
+        .get("smssend_url")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let base_url = opts
+        .get("--smssend-base-url")
+        .cloned()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| smssend_base_url_from_request_url(stage2_smssend_url))
+        .unwrap_or_else(|| "https://short.lianxinapp.com/one/ax/auth.login.by.sendsms".to_string());
+    let device_id = opts
+        .get("--device-id")
+        .cloned()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            stage2_control_feedback
+                .get("deviceId")
+                .and_then(Value::as_str)
+                .map(|value| value.to_string())
+        })
+        .unwrap_or_else(generate_xn3_like_id);
+    let existing_auth = PalmchatSmssendUrlAuth {
+        uid: extract_query_param(stage2_smssend_url, "uid"),
+        token: None,
+        session_id: extract_query_param(stage2_smssend_url, "sessionId"),
+        callback_id: extract_query_param(stage2_smssend_url, "callbackId"),
+        p_id: extract_query_param(stage2_smssend_url, "pId"),
+        sys_uid: extract_query_param(stage2_smssend_url, "sysUid"),
+    };
+    let merged_auth = PalmchatSmssendUrlAuth {
+        uid: auth
+            .and_then(|value| value.uid.clone())
+            .or(existing_auth.uid.clone()),
+        token: auth.and_then(|value| value.token.clone()),
+        session_id: auth
+            .and_then(|value| value.session_id.clone())
+            .or(existing_auth.session_id.clone()),
+        callback_id: auth
+            .and_then(|value| value.callback_id.clone())
+            .or(existing_auth.callback_id.clone()),
+        p_id: auth
+            .and_then(|value| value.p_id.clone())
+            .or(existing_auth.p_id.clone()),
+        sys_uid: auth
+            .and_then(|value| value.sys_uid.clone())
+            .or(existing_auth.sys_uid.clone()),
+    };
+    compose_smssend_url(
+        &base_url,
+        &generate_xn3_like_id(),
+        &device_id,
+        Some(&merged_auth),
+    )
+}
+
 fn build_data_to_control_feedback(
     arg1_json: &Value,
     encrypted_ckey_hex: &str,
@@ -7875,14 +16979,36 @@ fn build_data_to_control_feedback(
     ck_version: &str,
     opts: &HashMap<String, String>,
 ) -> Value {
+    build_data_to_control_feedback_with_url(
+        arg1_json,
+        encrypted_ckey_hex,
+        cipher_hex,
+        ck_version,
+        opts.get("--smssend-url")
+            .cloned()
+            .unwrap_or_else(String::new),
+    )
+}
+
+fn build_data_to_control_feedback_with_url(
+    arg1_json: &Value,
+    encrypted_ckey_hex: &str,
+    cipher_hex: &str,
+    ck_version: &str,
+    smssend_url: String,
+) -> Value {
     let verify_status = arg1_json
         .get("verifyStatus")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let smssend_url = opts
-        .get("--smssend-url")
-        .cloned()
-        .unwrap_or_else(String::new);
+    let request_id = extract_query_param(&smssend_url, "requestId");
+    let device_id = extract_query_param(&smssend_url, "deviceId");
+    let uid = extract_query_param(&smssend_url, "uid");
+    let token_present = extract_query_param(&smssend_url, "token").is_some();
+    let session_id = extract_query_param(&smssend_url, "sessionId");
+    let callback_id = extract_query_param(&smssend_url, "callbackId");
+    let p_id = extract_query_param(&smssend_url, "pId");
+    let sys_uid = extract_query_param(&smssend_url, "sysUid");
     let mut blocked_reasons = Vec::<String>::new();
     if !verify_status {
         blocked_reasons.push("verifyStatus_false".to_string());
@@ -7903,6 +17029,15 @@ fn build_data_to_control_feedback(
         "blocked_reasons": blocked_reasons,
         "verifyStatus": verify_status,
         "smssend_url": smssend_url,
+        "requestId": request_id,
+        "deviceId": device_id,
+        "uid": uid,
+        "token_present": token_present,
+        "sessionId": session_id,
+        "callbackId": callback_id,
+        "pId": p_id,
+        "sysUid": sys_uid,
+        "body": arg1_json,
         "headers": {
             "content-encrypted-zx": "1",
             "content-ckey": encrypted_ckey_hex,
@@ -7983,6 +17118,85 @@ fn derive_v7_first_stage_candidate(stage2_value: &Value) -> Value {
         out.insert("verifyStatus".to_string(), Value::Bool(false));
     }
     Value::Object(out)
+}
+
+fn build_two_step_stage1_payload(stage2_value: &Value, package_name: &str) -> Value {
+    let Value::Object(stage2_obj) = stage2_value else {
+        return json!({});
+    };
+    let preserve_existing_first_stage = match stage2_obj.get("verifyStatus") {
+        Some(Value::Bool(v)) => !*v,
+        Some(Value::Number(v)) => v.as_i64().unwrap_or_default() == 0,
+        Some(Value::String(v)) => !parse_bool_like(v),
+        _ => false,
+    } && ["rid", "modeType", "diffTime"]
+        .iter()
+        .all(|key| !stage2_obj.contains_key(*key));
+    let mut stage1_obj = if preserve_existing_first_stage {
+        stage2_obj.clone()
+    } else {
+        match derive_v7_first_stage_candidate(stage2_value) {
+            Value::Object(obj) => obj,
+            _ => return json!({}),
+        }
+    };
+    stage1_obj.remove("captcha");
+    let app_list_channel_id = stage1_obj
+        .get("channelId")
+        .and_then(Value::as_str)
+        .map(|value| value.to_string());
+    let stage1_package_names = parse_json_string_or_object(stage1_obj.get("appList"))
+        .and_then(|value| value.as_object().map(extract_app_list_package_names))
+        .filter(|packages| !packages.is_empty())
+        .unwrap_or_else(|| vec![package_name.to_string()]);
+    let mut events = Vec::new();
+    ensure_app_list_payload(
+        &mut stage1_obj,
+        None,
+        app_list_channel_id.as_deref(),
+        package_name,
+        Some(stage1_package_names.as_slice()),
+        !preserve_existing_first_stage,
+        &mut events,
+    );
+    Value::Object(stage1_obj)
+}
+
+fn build_two_step_stage1_from_mh_base(base_value: &Value, stage2_value: &Value) -> Value {
+    let Value::Object(base_obj) = base_value else {
+        return json!({});
+    };
+    let Value::Object(stage2_obj) = stage2_value else {
+        return Value::Object(base_obj.clone());
+    };
+    let mut stage1_obj = base_obj.clone();
+    if let Some(value) = stage2_obj.get("mobile") {
+        stage1_obj.insert("mobile".to_string(), value.clone());
+    }
+    if let Some(value) = stage2_obj.get("countryCode") {
+        stage1_obj.insert("countryCode".to_string(), value.clone());
+    }
+    stage1_obj.remove("rid");
+    stage1_obj.remove("modeType");
+    stage1_obj.remove("diffTime");
+    stage1_obj.remove("captcha");
+    stage1_obj.insert("verifyStatus".to_string(), Value::Bool(false));
+    stage1_obj
+        .entry("paramNum".to_string())
+        .or_insert_with(|| Value::Number(4.into()));
+    Value::Object(stage1_obj)
+}
+
+fn apply_explicit_stage1_override(stage1_value: &mut Value, stage1_override: Option<&Value>) {
+    let Some(Value::Object(override_obj)) = stage1_override else {
+        return;
+    };
+    let Some(stage1_obj) = stage1_value.as_object_mut() else {
+        return;
+    };
+    for (key, value) in override_obj {
+        stage1_obj.insert(key.clone(), value.clone());
+    }
 }
 
 fn build_field_diff(
@@ -8217,6 +17431,56 @@ fn build_v7_retry_payload_views(explicit_stage1: Option<&Value>, stage2_value: &
         "stage1_plus_patch_preview": Value::Object(patched_preview),
         "stage2_effective_body": Value::Object(stage2_obj),
         "patch_diff": patch_diff,
+    })
+}
+
+fn build_v7_payload_debug_surface(
+    explicit_stage1: Option<&Value>,
+    stage2_value: &Value,
+    stage2_cipher_hex: &str,
+    smssend_two_step: Option<&Value>,
+) -> Value {
+    let retry_views = build_v7_retry_payload_views(explicit_stage1, stage2_value);
+    let stage1_value = smssend_two_step
+        .and_then(|value| value.get("stage1_payload"))
+        .cloned()
+        .or_else(|| retry_views.get("stage1_candidate_body").cloned())
+        .unwrap_or_else(|| json!({}));
+    let stage2_effective = retry_views
+        .get("stage2_effective_body")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let stage1_field_diff = match (&stage1_value, &stage2_effective) {
+        (Value::Object(stage1_obj), Value::Object(stage2_obj)) => {
+            build_top_level_object_delta(stage1_obj, stage2_obj)
+        }
+        _ => json!({}),
+    };
+
+    let stage2_cipher_bytes = if stage2_cipher_hex.trim().is_empty() {
+        None
+    } else {
+        Some(stage2_cipher_hex.len() / 2)
+    };
+    let stage2_cipher_sha256 = hex::decode(stage2_cipher_hex)
+        .ok()
+        .map(|bytes| sha256_hex_bytes(&bytes));
+    let stage1_cipher_bytes =
+        extract_optional_cipher_bytes(smssend_two_step, &["stage1_encrypt", "cipher_bytes"]);
+    let stage1_cipher_sha256 =
+        extract_optional_cipher_sha256(smssend_two_step, &["stage1_encrypt", "cipher_sha256"]);
+
+    json!({
+        "summary": "rnidbg-boss internal payload debug surface for new SMS. It exposes the derived first-stage plaintext body, the effective second-stage plaintext body, null-like keys, namespace decoding, and any available cipher byte metrics without relying on external capture scripts.",
+        "stage1_candidate": build_payload_snapshot(&stage1_value, stage1_cipher_bytes, stage1_cipher_sha256),
+        "stage2_effective": build_payload_snapshot(&stage2_effective, stage2_cipher_bytes, stage2_cipher_sha256),
+        "retry_patch_only": retry_views.get("retry_patch_only").cloned().unwrap_or_else(|| json!({})),
+        "stage1_plus_patch_preview": retry_views
+            .get("stage1_plus_patch_preview")
+            .cloned()
+            .unwrap_or_else(|| json!({})),
+        "stage1_to_stage2_top_level_delta": stage1_field_diff,
+        "known_field_diff": retry_views.get("patch_diff").cloned().unwrap_or_else(|| json!({})),
     })
 }
 
@@ -8980,6 +18244,125 @@ fn jni_value_to_bytes(value: JniValue) -> Result<Vec<u8>> {
     }
 }
 
+fn bytes_from_dvm_object(object: &DvmObject) -> Option<Vec<u8>> {
+    match object {
+        DvmObject::ByteArray(bytes) => Some(bytes.clone()),
+        DvmObject::String(value) => Some(value.clone().into_bytes()),
+        _ => None,
+    }
+}
+
+fn bytes_from_object_id(vm: &mut DalvikVM64<()>, object_id: i64) -> Option<Vec<u8>> {
+    object_from_id_mut(vm, object_id).and_then(|object| bytes_from_dvm_object(&*object))
+}
+
+fn secret_pair_from_dvm_object(object: &DvmObject) -> Option<PalmchatSecretPair> {
+    let pair = data_ref::<PalmchatPairState>(object)?;
+    let key = pair.first.as_ref().and_then(bytes_from_dvm_object)?;
+    let iv = pair.second.as_ref().and_then(bytes_from_dvm_object)?;
+    if key.is_empty() || iv.is_empty() {
+        return None;
+    }
+    Some(PalmchatSecretPair { key, iv })
+}
+
+fn jni_value_to_secret_pair(value: JniValue) -> Option<PalmchatSecretPair> {
+    match value {
+        JniValue::Object(object) => secret_pair_from_dvm_object(&object),
+        JniValue::Null | JniValue::Void => None,
+        _ => None,
+    }
+}
+
+fn value_from_json_object(object: &DvmObject) -> Option<Value> {
+    data_ref::<JsonObjectState>(object).map(|state| Value::Object(state.map.clone()))
+}
+
+fn value_from_json_object_with_vm(vm: &mut DalvikVM64<()>, object: &DvmObject) -> Option<Value> {
+    match object {
+        DvmObject::ObjectRef(object_id) => {
+            object_from_id_mut(vm, *object_id).and_then(|value| value_from_json_object(&*value))
+        }
+        other => value_from_json_object(other),
+    }
+}
+
+fn jni_value_to_json_value(value: &JniValue) -> Option<Value> {
+    match value {
+        JniValue::Object(object) => value_from_json_object(object),
+        _ => None,
+    }
+}
+
+fn jni_value_to_json_value_with_vm(vm: &mut DalvikVM64<()>, value: &JniValue) -> Option<Value> {
+    match value {
+        JniValue::Object(object) => value_from_json_object_with_vm(vm, object),
+        _ => None,
+    }
+}
+
+fn extract_secret_pair_from_refresh_result(value: &Value) -> Option<(String, String)> {
+    let mut candidates = vec![value];
+    if let Some(data) = value.get("data") {
+        candidates.push(data);
+    }
+    for candidate in candidates {
+        let skey = candidate
+            .get("skey")
+            .and_then(|value| normalize_plain_candidate(Some(value_to_string_lossy(value))));
+        let iv = candidate
+            .get("iv")
+            .and_then(|value| normalize_plain_candidate(Some(value_to_string_lossy(value))));
+        if let (Some(skey), Some(iv)) = (skey, iv) {
+            return Some((skey, iv));
+        }
+    }
+    None
+}
+
+fn value_to_string_lossy(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        other => other.to_string(),
+    }
+}
+
+fn bytes_from_maybe_truncated_ref(vm: &mut DalvikVM64<()>, raw_id: i64) -> Option<Vec<u8>> {
+    if let Some(bytes) = bytes_from_object_id(vm, raw_id) {
+        return Some(bytes);
+    }
+    let seq = (raw_id as u64 & 0xFFFF_FFFF) as i64;
+    let local_candidate = (jni::JNI_FLAG_OBJECT << 32) | seq;
+    if let Some(bytes) = bytes_from_object_id(vm, local_candidate) {
+        return Some(bytes);
+    }
+    let global_candidate = (jni::JNI_FLAG_REF << 32) | seq;
+    bytes_from_object_id(vm, global_candidate)
+}
+
+fn jni_value_to_bytes_with_vm(vm: &mut DalvikVM64<()>, value: JniValue) -> Result<Vec<u8>> {
+    match value {
+        JniValue::Object(object) => match object {
+            DvmObject::ObjectRef(object_id) => object_from_id_mut(vm, object_id)
+                .and_then(|object| bytes_from_dvm_object(&*object))
+                .ok_or_else(|| {
+                    anyhow!("unable to decode object ref bytes from id=0x{object_id:x}")
+                }),
+            other => bytes_from_dvm_object(&other)
+                .ok_or_else(|| anyhow!("unexpected JNI object return type for bytes")),
+        },
+        JniValue::Int(object_id) => bytes_from_maybe_truncated_ref(vm, object_id as i64)
+            .ok_or_else(|| anyhow!("unable to decode int object bytes from id={object_id}")),
+        JniValue::Long(object_id) => bytes_from_maybe_truncated_ref(vm, object_id)
+            .ok_or_else(|| anyhow!("unable to decode long object bytes from id=0x{object_id:x}")),
+        JniValue::Null | JniValue::Void => Ok(Vec::new()),
+        other => Err(anyhow!(
+            "unexpected JNI return type for bytes with vm: {}",
+            other.to_string()
+        )),
+    }
+}
+
 fn jni_value_to_bool(value: JniValue) -> Result<bool> {
     match value {
         JniValue::Boolean(v) => Ok(v),
@@ -8988,6 +18371,20 @@ fn jni_value_to_bool(value: JniValue) -> Result<bool> {
         JniValue::Null | JniValue::Void => Ok(false),
         other => Err(anyhow!(
             "unexpected JNI return type for bool: {}",
+            other.to_string()
+        )),
+    }
+}
+
+fn jni_value_to_int(value: JniValue) -> Result<i32> {
+    match value {
+        JniValue::Int(v) => Ok(v),
+        JniValue::Boolean(v) => Ok(if v { 1 } else { 0 }),
+        JniValue::Long(v) => {
+            i32::try_from(v).map_err(|_| anyhow!("jni long out of range for int conversion: {v}"))
+        }
+        other => Err(anyhow!(
+            "unexpected JNI return type for int: {}",
             other.to_string()
         )),
     }
@@ -9402,6 +18799,9 @@ mod tests {
             android_id: "abc123".to_string(),
             imei: "imei-value".to_string(),
             mac: "mac-value".to_string(),
+            sdid: "sdid-value".to_string(),
+            local_smid: "local-smid-value".to_string(),
+            device_label: "device-label".to_string(),
             process_name: "com.zenmen.palmchat".to_string(),
         };
         assert_eq!(state.effective_android_id(), "abc123");
@@ -9583,10 +18983,1768 @@ mod tests {
     fn build_captcha_ui_sdk_html_injects_bridge_and_mode() {
         let src = r#"<html><body><span id='shumei_form_captcha_wrapper'>加载中...</span></body><script>initSMCaptcha({mode:'xxxxxxxxxxxxxxxxxxxx'},smCaptchaCallback);</script></html>"#;
         let stage1 = json!({ "mobile": "15390455973" });
-        let html = build_captcha_ui_sdk_html(src, &stage1, "select", true)
-            .expect("sdk html build should succeed");
+        let html =
+            build_captcha_ui_sdk_html(src, &stage1, "select", true, "http://127.0.0.1:18080")
+                .expect("sdk html build should succeed");
         assert!(html.contains("mode:'select'"));
         assert!(html.contains("window.jsBridge"));
-        assert!(html.contains("/bridge"));
+        assert!(html.contains("http://127.0.0.1:18080/bridge"));
+    }
+
+    #[test]
+    fn build_data_to_control_feedback_marks_ready_when_inputs_complete() {
+        let mut opts = HashMap::new();
+        opts.insert(
+            "--smssend-url".to_string(),
+            "https://short.lianxinapp.com/one/ax/auth.login.by.sendsms".to_string(),
+        );
+        let arg1 = json!({"verifyStatus": true});
+        let feedback = build_data_to_control_feedback(&arg1, "AABB", "CCDD", "v1", &opts);
+        assert_eq!(
+            feedback.get("ready_for_smssend").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            feedback.get("next_control_action").and_then(Value::as_str),
+            Some("smssend_dispatch")
+        );
+    }
+
+    #[test]
+    fn build_data_to_control_feedback_blocks_without_url() {
+        let opts = HashMap::new();
+        let arg1 = json!({"verifyStatus": true});
+        let feedback = build_data_to_control_feedback(&arg1, "AABB", "CCDD", "v1", &opts);
+        assert_eq!(
+            feedback.get("ready_for_smssend").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert!(feedback
+            .get("blocked_reasons")
+            .and_then(Value::as_array)
+            .map(|items| items
+                .iter()
+                .any(|v| v.as_str() == Some("missing_smssend_url")))
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn prepare_smssend_test_url_opts_auto_injects_when_missing() {
+        let stage1 = Map::new();
+        let mut stage2 = Map::new();
+        stage2.insert("verifyStatus".to_string(), Value::Bool(true));
+        stage2.insert(
+            "did".to_string(),
+            Value::String("null__17dadd8ec4b84ba0".to_string()),
+        );
+        let mut opts = HashMap::new();
+        opts.insert("--smssend-test".to_string(), "true".to_string());
+        let injected = prepare_smssend_test_url_opts(&stage1, &stage2, &mut opts, None, None)
+            .expect("should inject smssend url");
+        assert!(injected
+            .get("smssend_url")
+            .and_then(Value::as_str)
+            .map(|v| v.contains("requestId=") && v.contains("deviceId="))
+            .unwrap_or(false));
+        assert!(opts
+            .get("--smssend-url")
+            .map(|v| v.contains("requestId=") && v.contains("deviceId="))
+            .unwrap_or(false));
+        assert!(opts
+            .get("--smssend-url")
+            .map(|v| !v.contains("null__"))
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn prepare_smssend_test_url_opts_uses_live_uid_and_session_overrides() {
+        let stage1 = Map::new();
+        let mut stage2 = Map::new();
+        stage2.insert("verifyStatus".to_string(), Value::Bool(true));
+        let mut opts = HashMap::new();
+        opts.insert("--smssend-test".to_string(), "true".to_string());
+        opts.insert(
+            "--smssend-base-url".to_string(),
+            "https://short.lianxinapp.com/one/ax/auth.login.by.wifi".to_string(),
+        );
+        let auth = PalmchatSmssendUrlAuth {
+            uid: Some("7956322787122176".to_string()),
+            token: Some("TOKEN123".to_string()),
+            session_id: Some("SID123".to_string()),
+            callback_id: Some("CB123".to_string()),
+            p_id: Some("9".to_string()),
+            sys_uid: Some("12".to_string()),
+        };
+        let profile = PalmchatLiveDeviceProfile {
+            source: "test".to_string(),
+            tray_device_id: Some("3El51774707713791".to_string()),
+            ..Default::default()
+        };
+        let injected =
+            prepare_smssend_test_url_opts(&stage1, &stage2, &mut opts, Some(&auth), Some(&profile))
+                .expect("should inject smssend url");
+        let smssend_url = injected
+            .get("smssend_url")
+            .and_then(Value::as_str)
+            .expect("smssend_url");
+        assert!(smssend_url.contains("uid=7956322787122176"));
+        assert!(smssend_url.contains("token=TOKEN123"));
+        assert!(smssend_url.contains("sessionId=SID123"));
+        assert!(smssend_url.contains("deviceId=3El51774707713791"));
+        assert!(smssend_url.contains("callbackId=CB123"));
+        assert!(smssend_url.contains("pId=9"));
+        assert!(smssend_url.contains("sysUid=12"));
+    }
+
+    #[test]
+    fn prepare_smssend_test_url_opts_excludes_auth_query_for_new_send_sms() {
+        let stage1 = Map::new();
+        let mut stage2 = Map::new();
+        stage2.insert("verifyStatus".to_string(), Value::Bool(true));
+        let mut opts = HashMap::new();
+        opts.insert("--smssend-test".to_string(), "true".to_string());
+        let auth = PalmchatSmssendUrlAuth {
+            uid: Some("7956322787122176".to_string()),
+            token: Some("TOKEN123".to_string()),
+            session_id: Some("SID123".to_string()),
+            callback_id: Some("CB123".to_string()),
+            p_id: Some("9".to_string()),
+            sys_uid: Some("12".to_string()),
+        };
+        let injected =
+            prepare_smssend_test_url_opts(&stage1, &stage2, &mut opts, Some(&auth), None)
+                .expect("should inject smssend url");
+        let smssend_url = injected
+            .get("smssend_url")
+            .and_then(Value::as_str)
+            .expect("smssend_url");
+        assert!(smssend_url.contains("requestId="));
+        assert!(smssend_url.contains("deviceId="));
+        assert!(!smssend_url.contains("uid=7956322787122176"));
+        assert!(!smssend_url.contains("token=TOKEN123"));
+        assert!(!smssend_url.contains("sessionId=SID123"));
+        assert!(!smssend_url.contains("callbackId=CB123"));
+        assert!(!smssend_url.contains("pId=9"));
+        assert!(!smssend_url.contains("sysUid=12"));
+        assert_eq!(
+            injected.get("auth_query_included").and_then(Value::as_bool),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn compose_smssend_url_includes_auth_query_for_wifi_endpoint() {
+        let auth = PalmchatSmssendUrlAuth {
+            uid: Some("7956322787122176".to_string()),
+            token: Some("TOKEN123".to_string()),
+            session_id: Some("SID123".to_string()),
+            callback_id: Some("CB123".to_string()),
+            p_id: Some("9".to_string()),
+            sys_uid: Some("12".to_string()),
+        };
+        let smssend_url = compose_smssend_url(
+            "https://short.lianxinapp.com/one/ax/auth.login.by.wifi",
+            "RIDX",
+            "DEVX",
+            Some(&auth),
+        );
+        assert!(smssend_url.contains("uid=7956322787122176"));
+        assert!(smssend_url.contains("token=TOKEN123"));
+        assert!(smssend_url.contains("sessionId=SID123"));
+        assert!(smssend_url.contains("requestId=RIDX"));
+        assert!(smssend_url.contains("deviceId=DEVX"));
+        assert!(smssend_url.contains("callbackId=CB123"));
+        assert!(smssend_url.contains("pId=9"));
+        assert!(smssend_url.contains("sysUid=12"));
+    }
+
+    #[test]
+    fn compose_smssend_url_excludes_auth_query_for_sms_endpoint() {
+        let auth = PalmchatSmssendUrlAuth {
+            uid: Some("7956322787122176".to_string()),
+            token: Some("TOKEN123".to_string()),
+            session_id: Some("SID123".to_string()),
+            callback_id: Some("CB123".to_string()),
+            p_id: Some("9".to_string()),
+            sys_uid: Some("12".to_string()),
+        };
+        let smssend_url = compose_smssend_url(
+            "https://short.lianxinapp.com/one/ax/auth.login.by.sendsms",
+            "RIDX",
+            "DEVX",
+            Some(&auth),
+        );
+        assert!(smssend_url.contains("requestId=RIDX"));
+        assert!(smssend_url.contains("deviceId=DEVX"));
+        assert!(!smssend_url.contains("uid=7956322787122176"));
+        assert!(!smssend_url.contains("token=TOKEN123"));
+        assert!(!smssend_url.contains("sessionId=SID123"));
+        assert!(!smssend_url.contains("callbackId=CB123"));
+        assert!(!smssend_url.contains("pId=9"));
+        assert!(!smssend_url.contains("sysUid=12"));
+    }
+
+    #[test]
+    fn merge_smssend_url_auth_sources_uses_recovered_session_when_cli_missing() {
+        let overrides = PalmchatSmssendUrlAuth {
+            uid: None,
+            token: None,
+            session_id: None,
+            callback_id: Some("CB1".to_string()),
+            p_id: None,
+            sys_uid: None,
+        };
+        let recovered = PalmchatRecoveredAuthState {
+            uid: Some("7956322787122176".to_string()),
+            session_id: Some("SID_FROM_RECOVERED".to_string()),
+            ..Default::default()
+        };
+        let merged = merge_smssend_url_auth_sources(
+            &overrides,
+            Some(&recovered),
+            None,
+            Some("TOKEN_FROM_RECOVERED".to_string()),
+        );
+        assert_eq!(merged.uid.as_deref(), Some("7956322787122176"));
+        assert_eq!(merged.session_id.as_deref(), Some("SID_FROM_RECOVERED"));
+        assert_eq!(merged.token.as_deref(), Some("TOKEN_FROM_RECOVERED"));
+        assert_eq!(merged.callback_id.as_deref(), Some("CB1"));
+    }
+
+    #[test]
+    fn merge_smssend_url_auth_sources_prefers_bootstrap_token_over_regenerated_token() {
+        let overrides = PalmchatSmssendUrlAuth {
+            uid: None,
+            token: None,
+            session_id: None,
+            callback_id: None,
+            p_id: None,
+            sys_uid: None,
+        };
+        let recovered = PalmchatRecoveredAuthState {
+            uid: Some("7956322787122176".to_string()),
+            token_after_bootstrap: Some("TOKEN_FROM_BOOTSTRAP".to_string()),
+            ..Default::default()
+        };
+        let merged = merge_smssend_url_auth_sources(
+            &overrides,
+            Some(&recovered),
+            None,
+            Some("TOKEN_REGENERATED".to_string()),
+        );
+        assert_eq!(merged.token.as_deref(), Some("TOKEN_FROM_BOOTSTRAP"));
+    }
+
+    #[test]
+    fn secret_pair_from_pair_state_extracts_key_and_iv() {
+        let pair_object = new_mut_data_object(
+            Rc::new(DvmClass {
+                id: 1,
+                name: "android/util/Pair".to_string(),
+                super_class: None,
+                interfaces: None,
+            }),
+            PalmchatPairState {
+                first: Some(DvmObject::ByteArray(b"secret_key".to_vec())),
+                second: Some(DvmObject::ByteArray(b"secret_iv".to_vec())),
+            },
+        );
+        let pair = secret_pair_from_dvm_object(&pair_object).expect("pair bytes");
+        assert_eq!(pair.key, b"secret_key".to_vec());
+        assert_eq!(pair.iv, b"secret_iv".to_vec());
+    }
+
+    #[test]
+    fn build_data_to_control_feedback_extracts_request_and_device_id() {
+        let mut opts = HashMap::new();
+        opts.insert(
+            "--smssend-url".to_string(),
+            "https://short.lianxinapp.com/one/ax/auth.login.by.sendsms?uid=7956322787122176&token=TOKEN123&sessionId=SID123&requestId=RIDX&deviceId=DEVX&callbackId=CB123&pId=9&sysUid=12".to_string(),
+        );
+        let arg1 = json!({"verifyStatus": true});
+        let feedback = build_data_to_control_feedback(&arg1, "AABB", "CCDD", "v1", &opts);
+        assert_eq!(
+            feedback.get("requestId").and_then(Value::as_str),
+            Some("RIDX")
+        );
+        assert_eq!(
+            feedback.get("deviceId").and_then(Value::as_str),
+            Some("DEVX")
+        );
+        assert_eq!(
+            feedback.get("uid").and_then(Value::as_str),
+            Some("7956322787122176")
+        );
+        assert_eq!(
+            feedback.get("sessionId").and_then(Value::as_str),
+            Some("SID123")
+        );
+        assert_eq!(
+            feedback.get("callbackId").and_then(Value::as_str),
+            Some("CB123")
+        );
+        assert_eq!(feedback.get("pId").and_then(Value::as_str), Some("9"));
+        assert_eq!(feedback.get("sysUid").and_then(Value::as_str), Some("12"));
+        assert_eq!(
+            feedback.get("token_present").and_then(Value::as_bool),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn normalize_device_id_candidate_rejects_null_like_values() {
+        assert_eq!(
+            normalize_device_id_candidate(Some("null__abc".to_string())),
+            None
+        );
+        assert_eq!(
+            normalize_device_id_candidate(Some("null".to_string())),
+            None
+        );
+        assert_eq!(
+            normalize_device_id_candidate(Some("unknown".to_string())),
+            None
+        );
+        assert_eq!(
+            normalize_device_id_candidate(Some("0EwK1762184873163".to_string())),
+            Some("0EwK1762184873163".to_string())
+        );
+    }
+
+    #[test]
+    fn normalize_device_label_candidate_preserves_zero_literal() {
+        assert_eq!(
+            normalize_device_label_candidate(Some("0".to_string())),
+            Some("0".to_string())
+        );
+        assert_eq!(
+            normalize_device_label_candidate(Some("LABELX".to_string())).as_deref(),
+            Some("LABELX")
+        );
+    }
+
+    #[test]
+    fn normalize_ac1_imei_candidate_preserves_unknown_literal() {
+        assert_eq!(
+            normalize_ac1_imei_candidate(Some("unknown".to_string())).as_deref(),
+            Some("Unknown")
+        );
+        assert_eq!(
+            normalize_ac1_imei_candidate(Some("864209876543210".to_string())).as_deref(),
+            Some("864209876543210")
+        );
+        assert_eq!(
+            normalize_ac1_imei_candidate(Some("null__abc".to_string())),
+            None
+        );
+    }
+
+    #[test]
+    fn derive_synthetic_imei_is_15_digits_and_luhn_valid() {
+        let imei = derive_synthetic_imei("0EwK1762184873163");
+        assert_eq!(imei.len(), 15);
+        assert!(imei.chars().all(|ch| ch.is_ascii_digit()));
+        let digits: Vec<u32> = imei.chars().filter_map(|ch| ch.to_digit(10)).collect();
+        let mut sum = 0u32;
+        for (idx, mut d) in digits.iter().copied().enumerate() {
+            if idx % 2 == 1 {
+                d *= 2;
+                if d > 9 {
+                    d -= 9;
+                }
+            }
+            sum += d;
+        }
+        assert_eq!(sum % 10, 0);
+    }
+
+    #[test]
+    fn ensure_app_list_payload_backfills_imei_and_package() {
+        let mut map = Map::new();
+        map.insert("appList".to_string(), Value::String("{}".to_string()));
+        let mut events = Vec::new();
+        ensure_app_list_payload(
+            &mut map,
+            Some("864209876543210"),
+            Some("OPPO_A56925F58B07B8B6"),
+            "com.zenmen.palmchat",
+            None,
+            false,
+            &mut events,
+        );
+        let app_list = parse_json_string_or_object(map.get("appList")).expect("appList object");
+        let app_list_obj = app_list.as_object().expect("appList map");
+        assert_eq!(
+            app_list_obj.get("imei").and_then(Value::as_str),
+            Some("864209876543210")
+        );
+        let channel_id = app_list_obj
+            .get("channelId")
+            .and_then(Value::as_str)
+            .expect("appList.channelId");
+        assert!(channel_id.starts_with("OPPO_A56925F58B07B8B6_"));
+        assert!(app_list_obj
+            .get("package")
+            .and_then(Value::as_array)
+            .map(|items| !items.is_empty())
+            .unwrap_or(false));
+        assert!(events
+            .iter()
+            .any(|event| event.starts_with("appList.imei=")));
+    }
+
+    #[test]
+    fn ensure_app_list_payload_refreshes_dynamic_suffix_when_forced() {
+        let mut map = Map::new();
+        map.insert(
+            "appList".to_string(),
+            Value::String(
+                json!({
+                    "channelId": "OPPO_A56925F58B07B8B6_OLD",
+                    "package": [{"packageName": "com.zenmen.palmchat"}]
+                })
+                .to_string(),
+            ),
+        );
+        let mut events = Vec::new();
+        ensure_app_list_payload(
+            &mut map,
+            None,
+            Some("OPPO_A56925F58B07B8B6"),
+            "com.zenmen.palmchat",
+            None,
+            true,
+            &mut events,
+        );
+        let app_list = parse_json_string_or_object(map.get("appList")).expect("appList object");
+        let app_list_obj = app_list.as_object().expect("appList map");
+        let channel_id = app_list_obj
+            .get("channelId")
+            .and_then(Value::as_str)
+            .expect("appList.channelId");
+        assert!(channel_id.starts_with("OPPO_A56925F58B07B8B6_"));
+        assert_ne!(channel_id, "OPPO_A56925F58B07B8B6_OLD");
+        assert!(events
+            .iter()
+            .any(|event| event.starts_with("appList.channelId=")));
+    }
+
+    #[test]
+    fn ensure_app_list_payload_preserves_full_live_package_set() {
+        let mut map = Map::new();
+        map.insert(
+            "appList".to_string(),
+            Value::String(
+                json!({
+                    "channelId": "OPPO_A56925F58B07B8B6_OLD",
+                    "package": [{"packageName": "com.zenmen.palmchat"}]
+                })
+                .to_string(),
+            ),
+        );
+        let live_packages = vec![
+            "com.zenmen.palmchat".to_string(),
+            "com.android.settings".to_string(),
+            "com.android.systemui".to_string(),
+        ];
+        let mut events = Vec::new();
+        ensure_app_list_payload(
+            &mut map,
+            None,
+            Some("OPPO_A56925F58B07B8B6"),
+            "com.zenmen.palmchat",
+            Some(live_packages.as_slice()),
+            false,
+            &mut events,
+        );
+        let app_list = parse_json_string_or_object(map.get("appList")).expect("appList object");
+        let app_list_obj = app_list.as_object().expect("appList map");
+        assert_eq!(
+            extract_app_list_package_names(app_list_obj),
+            vec![
+                "com.zenmen.palmchat".to_string(),
+                "com.android.settings".to_string(),
+                "com.android.systemui".to_string()
+            ]
+        );
+        assert!(events
+            .iter()
+            .any(|event| event == "appList.package_count=3"));
+    }
+
+    #[test]
+    fn select_app_list_package_names_preserves_live_order_and_app_membership() {
+        let live_packages = vec![
+            "com.oppo.instant.local.service".to_string(),
+            "com.android.systemui".to_string(),
+            "android".to_string(),
+            "com.android.settings".to_string(),
+        ];
+        assert_eq!(
+            select_app_list_package_names("com.zenmen.palmchat", Some(live_packages.as_slice())),
+            vec![
+                "com.oppo.instant.local.service".to_string(),
+                "com.android.systemui".to_string(),
+                "android".to_string(),
+                "com.android.settings".to_string(),
+                "com.zenmen.palmchat".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_mmkv_key_ip_info_prefers_exact_key_followed_by_json() {
+        let raw = concat!(
+            "key_ip_infoqp{\"ipv4\":\"183.212.9.155\"}\n",
+            "key_ip_info\n",
+            "{\"Final_Client_IP_Address\":\"2409:8a20:8174:a120:1748:aa80:8724:a087\",\"ipv6\":\"2409:8a20:8174:a120:1748:aa80:8724:a087\"}\n"
+        );
+        assert_eq!(
+            parse_mmkv_key_ip_info(raw),
+            Some("{\"Final_Client_IP_Address\":\"2409:8a20:8174:a120:1748:aa80:8724:a087\",\"ipv6\":\"2409:8a20:8174:a120:1748:aa80:8724:a087\"}".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_mmkv_strings_value_supports_adjacent_and_inline_formats() {
+        let raw = concat!(
+            "      9 tray_preference_device_id\n",
+            "     36 3El51774707713791\n",
+            "    262 current_exid! 7oAKm777xs2nGEvCRbNoJ5-1-1-rCRTu\n"
+        );
+        assert_eq!(
+            parse_mmkv_strings_value(raw, "tray_preference_device_id"),
+            Some("3El51774707713791".to_string())
+        );
+        assert_eq!(
+            parse_mmkv_strings_value(raw, "current_exid"),
+            Some("7oAKm777xs2nGEvCRbNoJ5-1-1-rCRTu".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_runtime_probe_app_list_packages_preserves_probe_order() {
+        let raw = concat!(
+            "LOG=before\n",
+            "APP_LIST_JSON={\"imei\":\"Unknown\",\"package\":[{\"packageName\":\"b\"},{\"packageName\":\"a\"},{\"packageName\":\"b\"}]}\n"
+        );
+        assert_eq!(
+            parse_runtime_probe_app_list_packages(raw),
+            Some(vec!["b".to_string(), "a".to_string()])
+        );
+    }
+
+    #[test]
+    fn parse_runtime_probe_app_list_packages_supports_body_app_list() {
+        let raw = concat!(
+            "BODY_appList={\"package\":[{\"packageName\":\"x\"},{\"packageName\":\"android\"},{\"packageName\":\"x\"}]}\n"
+        );
+        assert_eq!(
+            parse_runtime_probe_app_list_packages(raw),
+            Some(vec!["x".to_string(), "android".to_string()])
+        );
+    }
+
+    #[test]
+    fn runtime_probe_overrides_disabled_by_default() {
+        assert!(!runtime_probe_overrides_enabled_from_env_value(None));
+        assert!(!runtime_probe_overrides_enabled_from_env_value(Some("")));
+        assert!(!runtime_probe_overrides_enabled_from_env_value(Some("0")));
+        assert!(!runtime_probe_overrides_enabled_from_env_value(Some("false")));
+    }
+
+    #[test]
+    fn runtime_probe_overrides_enabled_for_truthy_values() {
+        assert!(runtime_probe_overrides_enabled_from_env_value(Some("1")));
+        assert!(runtime_probe_overrides_enabled_from_env_value(Some("true")));
+        assert!(runtime_probe_overrides_enabled_from_env_value(Some("yes")));
+        assert!(runtime_probe_overrides_enabled_from_env_value(Some("on")));
+    }
+
+    #[test]
+    fn parse_runtime_probe_overrides_prefers_body_json_semantics() {
+        let raw = concat!(
+            "BODY_androidId=474ae9e4161da390\n",
+            "BODY_ipInfo={\"Final_Client_IP_Address\":\"183.212.9.155\",\"ipv4\":\"183.212.9.155\",\"X-Forwarded-For\":\"183.212.9.155, 172.19.36.0\"}\n",
+            "BODY_dfp={\"sinfo\":\"{\\\"plt\\\":false}\",\"netState\":\"WIFI_\",\"net_type\":\"WIFI\",\"wifiSSID\":\"\",\"wifi_ip\":\"192.168.1.12\",\"resolution\":\"1080*2184\",\"screen_brightness\":0,\"screen_on\":false,\"sensor_name_list\":\"a,b\",\"duDeviceLabel\":\"0\",\"basicVersion\":\"\",\"kernelVersion\":\"\",\"last_boot_time\":1774808142482}\n",
+            "BODY_appList={\"package\":[{\"packageName\":\"com.zenmen.palmchat\"},{\"packageName\":\"android\"}]}\n"
+        );
+        let overrides =
+            parse_runtime_probe_overrides(raw, "/tmp/palmchat_probe_java.out.realdevice")
+                .expect("runtime probe overrides");
+        assert_eq!(overrides.android_id.as_deref(), Some("474ae9e4161da390"));
+        assert_eq!(overrides.network_state.as_deref(), Some("WIFI_"));
+        assert_eq!(overrides.network_type.as_deref(), Some("WIFI"));
+        assert_eq!(overrides.wifi_ssid.as_deref(), Some(""));
+        assert_eq!(overrides.resolution.as_deref(), Some("1080*2184"));
+        assert_eq!(overrides.screen_brightness, Some(0));
+        assert_eq!(overrides.screen_on, Some(false));
+        assert_eq!(overrides.device_label.as_deref(), Some("0"));
+        assert_eq!(overrides.baseband_version.as_deref(), Some(""));
+        assert_eq!(overrides.kernel_version.as_deref(), Some(""));
+        assert_eq!(overrides.boot_time_millis, Some(1_774_808_142_482));
+        assert_eq!(
+            overrides.sensor_name_list,
+            Some(vec!["a".to_string(), "b".to_string()])
+        );
+        assert_eq!(
+            overrides.installed_packages,
+            Some(vec![
+                "com.zenmen.palmchat".to_string(),
+                "android".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn parse_mmkv_strings_value_supports_plain_strings_output_without_offsets() {
+        let raw = concat!(
+            "tray_preference_device_id\n",
+            "3El51774707713791\n",
+            "current_uid\n",
+            "7956322787122176\n",
+            "current_exid! 7oAKm777xs2nGEvCRbNoJ5-1-1-rCRTu\n",
+            "current_uid\n",
+            "current_exid\n"
+        );
+        assert_eq!(
+            parse_mmkv_strings_value(raw, "tray_preference_device_id"),
+            Some("3El51774707713791".to_string())
+        );
+        assert_eq!(
+            parse_mmkv_strings_value(raw, "current_uid"),
+            Some("7956322787122176".to_string())
+        );
+        assert_eq!(
+            parse_mmkv_strings_value(raw, "current_exid"),
+            Some("7oAKm777xs2nGEvCRbNoJ5-1-1-rCRTu".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_wifi_social_last_login_info_extracts_uid_exid_and_phone() {
+        let raw = r#"<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="last_login_user_info">{&quot;exid&quot;:&quot;7oAKm777xs2nGEvCRbNoJ5-1-1-rCRTu&quot;,&quot;phone&quot;:&quot;15380455973&quot;,&quot;uid&quot;:7956322787122176}</string>
+</map>"#;
+        let parsed = parse_wifi_social_last_login_info(raw).expect("last_login_user_info");
+        assert_eq!(
+            extract_json_value_as_string(Some(&parsed), "uid"),
+            Some("7956322787122176".to_string())
+        );
+        assert_eq!(
+            extract_json_value_as_string(Some(&parsed), "exid"),
+            Some("7oAKm777xs2nGEvCRbNoJ5-1-1-rCRTu".to_string())
+        );
+        assert_eq!(
+            extract_json_value_as_string(Some(&parsed), "phone"),
+            Some("15380455973".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_wifi_social_additional_auth_extracts_sid_and_refresh_key_ciphertexts() {
+        let raw = r#"<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="sp_sid_additional">7369645f636970686572</string>
+    <string name="sp_rk_additional">726566726573685f636970686572</string>
+</map>"#;
+        let (sid, refresh_key) = parse_wifi_social_additional_auth(raw);
+        assert_eq!(sid.as_deref(), Some("7369645f636970686572"));
+        assert_eq!(refresh_key.as_deref(), Some("726566726573685f636970686572"));
+    }
+
+    #[test]
+    fn resolve_palmchat_recovered_auth_candidates_honors_source_precedence() {
+        let candidates = PalmchatRecoveredAuthCandidates {
+            cli_uid: Some("cli_uid".to_string()),
+            cli_session_id: Some("cli_sid".to_string()),
+            live_uid: Some("live_uid".to_string()),
+            live_session_id: Some("live_sid".to_string()),
+            live_refresh_key: Some("live_rk".to_string()),
+            java_uid: Some("java_uid".to_string()),
+            java_session_id: Some("java_sid".to_string()),
+            java_refresh_key: Some("java_rk".to_string()),
+        };
+        let (uid, session_id, refresh_key, source) =
+            resolve_palmchat_recovered_auth_candidates(&candidates);
+        assert_eq!(uid.as_deref(), Some("cli_uid"));
+        assert_eq!(session_id.as_deref(), Some("cli_sid"));
+        assert_eq!(refresh_key.as_deref(), Some("live_rk"));
+        assert_eq!(source, "cli_overrides");
+
+        let live_only = PalmchatRecoveredAuthCandidates {
+            live_uid: Some("live_uid".to_string()),
+            live_session_id: Some("live_sid".to_string()),
+            live_refresh_key: Some("live_rk".to_string()),
+            java_uid: Some("java_uid".to_string()),
+            java_session_id: Some("java_sid".to_string()),
+            java_refresh_key: Some("java_rk".to_string()),
+            ..Default::default()
+        };
+        let (uid, session_id, refresh_key, source) =
+            resolve_palmchat_recovered_auth_candidates(&live_only);
+        assert_eq!(uid.as_deref(), Some("live_uid"));
+        assert_eq!(session_id.as_deref(), Some("live_sid"));
+        assert_eq!(refresh_key.as_deref(), Some("live_rk"));
+        assert_eq!(source, "live_device_profile");
+    }
+
+    #[test]
+    fn build_two_step_stage1_payload_refreshes_app_list_channel_id() {
+        let stage2 = json!({
+            "mobile": "17696723664",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RIDX",
+            "modeType": "select",
+            "diffTime": "9540",
+            "channelId": "OPPO_A56925F58B07B8B6",
+            "appList": "{\"channelId\":\"OPPO_A56925F58B07B8B6_OLD\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"},{\"packageName\":\"com.android.settings\"}]}"
+        });
+        let stage1 = build_two_step_stage1_payload(&stage2, "com.zenmen.palmchat");
+        let stage1_obj = stage1.as_object().expect("stage1 object");
+        assert_eq!(
+            stage1_obj.get("verifyStatus").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert!(stage1_obj.get("rid").is_none());
+        let app_list = parse_json_string_or_object(stage1_obj.get("appList")).expect("appList");
+        let app_list_obj = app_list.as_object().expect("appList object");
+        let channel_id = app_list_obj
+            .get("channelId")
+            .and_then(Value::as_str)
+            .expect("appList.channelId");
+        assert!(channel_id.starts_with("OPPO_A56925F58B07B8B6_"));
+        assert_ne!(channel_id, "OPPO_A56925F58B07B8B6_OLD");
+        assert_eq!(
+            extract_app_list_package_names(app_list_obj),
+            vec![
+                "com.zenmen.palmchat".to_string(),
+                "com.android.settings".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn build_two_step_stage1_payload_preserves_clean_first_stage_body() {
+        let stage1 = json!({
+            "mobile": "17696723664",
+            "countryCode": "86",
+            "verifyStatus": false,
+            "channelId": "OPPO_A56925F58B07B8B6",
+            "appList": "{\"channelId\":\"OPPO_A56925F58B07B8B6_FIXED\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"},{\"packageName\":\"android\"}]}"
+        });
+        let rebuilt = build_two_step_stage1_payload(&stage1, "com.zenmen.palmchat");
+        let rebuilt_obj = rebuilt.as_object().expect("rebuilt stage1 object");
+        assert_eq!(
+            rebuilt_obj.get("verifyStatus").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert!(rebuilt_obj.get("rid").is_none());
+        assert!(rebuilt_obj.get("modeType").is_none());
+        assert!(rebuilt_obj.get("diffTime").is_none());
+        let app_list = parse_json_string_or_object(rebuilt_obj.get("appList")).expect("appList");
+        let app_list_obj = app_list.as_object().expect("appList object");
+        assert_eq!(
+            app_list_obj.get("channelId").and_then(Value::as_str),
+            Some("OPPO_A56925F58B07B8B6_FIXED")
+        );
+        assert_eq!(
+            extract_app_list_package_names(app_list_obj),
+            vec!["com.zenmen.palmchat".to_string(), "android".to_string()]
+        );
+    }
+
+    #[test]
+    fn build_two_step_stage1_payload_strips_retry_noise_from_false_stage1() {
+        let stage1_with_noise = json!({
+            "mobile": "17696723664",
+            "countryCode": "86",
+            "verifyStatus": false,
+            "rid": "",
+            "modeType": "select",
+            "diffTime": "0",
+            "channelId": "OPPO_A56925F58B07B8B6",
+            "appList": "{\"channelId\":\"OPPO_A56925F58B07B8B6_FIXED\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"},{\"packageName\":\"android\"}]}"
+        });
+        let rebuilt = build_two_step_stage1_payload(&stage1_with_noise, "com.zenmen.palmchat");
+        let rebuilt_obj = rebuilt.as_object().expect("rebuilt stage1 object");
+        assert_eq!(
+            rebuilt_obj.get("verifyStatus").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert!(rebuilt_obj.get("rid").is_none());
+        assert!(rebuilt_obj.get("modeType").is_none());
+        assert!(rebuilt_obj.get("diffTime").is_none());
+        let app_list = parse_json_string_or_object(rebuilt_obj.get("appList")).expect("appList");
+        let app_list_obj = app_list.as_object().expect("appList object");
+        let channel_id = app_list_obj
+            .get("channelId")
+            .and_then(Value::as_str)
+            .expect("appList.channelId");
+        assert!(channel_id.starts_with("OPPO_A56925F58B07B8B6_"));
+        assert_ne!(channel_id, "OPPO_A56925F58B07B8B6_FIXED");
+    }
+
+    #[test]
+    fn build_two_step_stage1_from_mh_base_applies_o92_sms_patch() {
+        let base = json!({
+            "channelId": "OPPO_A56925F58B07B8B6",
+            "did": "null__5ac9abc225faadfe",
+            "platform": "android",
+            "versionCode": "260309",
+            "imei": Value::Null,
+            "mac": "",
+            "dhid": "",
+            "autoLogin": "0",
+            "sdid": "DUz_seed",
+            "oaid": "oaid_seed",
+            "oneId": "",
+            "dfp": "{}",
+            "appList": "{\"channelId\":\"OPPO_A56925F58B07B8B6_FIXED\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"},{\"packageName\":\"android\"}]}",
+            "appId": "ZX0001",
+            "ipInfo": "{}",
+            "androidId": "5ac9abc225faadfe"
+        });
+        let stage2 = json!({
+            "mobile": "17696723664",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "slide",
+            "diffTime": 3123
+        });
+        let rebuilt = build_two_step_stage1_from_mh_base(&base, &stage2);
+        let rebuilt_obj = rebuilt.as_object().expect("rebuilt object");
+        assert_eq!(
+            rebuilt_obj.get("mobile").and_then(Value::as_str),
+            Some("17696723664")
+        );
+        assert_eq!(
+            rebuilt_obj.get("countryCode").and_then(Value::as_str),
+            Some("86")
+        );
+        assert_eq!(
+            rebuilt_obj.get("verifyStatus").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(rebuilt_obj.get("paramNum").and_then(Value::as_i64), Some(4));
+        assert!(rebuilt_obj.get("rid").is_none());
+        assert!(rebuilt_obj.get("modeType").is_none());
+        assert!(rebuilt_obj.get("diffTime").is_none());
+        assert_eq!(rebuilt_obj.get("imei"), Some(&Value::Null));
+    }
+
+    #[test]
+    fn build_two_step_stage1_from_mh_base_preserves_producer_namespaces() {
+        let base = json!({
+            "mobile": "old_mobile",
+            "countryCode": "1",
+            "verifyStatus": true,
+            "channelId": "OPPO_A56925F58B07B8B6",
+            "dfp": "{\"screen_on\":false,\"wifiSSID\":\"producer_ssid\"}",
+            "appList": "{\"channelId\":\"OPPO_A56925F58B07B8B6_PRODUCER\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"},{\"packageName\":\"com.android.settings\"}]}",
+            "ipInfo": "{\"ipv4\":\"8.8.8.8\",\"Final_Client_IP_Address\":\"8.8.8.8\"}"
+        });
+        let stage2 = json!({
+            "mobile": "17696723664",
+            "countryCode": "86",
+            "verifyStatus": true,
+            "rid": "RID123",
+            "modeType": "slide",
+            "diffTime": 3123
+        });
+        let rebuilt = build_two_step_stage1_from_mh_base(&base, &stage2);
+        let rebuilt_obj = rebuilt.as_object().expect("rebuilt object");
+        assert_eq!(
+            rebuilt_obj.get("mobile").and_then(Value::as_str),
+            Some("17696723664")
+        );
+        assert_eq!(
+            rebuilt_obj.get("countryCode").and_then(Value::as_str),
+            Some("86")
+        );
+        assert_eq!(
+            rebuilt_obj.get("appList").and_then(Value::as_str),
+            base.get("appList").and_then(Value::as_str)
+        );
+        assert_eq!(
+            rebuilt_obj.get("ipInfo").and_then(Value::as_str),
+            base.get("ipInfo").and_then(Value::as_str)
+        );
+        assert_eq!(
+            rebuilt_obj.get("dfp").and_then(Value::as_str),
+            base.get("dfp").and_then(Value::as_str)
+        );
+        assert_eq!(
+            rebuilt_obj.get("verifyStatus").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert!(rebuilt_obj.get("rid").is_none());
+        assert!(rebuilt_obj.get("modeType").is_none());
+        assert!(rebuilt_obj.get("diffTime").is_none());
+    }
+
+    #[test]
+    fn apply_explicit_stage1_override_replaces_selected_fields() {
+        let mut stage1 = json!({
+            "mobile": "17696723664",
+            "verifyStatus": false,
+            "dfp": "{\"screen_on\":false}",
+            "ipInfo": "{\"ipv4\":\"1.1.1.1\"}"
+        });
+        let override_value = json!({
+            "verifyStatus": false,
+            "dfp": "{\"screen_on\":true}",
+            "ipInfo": "{\"ipv4\":\"2.2.2.2\"}"
+        });
+        apply_explicit_stage1_override(&mut stage1, Some(&override_value));
+        let stage1_obj = stage1.as_object().expect("stage1 object");
+        assert_eq!(
+            stage1_obj.get("verifyStatus").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            stage1_obj.get("dfp").and_then(Value::as_str),
+            Some("{\"screen_on\":true}")
+        );
+        assert_eq!(
+            stage1_obj.get("ipInfo").and_then(Value::as_str),
+            Some("{\"ipv4\":\"2.2.2.2\"}")
+        );
+    }
+
+    #[test]
+    fn apply_app_version_normalization_keeps_new_sms_version_code_as_string() {
+        let mut map = Map::new();
+        map.insert("mobile".to_string(), json!("17696723664"));
+        map.insert("countryCode".to_string(), json!("86"));
+        map.insert("appId".to_string(), json!("ZX0001"));
+        map.insert("channelId".to_string(), json!("OPPO_A56925F58B07B8B6"));
+        map.insert("paramNum".to_string(), json!(4));
+        map.insert("versionCode".to_string(), json!(251103));
+        map.insert("versionName".to_string(), json!("7.10.901.2"));
+        let info = PalmchatAppVersionInfo {
+            version_code: Some("260304".to_string()),
+            version_name: Some("8.2.1.1".to_string()),
+            source: Some("test".to_string()),
+        };
+        let mut events = Vec::new();
+        apply_app_version_normalization(&mut map, &info, false, &mut events);
+        assert_eq!(
+            map.get("versionCode").and_then(Value::as_str),
+            Some("260304")
+        );
+        assert!(!map.contains_key("versionName"));
+        assert!(events.iter().any(|event| event.contains("versionCode:")));
+        assert!(events.iter().any(|event| event.contains("versionName:")));
+    }
+
+    #[test]
+    fn apply_app_version_normalization_treats_sparse_stage1_seed_as_new_sms() {
+        let mut map = Map::new();
+        map.insert("mobile".to_string(), json!("17696723664"));
+        map.insert("countryCode".to_string(), json!("86"));
+        map.insert("verifyStatus".to_string(), json!(false));
+        map.insert("rid".to_string(), json!(""));
+        map.insert("modeType".to_string(), json!("select"));
+        map.insert("diffTime".to_string(), json!("0"));
+        map.insert("versionCode".to_string(), json!(251103));
+        map.insert("versionName".to_string(), json!("7.10.901.2"));
+        let info = PalmchatAppVersionInfo {
+            version_code: Some("260304".to_string()),
+            version_name: Some("8.2.1.1".to_string()),
+            source: Some("test".to_string()),
+        };
+        let mut events = Vec::new();
+        apply_app_version_normalization(&mut map, &info, false, &mut events);
+        assert_eq!(
+            map.get("versionCode").and_then(Value::as_str),
+            Some("260304")
+        );
+        assert!(!map.contains_key("versionName"));
+        assert!(events.iter().any(|event| event.contains("versionCode:")));
+        assert!(events.iter().any(|event| event.contains("versionName:")));
+    }
+
+    #[test]
+    fn apply_app_version_normalization_keeps_non_sms_version_name() {
+        let mut map = Map::new();
+        map.insert("foo".to_string(), json!("bar"));
+        let info = PalmchatAppVersionInfo {
+            version_code: Some("260304".to_string()),
+            version_name: Some("8.2.1.1".to_string()),
+            source: Some("test".to_string()),
+        };
+        let mut events = Vec::new();
+        apply_app_version_normalization(&mut map, &info, false, &mut events);
+        assert_eq!(map.get("versionCode").and_then(Value::as_i64), Some(260304));
+        assert_eq!(
+            map.get("versionName").and_then(Value::as_str),
+            Some("8.2.1.1")
+        );
+    }
+
+    #[test]
+    fn apply_app_version_normalization_preserves_explicit_bridge_stage1_version_code() {
+        let mut map = Map::new();
+        map.insert("mobile".to_string(), json!("17696723664"));
+        map.insert("countryCode".to_string(), json!("86"));
+        map.insert("appId".to_string(), json!("ZX0001"));
+        map.insert("channelId".to_string(), json!("OPPO_A56925F58B07B8B6"));
+        map.insert("paramNum".to_string(), json!(4));
+        map.insert("versionCode".to_string(), json!("251103"));
+        map.insert("versionName".to_string(), json!("7.10.901.2"));
+        let info = PalmchatAppVersionInfo {
+            version_code: Some("260309".to_string()),
+            version_name: Some("8.2.1.3".to_string()),
+            source: Some("test".to_string()),
+        };
+        let mut events = Vec::new();
+        apply_app_version_normalization(&mut map, &info, true, &mut events);
+        assert_eq!(
+            map.get("versionCode").and_then(Value::as_str),
+            Some("251103")
+        );
+        assert!(!map.contains_key("versionName"));
+        assert!(!events.iter().any(|event| event.contains("versionCode:")));
+        assert!(events.iter().any(|event| event.contains("versionName:")));
+    }
+
+    #[test]
+    fn recompute_nullable_did_uses_current_android_id_with_null_imei() {
+        let mut map = Map::new();
+        map.insert("imei".to_string(), Value::Null);
+        map.insert("mac".to_string(), Value::String(String::new()));
+        map.insert(
+            "androidId".to_string(),
+            Value::String("5ac9abc225faadfe".to_string()),
+        );
+        map.insert(
+            "did".to_string(),
+            Value::String("null__17dadd8ec4b84ba0".to_string()),
+        );
+        assert_eq!(
+            recompute_nullable_did(&map).as_deref(),
+            Some("null__5ac9abc225faadfe")
+        );
+    }
+
+    #[test]
+    fn live_device_profile_updates_identity_state_and_clears_preinit_flag() {
+        let profile = PalmchatLiveDeviceProfile {
+            source: "test".to_string(),
+            android_id: Some("5ac9abc225faadfe".to_string()),
+            sdid: Some("DUz_seed".to_string()),
+            device_label: Some("LABEL_SEED".to_string()),
+            ..Default::default()
+        };
+        let mut state = PalmchatIdentityRuntimeState {
+            privacy_agree: Some(true),
+            read_phone_state_granted: Some(false),
+            priv_info_initialized: true,
+            android_id: "17dadd8ec4b84ba0".to_string(),
+            imei: "old-imei".to_string(),
+            mac: "old-mac".to_string(),
+            sdid: String::new(),
+            local_smid: String::new(),
+            device_label: String::new(),
+            process_name: "com.zenmen.palmchat".to_string(),
+        };
+        profile.apply_to_identity_seed(&mut state);
+        assert_eq!(state.sdid, "DUz_seed");
+        assert_eq!(state.device_label, "LABEL_SEED");
+        let payload = json!({
+            "androidId": "5ac9abc225faadfe",
+            "imei": Value::Null,
+            "mac": "",
+            "sdid": "DUz_test",
+            "dfp": "{\"duDeviceLabel\":\"LABELX\"}"
+        });
+        let events = profile.update_identity_state_from_effective_body(
+            &mut state,
+            &payload,
+            &HashMap::new(),
+        );
+        assert_eq!(state.android_id, "5ac9abc225faadfe");
+        assert_eq!(state.imei, "");
+        assert_eq!(state.mac, "");
+        assert_eq!(state.sdid, "DUz_test");
+        assert_eq!(state.device_label, "LABELX");
+        assert!(!state.priv_info_initialized);
+        assert!(events
+            .iter()
+            .any(|event| event == "identity.priv_info_initialized=false"));
+    }
+
+    #[test]
+    fn normalize_wm4_real_network_type_uses_wg_for_wifi_with_mobile_data() {
+        assert_eq!(normalize_wm4_network_type(Some("WIFI")), "w".to_string());
+        assert_eq!(
+            normalize_wm4_real_network_type(Some("WIFI"), Some(true)),
+            "wg".to_string()
+        );
+        assert_eq!(
+            normalize_wm4_real_network_type(Some("WIFI"), Some(false)),
+            "w".to_string()
+        );
+        assert_eq!(
+            normalize_wm4_real_network_type(Some("LTE"), Some(true)),
+            "g".to_string()
+        );
+    }
+
+    #[test]
+    fn parse_optional_bool_flag_handles_empty_numeric_and_text_values() {
+        assert_eq!(parse_optional_bool_flag(None), None);
+        assert_eq!(parse_optional_bool_flag(Some("")), None);
+        assert_eq!(parse_optional_bool_flag(Some("null")), None);
+        assert_eq!(parse_optional_bool_flag(Some("1")), Some(true));
+        assert_eq!(parse_optional_bool_flag(Some("0")), Some(false));
+        assert_eq!(parse_optional_bool_flag(Some("enabled")), Some(true));
+    }
+
+    #[test]
+    fn normalize_locale_tag_prefers_first_non_empty_and_uses_underscore() {
+        assert_eq!(
+            normalize_locale_tag(Some("zh-CN,en-US")),
+            Some("zh_CN".to_string())
+        );
+        assert_eq!(
+            normalize_locale_tag(Some("zh_CN")),
+            Some("zh_CN".to_string())
+        );
+    }
+
+    #[test]
+    fn derive_display_density_string_formats_integer_and_fractional_scales() {
+        assert_eq!(
+            derive_display_density_string(Some("480")),
+            Some("3".to_string())
+        );
+        assert_eq!(
+            derive_display_density_string(Some("440")),
+            Some("2.75".to_string())
+        );
+    }
+
+    #[test]
+    fn normalize_sensor_name_list_for_fm1_trims_virtual_tail_after_step_wakeup() {
+        let sensors = vec![
+            "bmi2xy acc_bosch".to_string(),
+            "step_detect_wakeup_mtk".to_string(),
+            "OPLUS Fusion Light Sensor_OPLUS".to_string(),
+            "OPLUS Side Panel Fusion Light Sensor_OPLUS".to_string(),
+            "Gravity Sensor_AOSP".to_string(),
+            "Rotation Vector Sensor_AOSP".to_string(),
+        ];
+        assert_eq!(
+            normalize_sensor_name_list_for_fm1(sensors),
+            vec![
+                "bmi2xy acc_bosch".to_string(),
+                "step_detect_wakeup_mtk".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn build_palmchat_user_agent_headers_follow_static_formula() {
+        let profile = PalmchatLiveDeviceProfile {
+            source: "test".to_string(),
+            channel_id: Some("OPPO_A56925F58B07B8B6".to_string()),
+            product_brand: Some("realme".to_string()),
+            product_model: Some("RMX3560".to_string()),
+            product_manufacturer: Some("realme".to_string()),
+            build_release: Some("14".to_string()),
+            build_id: Some("UKQ1.230924.001".to_string()),
+            locale_tag: Some("zh_CN".to_string()),
+            display_density: Some("3".to_string()),
+            ..Default::default()
+        };
+        let app_version_info = PalmchatAppVersionInfo {
+            version_code: Some("260309".to_string()),
+            version_name: Some("8.2.1.3".to_string()),
+            source: Some("test".to_string()),
+        };
+        let body = json!({
+            "channelId": "OPPO_A56925F58B07B8B6"
+        });
+        assert_eq!(
+            build_palmchat_user_agent_zx(Some(&profile), &app_version_info, Some(&body)),
+            Some(
+                "realme/RMX3560/Android/14/260309/8.2.1.3/zh_CN/3x/OPPO_A56925F58B07B8B6/realme"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            build_palmchat_user_agent_zx_version(Some("8.2.1.3")),
+            Some("Android/8.2.1.3".to_string())
+        );
+        assert_eq!(
+            build_android_dalvik_user_agent(Some(&profile)),
+            Some("Dalvik/2.1.0 (Linux; U; Android 14; RMX3560 Build/UKQ1.230924.001)".to_string())
+        );
+    }
+
+    #[test]
+    fn apply_live_profile_to_dfp_rewrites_stale_device_fields() {
+        let mut dfp_obj = Map::new();
+        dfp_obj.insert(
+            "android.os.Build.BRAND".to_string(),
+            Value::String("OPPO".to_string()),
+        );
+        dfp_obj.insert(
+            "android.os.Build.MODEL".to_string(),
+            Value::String("PGJM10".to_string()),
+        );
+        dfp_obj.insert(
+            "build_fingerprint".to_string(),
+            Value::String("old/fingerprint".to_string()),
+        );
+        let profile = PalmchatLiveDeviceProfile {
+            source: "test".to_string(),
+            secinfo_json: Some("{\"pc\":1}".to_string()),
+            product_brand: Some("realme".to_string()),
+            product_model: Some("RMX3560".to_string()),
+            product_device: Some("RE5489".to_string()),
+            product_name: Some("RMX3560".to_string()),
+            product_board: Some("k6895v1_64".to_string()),
+            hardware: Some("mt6895".to_string()),
+            build_release: Some("14".to_string()),
+            build_fingerprint: Some(
+                "realme/RMX3560/RE5489:14/UKQ1.230924.001/S.1d187e8-1deb8-1168de:user/release-keys"
+                    .to_string(),
+            ),
+            build_display: Some("RMX3560_14.0.0.932(CN01)".to_string()),
+            build_host: Some("dg02-pool07-kvm194".to_string()),
+            build_id: Some("UKQ1.230924.001".to_string()),
+            build_security_patch: Some("2025-03-01".to_string()),
+            product_manufacturer: Some("realme".to_string()),
+            product_abi_list: vec![
+                "arm64-v8a".to_string(),
+                "armeabi-v7a".to_string(),
+                "armeabi".to_string(),
+            ],
+            wlan_ipv4: Some("192.168.1.12".to_string()),
+            wifi_ssid: Some("CMCC-4C37_5G".to_string()),
+            network_type: Some("WIFI".to_string()),
+            network_state: Some("WIFI_CMCC-4C37_5G".to_string()),
+            webview_user_agent: Some("Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UKQ1.230924.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/117.0.0.0 Mobile Safari/537.36".to_string()),
+            resolution: Some("1080x2412".to_string()),
+            screen_brightness: Some(12),
+            screen_on: Some(false),
+            usb_state: Some("adb".to_string()),
+            sensor_name_list: vec!["bmi2xy acc_bosch".to_string()],
+            ..Default::default()
+        };
+        let mut events = Vec::new();
+        apply_live_profile_to_dfp(&mut dfp_obj, &profile, &mut events);
+        assert_eq!(
+            dfp_obj
+                .get("android.os.Build.BRAND")
+                .and_then(Value::as_str),
+            Some("realme")
+        );
+        assert_eq!(
+            dfp_obj
+                .get("android.os.Build.MODEL")
+                .and_then(Value::as_str),
+            Some("RMX3560")
+        );
+        assert_eq!(
+            dfp_obj.get("build_fingerprint").and_then(Value::as_str),
+            Some(
+                "realme/RMX3560/RE5489:14/UKQ1.230924.001/S.1d187e8-1deb8-1168de:user/release-keys"
+            )
+        );
+        assert_eq!(
+            dfp_obj.get("sinfo").and_then(Value::as_str),
+            Some("{\"pc\":1}")
+        );
+        assert_eq!(
+            dfp_obj.get("screen_on").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            dfp_obj.get("net_type").and_then(Value::as_str),
+            Some("WIFI")
+        );
+        assert_eq!(
+            dfp_obj.get("netState").and_then(Value::as_str),
+            Some("WIFI_CMCC-4C37_5G")
+        );
+        assert_eq!(
+            dfp_obj.get("wifiSSID").and_then(Value::as_str),
+            Some("CMCC-4C37_5G")
+        );
+        assert_eq!(
+            dfp_obj.get("wifi_ip").and_then(Value::as_str),
+            Some("192.168.1.12")
+        );
+        assert_eq!(
+            dfp_obj.get("http.agent").and_then(Value::as_str),
+            Some("Mozilla/5.0 (Linux; Android 14; RMX3560 Build/UKQ1.230924.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/117.0.0.0 Mobile Safari/537.36")
+        );
+        assert!(events
+            .iter()
+            .any(|event| event.starts_with("dfp.android.os.Build.BRAND=")));
+    }
+
+    #[test]
+    fn apply_fm1_compatible_dfp_defaults_populates_missing_keys() {
+        let mut dfp_obj = Map::new();
+        let body_obj = json!({
+            "imei": Value::Null,
+            "mac": ""
+        })
+        .as_object()
+        .cloned()
+        .expect("body object");
+        let profile = PalmchatLiveDeviceProfile {
+            source: "test".to_string(),
+            build_bootloader: Some("unknown".to_string()),
+            build_version_codename: Some("REL".to_string()),
+            build_time_millis: Some(1_742_542_413_000),
+            cpu_cores: Some(8),
+            cpu_features: Some("fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics".to_string()),
+            cpu_processor: None,
+            cpuinfo_hardware: None,
+            cpu_max_freq: Some("2850000".to_string()),
+            cpu_min_freq: Some("500000".to_string()),
+            kernel_version: Some("6.1.25-android14".to_string()),
+            build_display: Some("RMX3560_14.0.0.932(CN01)".to_string()),
+            build_incremental: Some("S.1d187e8-1deb8-1168de".to_string()),
+            baseband_version: Some("M_V3_P10,M_V3_P10".to_string()),
+            http_proxy_port: Some(0),
+            boot_time_millis: Some(1_700_000_000_000),
+            enabled_accessibility_packages: vec!["com.example.service".to_string()],
+            input_method_ids: vec!["com.sohu.inputmethod.sogouoem/.SogouIME".to_string()],
+            input_method_labels: vec!["搜狗输入法定制版".to_string()],
+            ..Default::default()
+        };
+        let mut events = Vec::new();
+        apply_fm1_compatible_dfp_defaults(&mut dfp_obj, &body_obj, &profile, &mut events);
+        assert_eq!(
+            dfp_obj.get("app_name").and_then(Value::as_str),
+            Some("palmchat")
+        );
+        assert_eq!(dfp_obj.get("gles").and_then(Value::as_i64), Some(3));
+        assert_eq!(
+            dfp_obj.get("build_bootloader").and_then(Value::as_str),
+            Some("unknown")
+        );
+        assert_eq!(
+            dfp_obj
+                .get("build_version_codename")
+                .and_then(Value::as_str),
+            Some("REL")
+        );
+        assert_eq!(
+            dfp_obj.get("proxy_ip").and_then(Value::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            dfp_obj.get("hasQemuDrivers").and_then(Value::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            dfp_obj.get("QEmuFiles").and_then(Value::as_str),
+            Some("null")
+        );
+        assert!(!dfp_obj.contains_key("deviceId"));
+        assert!(!dfp_obj.contains_key("imei"));
+        assert!(!dfp_obj.contains_key("imsi"));
+        assert_eq!(
+            dfp_obj.get("basicVersion").and_then(Value::as_str),
+            Some("M_V3_P10,M_V3_P10")
+        );
+        assert_eq!(
+            dfp_obj.get("innerVersion").and_then(Value::as_str),
+            Some("S.1d187e8-1deb8-1168de")
+        );
+        assert_eq!(
+            dfp_obj.get("kernelVersion").and_then(Value::as_str),
+            Some("6.1.25-android14")
+        );
+        assert_eq!(
+            dfp_obj.get("build_time").and_then(Value::as_i64),
+            Some(1_742_542_413_000)
+        );
+        assert_eq!(dfp_obj.get("cpu_cores").and_then(Value::as_i64), Some(8));
+        assert_eq!(
+            dfp_obj.get("cpu_features").and_then(Value::as_str),
+            Some("fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics")
+        );
+        assert_eq!(
+            dfp_obj.get("cpu_processor").and_then(Value::as_str),
+            Some("unknown")
+        );
+        assert_eq!(
+            dfp_obj.get("cpu_hardware").and_then(Value::as_str),
+            Some("unknown")
+        );
+        assert_eq!(
+            dfp_obj.get("in").and_then(Value::as_str),
+            Some("[\"搜狗输入法定制版\"]")
+        );
+        assert_eq!(
+            dfp_obj.get("hasTracerPid").and_then(Value::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            dfp_obj.get("isDebuggerConnected").and_then(Value::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            dfp_obj
+                .get("accessibility_list")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first())
+                .and_then(Value::as_object)
+                .and_then(|item| item.get("package"))
+                .and_then(Value::as_str),
+            Some("com.example.service")
+        );
+        assert!(events.iter().any(|event| event == "dfp.app_name=palmchat"));
+    }
+
+    #[test]
+    fn parse_proc_version_release_extracts_kernel_release() {
+        assert_eq!(
+            parse_proc_version_release(Some("Linux version 5.10.209-android12-9-o-g2a9a714f7ee6 (builder@host) #1 SMP PREEMPT Thu Mar 13 04:17:13 UTC 2025")),
+            Some("5.10.209-android12-9-o-g2a9a714f7ee6".to_string())
+        );
+    }
+
+    #[test]
+    fn derive_fm1_inner_version_prefers_incremental_when_display_lacks_it() {
+        assert_eq!(
+            derive_fm1_inner_version(
+                Some("RMX3560_14.0.0.932(CN01)"),
+                Some("S.1d187e8-1deb8-1168de")
+            ),
+            Some("S.1d187e8-1deb8-1168de".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_unix_seconds_to_millis_scales_seconds() {
+        assert_eq!(
+            parse_unix_seconds_to_millis(Some("1742542413")),
+            Some(1_742_542_413_000)
+        );
+    }
+
+    #[test]
+    fn parse_input_method_labels_prefers_ime_name_from_dumpsys() {
+        let raw = r#"
+          rank=0 item=ImeSubtypeListItem{mImeName=搜狗输入法定制版 mSubtypeName=null mSubtypeId=1 mIsSystemLocale=true}
+          rank=1 item=ImeSubtypeListItem{mImeName=ToDesk输入法 mSubtypeName=null mSubtypeId=2 mIsSystemLocale=false}
+        "#;
+        assert_eq!(
+            parse_input_method_labels(raw),
+            vec!["搜狗输入法定制版".to_string(), "ToDesk输入法".to_string()]
+        );
+    }
+
+    #[test]
+    fn build_secinfo_json_computes_digests_and_network_flag() {
+        let secinfo_net_raw = r#"
+su_paths=/system/bin/su,
+u0_a333 21991 1115 0 0 0 0 S com.zenmen.palmchat
+u0_a333 21992 1115 0 0 0 0 S com.zenmen.palmchat:persistent
+38: wlan0    inet 192.168.1.12/24 brd 192.168.1.255 scope global wlan0
+        "#;
+        let secinfo_dirs_raw = r#"
+dir_begin=/data/system
+/data/system/a|12|10
+dir_end=/data/system
+dir_begin=/vendor/firmware
+/vendor/firmware/fw.bin|34|20
+dir_end=/vendor/firmware
+dir_begin=/vendor/lib
+/vendor/lib/libx.so|56|30
+dir_end=/vendor/lib
+dir_begin=/system/bin
+/system/bin/sh|78|40
+dir_end=/system/bin
+dir_begin=/system/framework
+/system/framework/framework.jar|90|50
+dir_end=/system/framework
+        "#;
+        let value = build_secinfo_json(
+            Some("release-keys"),
+            secinfo_net_raw,
+            secinfo_dirs_raw,
+            "com.zenmen.palmchat",
+            &["com.zenmen.palmchat".to_string()],
+        )
+        .expect("sinfo");
+        let parsed = serde_json::from_str::<Value>(&value).expect("json");
+        assert_eq!(parsed.get("plt").and_then(Value::as_bool), Some(true));
+        assert_eq!(parsed.get("pc").and_then(Value::as_i64), Some(1));
+        assert_eq!(parsed.get("v").and_then(Value::as_bool), Some(false));
+        assert_eq!(parsed.get("r").and_then(Value::as_bool), Some(true));
+        assert_eq!(parsed.get("ne").and_then(Value::as_str), Some("0,"));
+        assert!(parsed.get("ds").and_then(Value::as_str).is_some());
+        assert!(parsed.get("sf").and_then(Value::as_str).is_some());
+    }
+
+    #[test]
+    fn normalize_non_empty_candidate_preserves_unknown_literal() {
+        assert_eq!(
+            normalize_non_empty_candidate(Some("unknown".to_string())).as_deref(),
+            Some("unknown")
+        );
+    }
+
+    #[test]
+    fn parse_secinfo_ps_output_filters_to_existing_data_directories() {
+        let raw = r#"
+USER      PID   PPID  VSZ  RSS WCHAN            ADDR S NAME
+u0_a333 21991 1115 0 0 0 0 S com.zenmen.palmchat
+u0_a333 22223 1115 0 0 0 0 S com.zenmen.palmchat.daemon
+u0_a333 22231 1115 0 0 0 0 S com.zenmen.palmchat:assist
+u0_a333 22916 1115 0 0 0 0 S daemon
+        "#;
+        let (user, dirs) = parse_secinfo_ps_output_with_data_dirs(
+            raw,
+            "com.zenmen.palmchat",
+            &["com.zenmen.palmchat".to_string()],
+        );
+        assert_eq!(user.as_deref(), Some("u0_a333"));
+        assert_eq!(dirs, vec!["com.zenmen.palmchat".to_string()]);
+    }
+
+    #[test]
+    fn ensure_dfp_payload_keeps_live_device_label_and_unknown_bootloader() {
+        let mut map = Map::new();
+        let profile = PalmchatLiveDeviceProfile {
+            source: "test".to_string(),
+            build_bootloader: Some("unknown".to_string()),
+            build_version_codename: Some("REL".to_string()),
+            device_label: Some("LABEL_SEED".to_string()),
+            ..Default::default()
+        };
+        let mut events = Vec::new();
+        ensure_dfp_payload(
+            &mut map,
+            Some("5ac9abc225faadfe"),
+            Some("8.2.1.3"),
+            Some("com.zenmen.palmchat"),
+            profile.device_label.as_deref(),
+            Some(&profile),
+            &mut events,
+        );
+        let dfp = match parse_json_string_or_object(map.get("dfp")) {
+            Some(Value::Object(obj)) => obj,
+            other => panic!("unexpected dfp payload: {other:?}"),
+        };
+        assert_eq!(
+            dfp.get("duDeviceLabel").and_then(Value::as_str),
+            Some("LABEL_SEED")
+        );
+        assert_eq!(
+            dfp.get("build_bootloader").and_then(Value::as_str),
+            Some("unknown")
+        );
+    }
+
+    #[test]
+    fn prune_new_sms_auto_noise_fields_drops_device_id_and_local_smid() {
+        let mut map = Map::new();
+        map.insert(
+            "mobile".to_string(),
+            Value::String("17696723664".to_string()),
+        );
+        map.insert("countryCode".to_string(), Value::String("86".to_string()));
+        map.insert("appId".to_string(), Value::String("ZX0001".to_string()));
+        map.insert(
+            "channelId".to_string(),
+            Value::String("OPPO_A56925F58B07B8B6".to_string()),
+        );
+        map.insert("verifyStatus".to_string(), Value::Bool(false));
+        map.insert("paramNum".to_string(), Value::from(4));
+        map.insert(
+            "device_id".to_string(),
+            Value::String("DUK7YauhItfeckmN".to_string()),
+        );
+        map.insert(
+            "local_smid".to_string(),
+            Value::String("YXDUK7YauhItfeckmN".to_string()),
+        );
+        let mut events = Vec::new();
+        assert!(is_new_sms_v7_profile(&map));
+        prune_new_sms_auto_noise_fields(&mut map, &mut events);
+        assert!(!map.contains_key("device_id"));
+        assert!(!map.contains_key("local_smid"));
+        assert!(events
+            .iter()
+            .any(|event| event == "drop.device_id=absent-in-proven-new-sms-body"));
+        assert!(events
+            .iter()
+            .any(|event| event == "drop.local_smid=absent-in-proven-new-sms-body"));
+    }
+
+    #[test]
+    fn prune_new_sms_auto_noise_fields_drops_seeded_noise_fields() {
+        let mut map = Map::new();
+        map.insert(
+            "device_id".to_string(),
+            Value::String("seeded-device-id".to_string()),
+        );
+        map.insert(
+            "local_smid".to_string(),
+            Value::String("seeded-local-smid".to_string()),
+        );
+
+        let mut events = Vec::new();
+        prune_new_sms_auto_noise_fields(&mut map, &mut events);
+
+        assert!(!map.contains_key("device_id"));
+        assert!(!map.contains_key("local_smid"));
+        assert_eq!(events.len(), 2);
+    }
+
+    #[test]
+    fn v7_required_non_empty_keys_only_require_captcha_patch_on_stage2() {
+        let mut stage1 = Map::new();
+        stage1.insert("verifyStatus".to_string(), Value::Bool(false));
+        let stage1_keys = v7_required_non_empty_keys(&stage1);
+        assert!(!stage1_keys.contains(&"modeType"));
+        assert!(!stage1_keys.contains(&"rid"));
+        assert!(!stage1_keys.contains(&"diffTime"));
+
+        let mut stage2 = Map::new();
+        stage2.insert("verifyStatus".to_string(), Value::Bool(true));
+        let stage2_keys = v7_required_non_empty_keys(&stage2);
+        assert!(stage2_keys.contains(&"modeType"));
+        assert!(stage2_keys.contains(&"rid"));
+        assert!(stage2_keys.contains(&"diffTime"));
+    }
+
+    #[test]
+    fn v7_required_non_empty_keys_ignore_empty_retry_tuple_on_first_stage() {
+        let mut stage1 = Map::new();
+        stage1.insert("verifyStatus".to_string(), Value::Bool(false));
+        stage1.insert("rid".to_string(), Value::String(String::new()));
+        stage1.insert("modeType".to_string(), Value::String("select".to_string()));
+        stage1.insert("diffTime".to_string(), Value::String("0".to_string()));
+        let stage1_keys = v7_required_non_empty_keys(&stage1);
+        assert!(!stage1_keys.contains(&"rid"));
+        assert!(!stage1_keys.contains(&"modeType"));
+        assert!(!stage1_keys.contains(&"diffTime"));
+    }
+
+    #[test]
+    fn collect_null_like_keys_marks_missing_and_unknown_values() {
+        let mut map = Map::new();
+        map.insert("imei".to_string(), Value::Null);
+        map.insert("oneId".to_string(), Value::String("unknown".to_string()));
+        map.insert(
+            "mobile".to_string(),
+            Value::String("17696723664".to_string()),
+        );
+        let missing = collect_null_like_keys(&map, &["imei", "oneId", "mobile", "did"]);
+        assert_eq!(
+            missing,
+            vec!["imei".to_string(), "oneId".to_string(), "did".to_string()]
+        );
+    }
+
+    #[test]
+    fn build_v7_payload_debug_surface_exposes_stage_metrics() {
+        let stage2 = json!({
+            "mobile": "17696723664",
+            "countryCode": "86",
+            "paramNum": 4,
+            "verifyStatus": true,
+            "rid": "RID_STAGE2",
+            "modeType": "select",
+            "diffTime": "5000",
+            "platform": "android",
+            "versionCode": "260304",
+            "autoLogin": "0",
+            "dfp": "{\"duDeviceLabel\":\"LABELX\"}",
+            "appList": "{\"channelId\":\"OPPO_A56925F58B07B8B6_dyn\",\"package\":[{\"packageName\":\"com.zenmen.palmchat\"}]}",
+            "ipInfo": "{}",
+            "sdid": "SDID_STAGE2",
+            "oaid": "OAID_STAGE2",
+            "androidId": "5ac9abc225faadfe",
+            "appId": "ZX0001",
+            "channelId": "OPPO_A56925F58B07B8B6",
+            "did": "null__5ac9abc225faadfe"
+        });
+        let smssend_two_step = json!({
+            "stage1_encrypt": {
+                "cipher_bytes": 4112,
+                "cipher_sha256": "stage1cipher"
+            }
+        });
+
+        let surface =
+            build_v7_payload_debug_surface(None, &stage2, "AABBCC", Some(&smssend_two_step));
+
+        assert_eq!(
+            surface
+                .get("stage1_candidate")
+                .and_then(|value| value.get("cipher_bytes"))
+                .and_then(Value::as_u64),
+            Some(4112)
+        );
+        assert_eq!(
+            surface
+                .get("stage2_effective")
+                .and_then(|value| value.get("cipher_bytes"))
+                .and_then(Value::as_u64),
+            Some(3)
+        );
+        assert_eq!(
+            surface
+                .get("stage2_effective")
+                .and_then(|value| value.get("namespace_views"))
+                .and_then(|value| value.get("appList"))
+                .and_then(|value| value.get("channelId"))
+                .and_then(Value::as_str),
+            Some("OPPO_A56925F58B07B8B6_dyn")
+        );
+        assert!(surface
+            .get("stage1_to_stage2_top_level_delta")
+            .and_then(|value| value.get("added"))
+            .and_then(Value::as_array)
+            .map(|items| items.iter().any(|item| item.as_str() == Some("rid")))
+            .unwrap_or(false));
+        assert!(surface
+            .get("stage1_to_stage2_top_level_delta")
+            .and_then(|value| value.get("changed"))
+            .and_then(|value| value.get("verifyStatus"))
+            .is_some());
+    }
+
+    #[test]
+    fn palmchat_transport_runtime_accepts_okhttp_bridge_aliases() {
+        for value in ["okhttp-bridge", "okhttp_bridge", "okhttp"] {
+            assert_eq!(
+                PalmchatTransportRuntime::parse(Some(value)).unwrap(),
+                PalmchatTransportRuntime::OkHttpBridge
+            );
+        }
+        assert_eq!(
+            PalmchatTransportRuntime::parse(Some("direct")).unwrap(),
+            PalmchatTransportRuntime::Direct
+        );
+    }
+
+    #[test]
+    fn payload_body_bytes_from_transport_json_prefers_base64_body() {
+        let payload = json!({
+            "body": "ignored",
+            "body_base64": BASE64_STANDARD.encode(b"{\"resultCode\":1900}")
+        });
+        assert_eq!(
+            payload_body_bytes_from_transport_json(&payload),
+            Some(b"{\"resultCode\":1900}".to_vec())
+        );
     }
 }

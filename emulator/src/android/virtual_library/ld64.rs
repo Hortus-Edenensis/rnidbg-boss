@@ -405,6 +405,7 @@ impl<T: Clone> Arm64Svc<T> for DlOpen<'_, T> {
 
         let flags = emu.backend.reg_read(RegisterARM64::X1).unwrap();
         let file_name = file_name_ptr.read_string().unwrap();
+        let trace_dlsym = std::env::var_os("RNIDBG_TRACE_DLSYM").is_some();
 
         let pointer = VMPointer::new(
             emu.backend.reg_read(RegisterARM64::SP).unwrap(),
@@ -438,6 +439,9 @@ impl<T: Clone> Arm64Svc<T> for DlOpen<'_, T> {
                     file_name, flags
                 );
             }
+            if trace_dlsym {
+                warn!("dlopen request file_name={} flags=0x{:X}", file_name, flags);
+            }
         }
 
         if file_name == "libnetd_client.so" {
@@ -452,6 +456,9 @@ impl<T: Clone> Arm64Svc<T> for DlOpen<'_, T> {
 
         if let Some(module_base) = try_dlopen_module(emu, &file_name) {
             info!("dlopen resolved {} => 0x{:X}", file_name, module_base);
+            if trace_dlsym {
+                warn!("dlopen resolved file_name={} => 0x{:X}", file_name, module_base);
+            }
             pointer.write_u64(module_base).unwrap();
             let pointer = pointer.share_with_size(-8, 0);
             pointer.write_u64(0).unwrap();
@@ -491,10 +498,17 @@ impl<T: Clone> Arm64Svc<T> for AndroidDlOpenExt<'_, T> {
         let flags = emu.backend.reg_read(RegisterARM64::X1).unwrap();
         let extinfo = emu.backend.reg_read(RegisterARM64::X2).unwrap();
         let file_name = file_name_ptr.read_string().unwrap_or_default();
+        let trace_dlsym = std::env::var_os("RNIDBG_TRACE_DLSYM").is_some();
         info!(
             "android_dlopen_ext file_name={} flags=0x{:X} extinfo=0x{:X}",
             file_name, flags, extinfo
         );
+        if trace_dlsym {
+            warn!(
+                "android_dlopen_ext request file_name={} flags=0x{:X} extinfo=0x{:X}",
+                file_name, flags, extinfo
+            );
+        }
         DlOpen(self.0.clone()).handle(emu)
     }
 }
@@ -619,9 +633,16 @@ impl<T: Clone> Arm64Svc<T> for DlSym {
             emu.backend.clone(),
         );
         let symbol_name = symbol_ptr.read_string().unwrap_or_default();
+        let trace_dlsym = std::env::var_os("RNIDBG_TRACE_DLSYM").is_some();
         if symbol_name.is_empty() {
             warn!("dlsym requested empty symbol name handle=0x{:X}", handle);
             return RET(0);
+        }
+        if trace_dlsym {
+            warn!(
+                "dlsym request handle=0x{:X} symbol={}",
+                handle, symbol_name
+            );
         }
 
         if let Some(address) = try_dlsym(emu, handle, &symbol_name) {
@@ -629,6 +650,12 @@ impl<T: Clone> Arm64Svc<T> for DlSym {
                 "dlsym resolved handle=0x{:X} symbol={} => 0x{:X}",
                 handle, symbol_name, address
             );
+            if trace_dlsym {
+                warn!(
+                    "dlsym resolved handle=0x{:X} symbol={} => 0x{:X}",
+                    handle, symbol_name, address
+                );
+            }
             return RET(address as i64);
         }
 

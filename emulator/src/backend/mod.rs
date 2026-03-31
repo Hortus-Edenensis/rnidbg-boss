@@ -59,6 +59,33 @@ pub enum Backend<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> Backend<'a, T> {
+    #[cfg(feature = "unicorn_backend")]
+    fn trace_unicorn_memory_op(
+        unicorn: &Unicorn<'_, T>,
+        op: &str,
+        address: u64,
+        size: usize,
+        perms: Option<u32>,
+    ) {
+        if std::env::var_os("RNIDBG_TRACE_MEM_MAP").is_none() {
+            return;
+        }
+
+        let lr = unicorn.reg_read(RegisterARM64::LR).unwrap_or(0);
+        let pc = unicorn.reg_read(RegisterARM64::PC).unwrap_or(0);
+        let region_count = unicorn.mem_regions().map(|regions| regions.len()).unwrap_or(0);
+        warn!(
+            "unicorn {} addr=0x{:X} size=0x{:X} perms=0x{:X} region_count={} pc=0x{:X} lr=0x{:X}",
+            op,
+            address,
+            size,
+            perms.unwrap_or(0),
+            region_count,
+            pc,
+            lr
+        );
+    }
+
     pub fn new(data: T) -> Backend<'static, T> {
         Self::new_with_kind(data, BackendKind::Auto).expect("failed to initialize emulator backend")
     }
@@ -175,6 +202,7 @@ impl<'a, T: Clone> Backend<'a, T> {
     pub fn mem_map(&self, address: u64, size: usize, perms: u32) -> anyhow::Result<()> {
         #[cfg(feature = "unicorn_backend")]
         if let Backend::Unicorn(unicorn) = self {
+            Self::trace_unicorn_memory_op(unicorn, "mem_map", address, size, Some(perms));
             unicorn
                 .mem_map(address, size, UnicornPermission::from_bits_truncate(perms))
                 .map_err(|e| anyhow!("mem_map failed: {:?}", e))?;
@@ -538,6 +566,7 @@ impl<'a, T: Clone> Backend<'a, T> {
     pub fn mem_unmap(&self, address: u64, size: usize) -> anyhow::Result<()> {
         #[cfg(feature = "unicorn_backend")]
         if let Backend::Unicorn(unicorn) = self {
+            Self::trace_unicorn_memory_op(unicorn, "mem_unmap", address, size, None);
             return unicorn
                 .mem_unmap(address, size)
                 .map_err(|e| anyhow!("mem_unmap failed: {:?}", e));
@@ -555,6 +584,7 @@ impl<'a, T: Clone> Backend<'a, T> {
     pub fn mem_protect(&self, address: u64, size: usize, perms: u32) -> anyhow::Result<()> {
         #[cfg(feature = "unicorn_backend")]
         if let Backend::Unicorn(unicorn) = self {
+            Self::trace_unicorn_memory_op(unicorn, "mem_protect", address, size, Some(perms));
             return unicorn
                 .mem_protect(address, size, UnicornPermission::from_bits_truncate(perms))
                 .map_err(|e| anyhow!("mem_protect failed: {:?}", e));

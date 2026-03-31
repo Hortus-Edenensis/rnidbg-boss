@@ -2113,7 +2113,63 @@ pub fn syscall_faccessat<T: Clone>(backend: &Backend<T>, emulator: &AndroidEmula
         }
     }
 
-    panic!()
+    if path.is_empty() || path.as_bytes()[0] != b'/' {
+        if runtime_env_truthy("RNIDBG_TRACE_FS") {
+            warn!(
+                "faccessat unsupported non-absolute path dir_fd={} path={:?} mode={} flag={}",
+                dir_fd, path, mode, flag
+            );
+        }
+        throw_err!(backend, emulator, Errno::ENOENT);
+    }
+
+    if dir_fd != -100 {
+        if runtime_env_truthy("RNIDBG_TRACE_FS") {
+            warn!(
+                "faccessat unsupported dir_fd={} path={} mode={} flag={}",
+                dir_fd, path, mode, flag
+            );
+        }
+        throw_err!(backend, emulator, Errno::EBADF);
+    }
+
+    let file_system = &mut emulator.inner_mut().file_system;
+    if let Some(ref resolver) = file_system.file_resolver {
+        if let Some(file) = resolver(
+            file_system,
+            path.as_str(),
+            OFlag::from_bits_truncate(flag as u32),
+            mode,
+        ) {
+            match file {
+                FileIO::Error(errno) => {
+                    ret_i32!(backend, -1);
+                    emulator.set_errno(errno).expect("failed to set errno");
+                    return;
+                }
+                _ => {
+                    ret_i32!(backend, 0);
+                    return;
+                }
+            }
+        } else {
+            if runtime_env_truthy("RNIDBG_TRACE_FS") {
+                warn!(
+                    "faccessat missing path={} mode={} flag={}",
+                    path, mode, flag
+                );
+            }
+            throw_err!(backend, emulator, Errno::ENOENT);
+        }
+    } else {
+        if runtime_env_truthy("RNIDBG_TRACE_FS") {
+            warn!(
+                "faccessat file_resolver_missing path={} mode={} flag={}",
+                path, mode, flag
+            );
+        }
+        throw_err!(backend, emulator, Errno::ENOENT);
+    }
 }
 
 pub fn syscall_getdents64<T: Clone>(backend: &Backend<T>, emulator: &AndroidEmulator<T>) {

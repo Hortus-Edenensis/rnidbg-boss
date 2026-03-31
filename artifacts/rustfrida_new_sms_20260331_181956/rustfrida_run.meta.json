@@ -1,0 +1,12 @@
+{
+  "artifact_dir": "artifacts/rustfrida_new_sms_20260331_181956",
+  "package": "com.zenmen.palmchat",
+  "pid": 30538,
+  "remote_bin": "/data/local/tmp/rustfrida",
+  "remote_cmd": "'/data/local/tmp/rustfrida' --pid 30538 -l '/data/local/tmp/palmchat_new_send_sms_rustfrida.js' --verbose",
+  "remote_script": "/data/local/tmp/palmchat_new_send_sms_rustfrida.js",
+  "run_seconds": 55,
+  "script": "/Users/haojiejack/github/drizzle-dumper-rust/boss_purecalc/risk/fengkong-slide-solver/scripts/palmchat_new_send_sms_rustfrida.js",
+  "status": null,
+  "timed_out": true
+}
